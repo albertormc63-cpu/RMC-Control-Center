@@ -1,0 +1,28 @@
+# Node
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# macOS
+.DS_Store
+
+# Environment
+.env
+
+# SQLite
+*.sqlite-shm
+*.sqlite-wal
+
+# VSCode
+.vscode/
+
+# Build
+dist/
+build/
+
+.env
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

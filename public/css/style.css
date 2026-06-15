@@ -1,0 +1,183 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 24px;
+  background: #f4f4f4;
+  color: #111;
+}
+
+header {
+  margin-bottom: 24px;
+}
+
+header h1 {
+  margin: 0;
+}
+
+header p {
+  margin-top: 6px;
+  color: #666;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.card {
+  background: white;
+  padding: 18px;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.card h2 {
+  font-size: 32px;
+  margin: 0;
+}
+
+.card p {
+  margin-bottom: 0;
+  color: #666;
+}
+
+.card.danger h2 {
+  color: #b00020;
+}
+
+section {
+  background: white;
+  padding: 18px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th {
+  background: #111;
+  color: white;
+  padding: 10px;
+  text-align: left;
+}
+
+td {
+  padding: 9px;
+  border-bottom: 1px solid #ddd;
+}
+
+button,
+a.btn {
+  background: #111;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+.app-layout {
+  display: flex;
+  gap: 12px;
+}
+
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+
+  background: var(--rmc-surface);
+
+  border: 1px solid var(--rmc-border);
+
+  border-radius: 4px;
+
+  padding: 12px;
+}
+
+.content {
+  flex: 1;
+}
+
+.logo {
+  margin-bottom: 24px;
+}
+
+.logo h1 {
+  margin: 0;
+}
+
+.logo span {
+  color: var(--rmc-muted-low);
+  font-size: 10px;
+}
+
+.menu-group {
+  margin-bottom: 20px;
+}
+
+.menu-group h3 {
+  color: var(--rmc-muted-low);
+
+  font-size: 10px;
+
+  margin-bottom: 6px;
+}
+
+.menu-item {
+  width: 100%;
+
+  text-align: left;
+
+  margin-top: 4px;
+
+  padding: 8px;
+
+  background: var(--rmc-secondary);
+
+  border: none;
+
+  color: white;
+
+  border-radius: 4px;
+
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: var(--rmc-secondary-hover);
+}
+
+.menu-item.active {
+  background: var(--rmc-primary);
+}
+
+.view {
+  display: none;
+}
+
+.active-view {
+  display: block;
+}
