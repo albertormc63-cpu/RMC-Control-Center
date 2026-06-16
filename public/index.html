@@ -2,202 +2,23 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>RMC LAN Reporter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RMC Control Center</title>
   <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
 
-<div class="app-layout">
+<!-- Punto unico de montaje: los componentes renderizan aqui la UI completa. -->
+<div id="appRoot"></div>
 
-  <aside class="sidebar">
+<!-- Componentes visuales sin framework ni build step. -->
+<script src="./js/components/dashboardView.js"></script>
+<script src="./js/components/nikeView.js"></script>
+<script src="./js/components/mockupView.js"></script>
+<script src="./js/components/registryView.js"></script>
+<script src="./js/components/layout.js"></script>
 
-    <div class="logo">
-      <h1>RMC</h1>
-      <span>CONTROL CENTER</span>
-    </div>
-
-    <section class="menu-group">
-
-      <h3>DASHBOARD</h3>
-
-      <button
-        class="menu-item active"
-        data-view="dashboard-view">
-        Dashboard
-      </button>
-
-    </section>
-
-    <section class="menu-group">
-
-      <h3>HERRAMIENTAS</h3>
-
-      <button
-        class="menu-item"
-        data-view="nike-view">
-        RMCOp-Nike
-      </button>
-
-      <button
-        class="menu-item"
-        data-view="mockup-view">
-        RMC MockupTool
-      </button>
-
-    </section>
-
-    <section class="menu-group">
-
-      <h3>REPORTES</h3>
-
-      <button
-        class="menu-item"
-        data-view="exports-view">
-        Exportaciones
-      </button>
-
-    </section>
-
-    <section class="menu-group">
-
-      <h3>SISTEMA</h3>
-
-      <button
-        class="menu-item"
-        data-view="registry-view">
-        CEP Registry
-      </button>
-
-    </section>
-
-  </aside>
-
-  <main class="content">
-
-    <section
-      id="dashboard-view"
-      class="view active-view">
-
-      <h2>Dashboard</h2>
-
-      <div class="summary-grid">
-
-        <div class="summary-card">
-          <span>Herramientas CEP</span>
-          <strong id="toolsCount">0</strong>
-        </div>
-
-        <div class="summary-card">
-          <span>Ejecuciones Nike</span>
-          <strong id="nikeExecutions">0</strong>
-        </div>
-
-        <div class="summary-card">
-          <span>Piezas Nike</span>
-          <strong id="nikePieces">0</strong>
-        </div>
-
-        <div class="summary-card">
-          <span>Ejecuciones Mockup</span>
-          <strong id="mockupExecutions">0</strong>
-        </div>
-
-        <div class="summary-card">
-          <span>PDFs Generados</span>
-          <strong id="mockupPdfs">0</strong>
-        </div>
-
-      </div>
-
-    </section>
-
-    <section
-      id="nike-view"
-      class="view">
-
-      <h2>RMCOp-Nike</h2>
-
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Fecha</th>
-            <th>Piezas</th>
-            <th>Estilos</th>
-            <th>Detalle</th>
-          </tr>
-        </thead>
-
-        <tbody id="nikeTable"></tbody>
-      </table>
-
-    </section>
-
-    <section
-      id="mockup-view"
-      class="view">
-
-      <h2>RMC MockupTool</h2>
-
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Fecha</th>
-            <th>PDFs</th>
-            <th>Faltantes</th>
-          </tr>
-        </thead>
-
-        <tbody id="mockupTable"></tbody>
-      </table>
-
-    </section>
-
-    <section
-      id="exports-view"
-      class="view">
-
-      <h2>Exportaciones</h2>
-
-      <p>Próximamente...</p>
-
-    </section>
-
-    <section
-      id="registry-view"
-      class="view">
-
-      <h2>CEP Registry</h2>
-
-      <p>Próximamente...</p>
-
-    </section>
-
-  </main>
-
-</div>
-
-<section id="log-container">
-
-  <div class="log-header">
-    Log de Consola
-
-    <button
-      id="btnClearLog"
-      type="button">
-      Limpiar
-    </button>
-  </div>
-
-  <div id="terminal"></div>
-
-</section>
-
-<footer class="footer-credits">
-  Creado por Jose Alberto Villarreal Garcia
-</footer>
-
+<!-- Logica de datos, eventos, filtros, sort y graficas. -->
 <script src="./js/app.js"></script>
 
 </body>

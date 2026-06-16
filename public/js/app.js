@@ -1,98 +1,968 @@
+// Formateador compartido para cantidades en todo el frontend.
+const numberFormatter = new Intl.NumberFormat("es-MX");
+
+// Tablas que tienen filtros de texto/columna en pantalla.
+const filterTargets = [
+  "runsTable",
+  "itemsTable",
+  "mockupTable",
+  "mockupItemsTable"
+];
+
+// Tablas que deben permitir ordenar al dar click en sus encabezados.
+const sortableTargets = [
+  "runsTable",
+  "itemsTable",
+  "mockupTable",
+  "mockupItemsTable",
+  "registryTable",
+  "tablesTable"
+];
+
+// Estado de ordenamiento por tabla. Permite alternar ascendente/descendente.
+const sortState = {};
+
+// Acceso corto a elementos por id para evitar repetir document.getElementById.
+function getElement(id) {
+  return document.getElementById(id);
+}
+
+// Escribe texto en un elemento si existe. Ayuda a que la UI no truene si cambia el HTML.
+function setText(id, value) {
+  const element = getElement(id);
+
+  if (element) {
+    element.textContent = value ?? "";
+  }
+}
+
+// Normaliza numeros para mostrarlos con separadores locales.
+function formatNumber(value) {
+  return numberFormatter.format(Number(value || 0));
+}
+
+// Agrega una linea al log compacto. El log puede estar colapsado sin perder mensajes.
+function appendLog(message, type = "info") {
+  const terminal = getElement("terminal");
+
+  if (!terminal) {
+    return;
+  }
+
+  const line = document.createElement("div");
+  line.className = `log-line log-${type}`;
+  line.textContent = `[${new Date().toLocaleTimeString("es-MX")}] ${message}`;
+  terminal.appendChild(line);
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+// Wrapper para fetch JSON con mensajes de error legibles desde la API.
 async function getJSON(url) {
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`Error consultando ${url}`);
+    let message = `Error consultando ${url}`;
+
+    try {
+      const body = await response.json();
+      message = body.message || body.error || message;
+    } catch (error) {
+      message = response.statusText || message;
+    }
+
+    throw new Error(message);
   }
 
   return response.json();
 }
 
+// POST JSON usado por formularios como el alta de CEP Registry.
+async function postJSON(url, payload) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.message || body.error || "No se pudo guardar");
+  }
+
+  return response.json();
+}
+
+// Crea una celda de tabla y la agrega a la fila recibida.
+function addCell(row, value, className) {
+  const cell = document.createElement("td");
+  cell.textContent = value ?? "";
+
+  if (className) {
+    cell.className = className;
+  }
+
+  row.appendChild(cell);
+  return cell;
+}
+
+// Crea una celda con boton de accion, por ejemplo "Ver".
+function addButtonCell(row, label, onClick) {
+  const cell = document.createElement("td");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "table-button";
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+  cell.appendChild(button);
+  row.appendChild(cell);
+}
+
+// Crea una celda con link descargable, por ejemplo el Excel de Nike.
+function addLinkCell(row, label, href) {
+  const cell = document.createElement("td");
+  const link = document.createElement("a");
+  link.className = "btn table-button";
+  link.href = href;
+  link.textContent = label;
+  cell.appendChild(link);
+  row.appendChild(cell);
+}
+
+// Cierra el drawer lateral usado en pantallas pequenas.
+function closeSidebar() {
+  document.body.classList.remove("sidebar-open");
+}
+
+// Abre el drawer lateral usado en pantallas pequenas.
+function openSidebar() {
+  document.body.classList.add("sidebar-open");
+}
+
+// Cambia la vista activa y sincroniza el estado visual del menu lateral.
+function switchView(viewId) {
+  document.querySelectorAll(".view").forEach(view => {
+    view.classList.toggle("active-view", view.id === viewId);
+  });
+
+  document.querySelectorAll(".menu-item").forEach(button => {
+    button.classList.toggle("active", button.dataset.view === viewId);
+  });
+
+  closeSidebar();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// Obtiene los textos de encabezado de una tabla segun el id de su tbody.
+function getTableHeaders(tableId) {
+  const table = getElement(tableId)?.closest("table");
+
+  if (!table) {
+    return [];
+  }
+
+  return Array.from(table.querySelectorAll("thead th")).map(header => {
+    return header.dataset.label || header.textContent.trim();
+  });
+}
+
+// Rellena el selector de columnas de cada filtro con los encabezados reales.
+function setupFilterOptions(tableId) {
+  const tools = document.querySelector(`.table-tools[data-filter-target="${tableId}"]`);
+  const select = tools?.querySelector(".table-column");
+
+  if (!select) {
+    return;
+  }
+
+  const currentValue = select.value || "all";
+  select.innerHTML = '<option value="all">Todas las columnas</option>';
+
+  getTableHeaders(tableId).forEach((header, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = header;
+    select.appendChild(option);
+  });
+
+  select.value = Array.from(select.options).some(option => option.value === currentValue)
+    ? currentValue
+    : "all";
+}
+
+// Actualiza el contador visible de filas filtradas.
+function updateTableCount(tableId, visibleRows, totalRows) {
+  const tools = document.querySelector(`.table-tools[data-filter-target="${tableId}"]`);
+  const count = tools?.querySelector(".table-count");
+
+  if (count) {
+    count.textContent = `${formatNumber(visibleRows)} de ${formatNumber(totalRows)} registros`;
+  }
+}
+
+// Filtra filas por texto. Puede buscar en todas las columnas o en una sola.
+function applyTableFilter(tableId) {
+  const tools = document.querySelector(`.table-tools[data-filter-target="${tableId}"]`);
+  const tbody = getElement(tableId);
+
+  if (!tools || !tbody) {
+    return;
+  }
+
+  const search = tools.querySelector(".table-search")?.value.trim().toLowerCase() || "";
+  const column = tools.querySelector(".table-column")?.value || "all";
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+  let visibleRows = 0;
+
+  rows.forEach(row => {
+    const cells = Array.from(row.cells);
+    const haystack = column === "all"
+      ? cells.map(cell => cell.textContent).join(" ")
+      : cells[Number(column)]?.textContent || "";
+    const isVisible = !search || haystack.toLowerCase().includes(search);
+
+    row.classList.toggle("filtered-out", !isVisible);
+
+    if (isVisible) {
+      visibleRows += 1;
+    }
+  });
+
+  updateTableCount(tableId, visibleRows, rows.length);
+}
+
+// Recalcula opciones de filtro y contador despues de repintar una tabla.
+function refreshTableFilter(tableId) {
+  setupFilterOptions(tableId);
+  applyTableFilter(tableId);
+}
+
+// Convierte textos de tabla a valores comparables para sort numerico, fecha o texto.
+function normalizeSortValue(value) {
+  const text = String(value || "").trim();
+  const cleanNumber = text.replace(/,/g, "");
+  const numeric = Number(cleanNumber);
+  const dateMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const durationMatch = text.match(/^(\d{2}):(\d{2}):(\d{2})$/);
+
+  if (dateMatch) {
+    return Number(`${dateMatch[3]}${dateMatch[2]}${dateMatch[1]}`);
+  }
+
+  if (durationMatch) {
+    return (Number(durationMatch[1]) * 3600) + (Number(durationMatch[2]) * 60) + Number(durationMatch[3]);
+  }
+
+  if (!Number.isNaN(numeric) && cleanNumber !== "") {
+    return numeric;
+  }
+
+  return text.toLowerCase();
+}
+
+// Ordena una tabla por indice de columna y alterna direccion en clicks consecutivos.
+function sortTable(tableId, columnIndex) {
+  const tbody = getElement(tableId);
+
+  if (!tbody) {
+    return;
+  }
+
+  const current = sortState[tableId] || {};
+  const direction = current.columnIndex === columnIndex && current.direction === "asc"
+    ? "desc"
+    : "asc";
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+
+  rows.sort((a, b) => {
+    const aValue = normalizeSortValue(a.cells[columnIndex]?.textContent);
+    const bValue = normalizeSortValue(b.cells[columnIndex]?.textContent);
+
+    if (aValue < bValue) {
+      return direction === "asc" ? -1 : 1;
+    }
+
+    if (aValue > bValue) {
+      return direction === "asc" ? 1 : -1;
+    }
+
+    return 0;
+  });
+
+  rows.forEach(row => tbody.appendChild(row));
+  sortState[tableId] = { columnIndex, direction };
+  updateSortIndicators(tableId);
+  applyTableFilter(tableId);
+}
+
+// Actualiza flechas visuales de sort en los encabezados.
+function updateSortIndicators(tableId) {
+  const table = getElement(tableId)?.closest("table");
+
+  if (!table) {
+    return;
+  }
+
+  const current = sortState[tableId];
+
+  table.querySelectorAll("thead th").forEach((header, index) => {
+    const indicator = header.querySelector(".sort-indicator");
+
+    if (!indicator) {
+      return;
+    }
+
+    indicator.textContent = current?.columnIndex === index
+      ? (current.direction === "asc" ? "^" : "v")
+      : "-";
+  });
+}
+
+// Convierte encabezados normales en botones de sort, manteniendo el texto original.
+function setupSortableTable(tableId) {
+  const table = getElement(tableId)?.closest("table");
+
+  if (!table || table.dataset.sortReady === "true") {
+    return;
+  }
+
+  table.querySelectorAll("thead th").forEach((header, index) => {
+    const label = header.textContent.trim();
+    const button = document.createElement("button");
+    const text = document.createElement("span");
+    const indicator = document.createElement("span");
+
+    header.dataset.label = label;
+    button.type = "button";
+    button.className = "sort-button";
+    text.textContent = label;
+    indicator.className = "sort-indicator";
+    indicator.textContent = "-";
+    button.append(text, indicator);
+    button.addEventListener("click", () => sortTable(tableId, index));
+    header.textContent = "";
+    header.appendChild(button);
+  });
+
+  table.dataset.sortReady = "true";
+}
+
+// Limpia un contenedor de grafica y muestra un estado vacio si no hay datos.
+function prepareChart(containerId, rows) {
+  const container = getElement(containerId);
+
+  if (!container) {
+    return null;
+  }
+
+  container.innerHTML = "";
+
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "chart-empty";
+    empty.textContent = "Sin datos suficientes todavia";
+    container.appendChild(empty);
+    return null;
+  }
+
+  return container;
+}
+
+// Crea un SVG responsive con viewBox estable para que la grafica no se deforme.
+function createChartSvg() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 640 220");
+  svg.setAttribute("role", "img");
+  svg.classList.add("chart-svg");
+  return svg;
+}
+
+// Dibuja lineas horizontales suaves para dar lectura de escala.
+function drawChartGrid(svg, chart) {
+  for (let index = 0; index <= 4; index += 1) {
+    const y = chart.top + ((chart.height / 4) * index);
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+
+    line.setAttribute("x1", chart.left);
+    line.setAttribute("x2", chart.left + chart.width);
+    line.setAttribute("y1", y);
+    line.setAttribute("y2", y);
+    line.setAttribute("class", "chart-grid-line");
+    svg.appendChild(line);
+  }
+}
+
+// Dibuja etiquetas inferiores por dia.
+function drawChartLabels(svg, rows, chart, xForIndex) {
+  rows.forEach((row, index) => {
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+    label.setAttribute("x", xForIndex(index));
+    label.setAttribute("y", chart.top + chart.height + 24);
+    label.setAttribute("class", "chart-label");
+    label.textContent = row.label;
+    svg.appendChild(label);
+  });
+}
+
+// Grafica lineal por dia. Si solo hay un dia, centra un punto con etiqueta.
+function renderDailyLineChart(containerId, rows, options) {
+  const container = prepareChart(containerId, rows);
+
+  if (!container) {
+    return;
+  }
+
+  const svg = createChartSvg();
+  const chart = { left: 46, top: 18, width: 548, height: 142 };
+  const maxValue = Math.max(...rows.map(options.value), 1);
+  const xForIndex = index => {
+    if (rows.length === 1) {
+      return chart.left + (chart.width / 2);
+    }
+
+    return chart.left + ((chart.width / (rows.length - 1)) * index);
+  };
+  const yForValue = value => chart.top + chart.height - ((value / maxValue) * chart.height);
+  const points = rows.map((row, index) => `${xForIndex(index)},${yForValue(options.value(row))}`).join(" ");
+
+  drawChartGrid(svg, chart);
+
+  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  polyline.setAttribute("points", points);
+  polyline.setAttribute("class", "chart-line");
+  svg.appendChild(polyline);
+
+  rows.forEach((row, index) => {
+    const value = options.value(row);
+    const x = xForIndex(index);
+    const y = yForValue(value);
+    const point = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    const valueLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+    point.setAttribute("cx", x);
+    point.setAttribute("cy", y);
+    point.setAttribute("r", 5);
+    point.setAttribute("class", "chart-point");
+    valueLabel.setAttribute("x", x);
+    valueLabel.setAttribute("y", y < chart.top + 24 ? y + 22 : y - 10);
+    valueLabel.setAttribute("class", "chart-value");
+    valueLabel.textContent = options.format(value, row);
+    svg.append(point, valueLabel);
+  });
+
+  drawChartLabels(svg, rows, chart, xForIndex);
+  container.appendChild(svg);
+}
+
+// Grafica de barras por dia con ancho maximo para evitar barras gigantes.
+function renderDailyBarChart(containerId, rows, options) {
+  const container = prepareChart(containerId, rows);
+
+  if (!container) {
+    return;
+  }
+
+  const svg = createChartSvg();
+  const chart = { left: 46, top: 18, width: 548, height: 142 };
+  const maxValue = Math.max(...rows.map(options.value), 1);
+  const slotWidth = chart.width / rows.length;
+  const barWidth = Math.min(slotWidth * 0.56, 46);
+  const xForIndex = index => chart.left + (slotWidth * index) + (slotWidth / 2);
+
+  drawChartGrid(svg, chart);
+
+  rows.forEach((row, index) => {
+    const value = options.value(row);
+    const height = Math.max((value / maxValue) * chart.height, value > 0 ? 4 : 0);
+    const x = xForIndex(index);
+    const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    const valueLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+    bar.setAttribute("x", x - (barWidth / 2));
+    bar.setAttribute("y", chart.top + chart.height - height);
+    bar.setAttribute("width", barWidth);
+    bar.setAttribute("height", height);
+    bar.setAttribute("rx", 4);
+    bar.setAttribute("class", "chart-bar");
+    valueLabel.setAttribute("x", x);
+    valueLabel.setAttribute("y", height > chart.height - 20 ? chart.top + 16 : chart.top + chart.height - height - 8);
+    valueLabel.setAttribute("class", "chart-value");
+    valueLabel.textContent = options.format(value, row);
+    svg.append(bar, valueLabel);
+  });
+
+  drawChartLabels(svg, rows, chart, xForIndex);
+  container.appendChild(svg);
+}
+
+// Grafica de barras por ejecucion; ideal para comparar corridas Mockup por style.
+function renderExecutionBarChart(containerId, rows, options) {
+  const container = prepareChart(containerId, rows);
+
+  if (!container) {
+    return;
+  }
+
+  const svg = createChartSvg();
+  const chart = { left: 46, top: 18, width: 548, height: 142 };
+  const maxValue = Math.max(...rows.map(options.value), 1);
+  const slotWidth = chart.width / rows.length;
+  const barWidth = Math.min(slotWidth * 0.62, 42);
+  const xForIndex = index => chart.left + (slotWidth * index) + (slotWidth / 2);
+
+  drawChartGrid(svg, chart);
+
+  rows.forEach((row, index) => {
+    const value = options.value(row);
+    const height = Math.max((value / maxValue) * chart.height, value > 0 ? 4 : 0);
+    const x = xForIndex(index);
+    const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    const valueLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+    bar.setAttribute("x", x - (barWidth / 2));
+    bar.setAttribute("y", chart.top + chart.height - height);
+    bar.setAttribute("width", barWidth);
+    bar.setAttribute("height", height);
+    bar.setAttribute("rx", 4);
+    bar.setAttribute("class", "chart-bar");
+    valueLabel.setAttribute("x", x);
+    valueLabel.setAttribute("y", height > chart.height - 20 ? chart.top + 16 : chart.top + chart.height - height - 8);
+    valueLabel.setAttribute("class", "chart-value");
+    valueLabel.textContent = options.format(value, row);
+    svg.append(bar, valueLabel);
+  });
+
+  drawChartLabels(svg, rows, chart, index => xForIndex(index));
+  rows.forEach((row, index) => {
+    const labels = svg.querySelectorAll(".chart-label");
+    labels[index].textContent = options.label(row);
+  });
+
+  container.appendChild(svg);
+}
+
+// Pinta una tabla mensual compacta a partir de un arreglo de objetos.
+function renderMonthlyTable(tableId, rows, columns) {
+  const tbody = getElement(tableId);
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML = "";
+
+  if (!rows.length) {
+    const row = document.createElement("tr");
+    const cell = addCell(row, "Sin datos mensuales todavia");
+    cell.colSpan = columns.length;
+    tbody.appendChild(row);
+    return;
+  }
+
+  rows.forEach(item => {
+    const row = document.createElement("tr");
+
+    columns.forEach(column => {
+      addCell(row, column.value(item));
+    });
+
+    tbody.appendChild(row);
+  });
+}
+
+// Pinta las tarjetas y graficas del dashboard con la estructura que manda la API.
 async function loadDashboard() {
   const data = await getJSON("/api/dashboard");
 
-  document.getElementById("nikeRuns").textContent = data.nikeRuns;
-  document.getElementById("nikeRegistros").textContent = data.nikeRegistros;
-  document.getElementById("nikePiezas").textContent = data.nikePiezas;
-  document.getElementById("mockupRuns").textContent = data.mockupRuns;
-  document.getElementById("errores").textContent = data.errores;
+  setText("toolsCount", formatNumber(data.toolsCount));
+  setText("gitCommits", formatNumber(data.gitCommits));
+  setText("totalErrors", formatNumber(data.errores));
+
+  setText("nikeRuns", formatNumber(data.nike.runs));
+  setText("nikePedidos", formatNumber(data.nike.pedidos));
+  setText("nikeRegistros", formatNumber(data.nike.registros));
+  setText("nikePiezas", formatNumber(data.nike.piezas));
+  setText("nikeEstilos", formatNumber(data.nike.estilos));
+  setText("nikeAvgTime", data.nike.promedioTiempo || "00:00:00");
+
+  setText("mockupRuns", formatNumber(data.mockup.runs));
+  setText("mockupRegistros", formatNumber(data.mockup.registros));
+  setText("mockupTemplates", formatNumber(data.mockup.plantillas));
+  setText("mockupFaltantes", formatNumber(data.mockup.faltantes));
+  setText("mockupRowsSelected", formatNumber(data.mockup.filasSeleccionadas));
+  setText("mockupDesigners", formatNumber(data.mockup.disenadores));
+
+  renderDailyLineChart("nikeTimeChart", data.nike.daily, {
+    value: day => day.avgSeconds || 0,
+    format: (value, day) => day.avgTiempo || "00:00:00"
+  });
+
+  renderMonthlyTable("nikeMonthlyTable", data.nike.monthly, [
+    { value: item => item.label },
+    { value: item => formatNumber(item.runs) },
+    { value: item => formatNumber(item.pedidos) },
+    { value: item => formatNumber(item.piezas) },
+    { value: item => item.avgTiempo || "00:00:00" },
+    { value: item => formatNumber(item.errores) }
+  ]);
+
+  renderExecutionBarChart("mockupTemplateChart", data.mockup.recentRuns, {
+    label: run => run.styles || run.id.slice(-6),
+    value: run => run.pdfs_generados || 0,
+    format: value => formatNumber(value)
+  });
+
+  renderMonthlyTable("mockupMonthlyTable", data.mockup.monthly, [
+    { value: item => item.label },
+    { value: item => formatNumber(item.runs) },
+    { value: item => formatNumber(item.plantillas) },
+    { value: item => formatNumber(item.faltantes) }
+  ]);
+
+  appendLog("Dashboard actualizado", "success");
 }
 
+// Carga la tabla de ejecuciones Nike.
 async function loadRuns() {
   const runs = await getJSON("/api/nike/runs");
-  const tbody = document.getElementById("runsTable");
+  const tbody = getElement("runsTable");
 
   tbody.innerHTML = "";
 
   runs.forEach(run => {
-    const tr = document.createElement("tr");
+    const row = document.createElement("tr");
 
-    tr.innerHTML = `
-      <td>${run.id}</td>
-      <td>${run.created_at || ""}</td>
-      <td>${run.herramienta || ""}</td>
-      <td>${run.pedidos || 0}</td>
-      <td>${run.piezas || 0}</td>
-      <td>${run.estilos || 0}</td>
-      <td>${run.ok || 0}</td>
-      <td>${run.errores || 0}</td>
-      <td>
-        <button onclick="loadRunDetail('${run.id}')">Ver</button>
-      </td>
-      <td>
-        <a class="btn" href="/api/reports/nike/${run.id}/excel">Excel</a>
-      </td>
-    `;
+    addCell(row, run.id);
+    addCell(row, run.created_at || "");
+    addCell(row, run.herramienta || "");
+    addCell(row, formatNumber(run.pedidos));
+    addCell(row, formatNumber(run.piezas));
+    addCell(row, formatNumber(run.estilos));
+    addCell(row, run.tiempo || "");
+    addCell(row, formatNumber(run.ok));
+    addCell(row, formatNumber(run.errores), run.errores ? "status-error" : "status-ok");
+    addButtonCell(row, "Ver", () => loadRunDetail(run.id));
+    addLinkCell(row, "Excel", `/api/reports/nike/${encodeURIComponent(run.id)}/excel`);
 
-    tbody.appendChild(tr);
+    tbody.appendChild(row);
   });
+
+  refreshTableFilter("runsTable");
+  updateSortIndicators("runsTable");
+  appendLog(`RMCOp-Nike: ${runs.length} ejecuciones cargadas`, "success");
 }
 
+// Carga el detalle de una ejecucion Nike y muestra el panel bajo la tabla.
 async function loadRunDetail(id) {
-  const data = await getJSON(`/api/nike/runs/${id}`);
+  const data = await getJSON(`/api/nike/runs/${encodeURIComponent(id)}`);
+  const detailSection = getElement("detailSection");
+  const runInfo = getElement("runInfo");
+  const tbody = getElement("itemsTable");
 
-  document.getElementById("detailSection").classList.remove("hidden");
-
-  document.getElementById("runInfo").innerHTML = `
-    <p><strong>ID:</strong> ${data.run.id}</p>
-    <p><strong>Fecha:</strong> ${data.run.created_at || ""}</p>
-    <p><strong>Herramienta:</strong> ${data.run.herramienta || ""}</p>
-    <p><strong>Piezas:</strong> ${data.run.piezas || 0}</p>
-    <p><strong>Errores:</strong> ${data.run.errores || 0}</p>
-  `;
-
-  const tbody = document.getElementById("itemsTable");
+  detailSection.classList.remove("hidden");
+  runInfo.textContent = `${data.run.id} | ${data.run.created_at || ""} | ${formatNumber(data.run.piezas)} piezas | ${data.run.tiempo || "sin tiempo"} | ${formatNumber(data.run.errores)} errores`;
   tbody.innerHTML = "";
 
   data.items.forEach(item => {
-    const tr = document.createElement("tr");
+    const row = document.createElement("tr");
 
-    tr.innerHTML = `
-      <td>${item.wo || ""}</td>
-      <td>${item.equipo || ""}</td>
-      <td>${item.style || ""}</td>
-      <td>${item.talla || ""}</td>
-      <td>${item.piezas || 0}</td>
-      <td>${item.nombre || ""}</td>
-      <td>${item.numero || ""}</td>
-      <td>${item.estado || ""}</td>
-      <td>${item.error || ""}</td>
-    `;
+    addCell(row, item.wo || "");
+    addCell(row, item.equipo || "");
+    addCell(row, item.style || "");
+    addCell(row, item.talla || "");
+    addCell(row, formatNumber(item.piezas));
+    addCell(row, item.nombre || "");
+    addCell(row, item.numero || "");
+    addCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
+    addCell(row, item.error || "");
 
-    tbody.appendChild(tr);
+    tbody.appendChild(row);
   });
 
-  document.getElementById("detailSection").scrollIntoView({
-    behavior: "smooth"
+  refreshTableFilter("itemsTable");
+  updateSortIndicators("itemsTable");
+  detailSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  appendLog(`Detalle Nike ${id}: ${data.items.length} items`, "success");
+}
+
+// Carga la tabla de ejecuciones MockupTool.
+async function loadMockupRuns() {
+  const runs = await getJSON("/api/mockup/runs");
+  const tbody = getElement("mockupTable");
+
+  tbody.innerHTML = "";
+
+  runs.forEach(run => {
+    const row = document.createElement("tr");
+
+    addCell(row, run.id);
+    addCell(row, run.fecha || "");
+    addCell(row, run.hora || "");
+    addCell(row, run.seccion || "");
+    addCell(row, run.excel || "");
+    addCell(row, run.disenador || "");
+    addCell(row, run.styles || "");
+    addCell(row, run.tallas || "");
+    addCell(row, formatNumber(run.pdfs_generados));
+    addCell(row, formatNumber(run.mockups_faltantes), run.mockups_faltantes ? "status-warning" : "status-ok");
+    addButtonCell(row, "Ver", () => loadMockupDetail(run.id));
+
+    tbody.appendChild(row);
+  });
+
+  refreshTableFilter("mockupTable");
+  updateSortIndicators("mockupTable");
+  appendLog(`RMC MockupTool: ${runs.length} ejecuciones cargadas`, "success");
+}
+
+// Carga el detalle de una ejecucion MockupTool.
+async function loadMockupDetail(id) {
+  const data = await getJSON(`/api/mockup/runs/${encodeURIComponent(id)}`);
+  const detailSection = getElement("mockupDetailSection");
+  const runInfo = getElement("mockupRunInfo");
+  const tbody = getElement("mockupItemsTable");
+
+  detailSection.classList.remove("hidden");
+  runInfo.textContent = `${data.run.id} | ${data.run.fecha || ""} ${data.run.hora || ""} | ${formatNumber(data.run.pdfs_generados)} plantillas`;
+  tbody.innerHTML = "";
+
+  data.items.forEach(item => {
+    const row = document.createElement("tr");
+
+    addCell(row, item.wo || "");
+    addCell(row, item.equipo || "");
+    addCell(row, item.style || "");
+    addCell(row, item.talla || "");
+    addCell(row, formatNumber(item.piezas));
+    addCell(row, item.archivo || "");
+    addCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
+    addCell(row, item.error || "");
+
+    tbody.appendChild(row);
+  });
+
+  refreshTableFilter("mockupItemsTable");
+  updateSortIndicators("mockupItemsTable");
+  detailSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  appendLog(`Detalle MockupTool ${id}: ${data.items.length} items`, "success");
+}
+
+// Carga CEP Registry y el conteo de tablas SQLite conocidas.
+async function loadRegistry() {
+  const registry = await getJSON("/api/dashboard/registry");
+  const tables = await getJSON("/api/dashboard/tables");
+  const registryTbody = getElement("registryTable");
+  const tablesTbody = getElement("tablesTable");
+
+  registryTbody.innerHTML = "";
+  tablesTbody.innerHTML = "";
+
+  registry.forEach(item => {
+    const row = document.createElement("tr");
+    addCell(row, item.source_app);
+    addCell(row, item.runs_table);
+    addCell(row, item.app_version || "");
+    addCell(row, item.updated_at || "");
+    registryTbody.appendChild(row);
+  });
+
+  tables.forEach(table => {
+    const row = document.createElement("tr");
+    addCell(row, table.name);
+    addCell(row, formatNumber(table.rows));
+    tablesTbody.appendChild(row);
+  });
+
+  updateSortIndicators("registryTable");
+  updateSortIndicators("tablesTable");
+  appendLog(`BD verificada: ${tables.length} tablas del sistema RMC`, "success");
+}
+
+// Conecta los botones del sidebar con las vistas internas.
+function bindNavigation() {
+  document.querySelectorAll(".menu-item").forEach(button => {
+    button.addEventListener("click", () => {
+      switchView(button.dataset.view);
+    });
   });
 }
 
+// Conecta el drawer movil: boton hamburguesa, overlay y tecla Escape.
+function bindSidebarControls() {
+  const toggle = getElement("sidebarToggle");
+  const overlay = getElement("sidebarOverlay");
+
+  if (toggle) {
+    toggle.addEventListener("click", () => {
+      if (document.body.classList.contains("sidebar-open")) {
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
+    });
+  }
+
+  if (overlay) {
+    overlay.addEventListener("click", closeSidebar);
+  }
+
+  window.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      closeSidebar();
+    }
+  });
+}
+
+// Conecta el log compacto: mostrar/ocultar y limpiar.
+function bindLogControls() {
+  const clearButton = getElement("btnClearLog");
+  const toggleButton = getElement("btnToggleLog");
+  const logContainer = getElement("log-container");
+
+  if (clearButton) {
+    clearButton.addEventListener("click", () => {
+      getElement("terminal").innerHTML = "";
+    });
+  }
+
+  if (toggleButton && logContainer) {
+    toggleButton.addEventListener("click", () => {
+      const isCollapsed = logContainer.classList.toggle("log-collapsed");
+      toggleButton.textContent = isCollapsed ? "Mostrar" : "Ocultar";
+    });
+  }
+}
+
+// Conecta botones para ocultar paneles de detalle.
+function bindDetailControls() {
+  const hideNikeDetail = getElement("hideNikeDetail");
+  const hideMockupDetail = getElement("hideMockupDetail");
+
+  if (hideNikeDetail) {
+    hideNikeDetail.addEventListener("click", () => {
+      getElement("detailSection").classList.add("hidden");
+      appendLog("Detalle Nike oculto", "info");
+    });
+  }
+
+  if (hideMockupDetail) {
+    hideMockupDetail.addEventListener("click", () => {
+      getElement("mockupDetailSection").classList.add("hidden");
+      appendLog("Detalle MockupTool oculto", "info");
+    });
+  }
+}
+
+// Conecta filtros de texto/columna para todas las tablas configuradas.
+function bindTableFilters() {
+  filterTargets.forEach(tableId => {
+    const tools = document.querySelector(`.table-tools[data-filter-target="${tableId}"]`);
+
+    if (!tools) {
+      return;
+    }
+
+    tools.querySelector(".table-search")?.addEventListener("input", () => {
+      applyTableFilter(tableId);
+    });
+
+    tools.querySelector(".table-column")?.addEventListener("change", () => {
+      applyTableFilter(tableId);
+    });
+
+    tools.querySelector(".table-clear")?.addEventListener("click", () => {
+      const search = tools.querySelector(".table-search");
+      const column = tools.querySelector(".table-column");
+
+      if (search) {
+        search.value = "";
+      }
+
+      if (column) {
+        column.value = "all";
+      }
+
+      applyTableFilter(tableId);
+    });
+
+    setupFilterOptions(tableId);
+  });
+}
+
+// Activa sort por encabezado en todas las tablas registradas.
+function bindTableSorting() {
+  sortableTargets.forEach(setupSortableTable);
+}
+
+// Conecta el modal de CEP Registry y guarda nuevos registros en la API.
+function bindRegistryModal() {
+  const modal = getElement("registryModal");
+  const openButton = getElement("openRegistryModal");
+  const closeButton = getElement("closeRegistryModal");
+  const form = getElement("registryForm");
+  const message = getElement("registryFormMessage");
+
+  if (!modal || !openButton || !closeButton || !form) {
+    return;
+  }
+
+  openButton.addEventListener("click", () => {
+    message.textContent = "";
+    form.reset();
+    modal.showModal();
+  });
+
+  closeButton.addEventListener("click", () => {
+    modal.close();
+  });
+
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    message.textContent = "Guardando...";
+
+    const formData = new FormData(form);
+    const payload = {
+      source_app: formData.get("source_app"),
+      runs_table: formData.get("runs_table"),
+      app_version: formData.get("app_version")
+    };
+
+    try {
+      await postJSON("/api/dashboard/registry", payload);
+      modal.close();
+      await Promise.all([loadDashboard(), loadRegistry()]);
+      appendLog(`CEP registrado: ${payload.source_app}`, "success");
+    } catch (error) {
+      message.textContent = error.message;
+      appendLog(error.message, "error");
+    }
+  });
+}
+
+// Arranque de la aplicacion: primero conecta eventos, luego carga datos iniciales.
 async function init() {
+  if (window.RMCComponents?.renderApp) {
+    window.RMCComponents.renderApp(getElement("appRoot"));
+  }
+
+  bindNavigation();
+  bindSidebarControls();
+  bindLogControls();
+  bindDetailControls();
+  bindTableFilters();
+  bindTableSorting();
+  bindRegistryModal();
+
   try {
-    await loadDashboard();
-    await loadRuns();
+    await Promise.all([
+      loadDashboard(),
+      loadRuns(),
+      loadMockupRuns(),
+      loadRegistry()
+    ]);
   } catch (error) {
     console.error(error);
+    appendLog(error.message, "error");
     alert("Error cargando datos. Revisa la ruta de la BD o la consola.");
   }
 }

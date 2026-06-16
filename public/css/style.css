@@ -1,183 +1,831 @@
+/* =========================================================
+   Tokens RMC
+   Paleta y fuentes compartidas por todos los CEPs RMC.
+   ========================================================= */
+:root {
+  --rmc-font-ui: Arial, sans-serif;
+  --rmc-font-log: monospace;
+
+  --rmc-bg: #2b2b2b;
+  --rmc-surface: #3a3a3a;
+  --rmc-surface-soft: #333333;
+  --rmc-surface-deep: #1e1e1e;
+  --rmc-field: #181a1d;
+
+  --rmc-border: #444444;
+  --rmc-border-strong: #666666;
+
+  --rmc-text: #ffffff;
+  --rmc-text-soft: #eeeeee;
+  --rmc-muted: #cccccc;
+  --rmc-muted-low: #888888;
+
+  --rmc-primary: #821424;
+  --rmc-primary-hover: #a21a2f;
+  --rmc-primary-strong: #bd1f36;
+
+  --rmc-secondary: #444444;
+  --rmc-secondary-hover: #555555;
+
+  --rmc-focus: #f7c948;
+
+  --rmc-log-text: #00ff00;
+  --rmc-log-success: #50fa7b;
+  --rmc-log-error: #ff5555;
+  --rmc-log-warning: #f1fa8c;
+}
+
+/* =========================================================
+   Base
+   Reset pequeno y estilos globales del documento.
+   ========================================================= */
 * {
   box-sizing: border-box;
 }
 
+html {
+  min-width: 320px;
+}
+
 body {
-  font-family: Arial, sans-serif;
-  margin: 24px;
-  background: #f4f4f4;
-  color: #111;
-}
-
-header {
-  margin-bottom: 24px;
-}
-
-header h1 {
+  min-height: 100vh;
   margin: 0;
-}
-
-header p {
-  margin-top: 6px;
-  color: #666;
-}
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 14px;
-  margin-bottom: 32px;
-}
-
-.card {
-  background: white;
-  padding: 18px;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-.card h2 {
-  font-size: 32px;
-  margin: 0;
-}
-
-.card p {
-  margin-bottom: 0;
-  color: #666;
-}
-
-.card.danger h2 {
-  color: #b00020;
-}
-
-section {
-  background: white;
-  padding: 18px;
-  border-radius: 14px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-th {
-  background: #111;
-  color: white;
   padding: 10px;
-  text-align: left;
-}
-
-td {
-  padding: 9px;
-  border-bottom: 1px solid #ddd;
-}
-
-button,
-a.btn {
-  background: #111;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  text-decoration: none;
-  cursor: pointer;
+  background: var(--rmc-bg);
+  color: var(--rmc-text);
+  font-family: var(--rmc-font-ui);
   font-size: 13px;
 }
 
-.hidden {
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-top: 0;
+}
+
+h2 {
+  margin-bottom: 14px;
+  font-size: 18px;
+}
+
+h3 {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+h4 {
+  margin-bottom: 8px;
+  color: var(--rmc-muted);
+  font-size: 12px;
+}
+
+p {
+  color: var(--rmc-muted);
+}
+
+/* =========================================================
+   Botones y campos
+   Controles reutilizables de la UI.
+   ========================================================= */
+button,
+a.btn {
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--rmc-primary);
+  color: var(--rmc-text);
+  cursor: pointer;
+  font-family: var(--rmc-font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+button:hover,
+a.btn:hover {
+  background: var(--rmc-primary-hover);
+  box-shadow: 0 0 12px rgba(162, 26, 47, 0.45);
+}
+
+button:focus-visible,
+a.btn:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--rmc-focus);
+  outline-offset: 2px;
+}
+
+.secondary-button {
+  background: var(--rmc-secondary);
+}
+
+.secondary-button:hover {
+  background: var(--rmc-secondary-hover);
+  box-shadow: none;
+}
+
+input,
+select {
+  min-height: 30px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-field);
+  color: var(--rmc-text);
+  font-family: var(--rmc-font-ui);
+  font-size: 12px;
+}
+
+input::placeholder {
+  color: var(--rmc-muted-low);
+}
+
+/* =========================================================
+   Navbar movil y sidebar
+   En desktop el sidebar esta fijo en la grilla; en movil se vuelve drawer.
+   ========================================================= */
+.top-navbar,
+.sidebar-overlay {
   display: none;
 }
 
-@media (max-width: 1200px) {
-  .cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.app-layout {
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+  gap: 10px;
 }
 
-
-.app-layout {
-  display: flex;
-  gap: 12px;
+.sidebar,
+.view,
+.detail-panel,
+.dashboard-block,
+.chart-panel {
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface);
 }
 
 .sidebar {
-  width: 260px;
-  flex-shrink: 0;
-
-  background: var(--rmc-surface);
-
-  border: 1px solid var(--rmc-border);
-
-  border-radius: 4px;
-
+  min-height: calc(100vh - 170px);
   padding: 12px;
 }
 
-.content {
-  flex: 1;
-}
-
 .logo {
-  margin-bottom: 24px;
+  margin-bottom: 22px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rmc-border);
+  text-align: center;
 }
 
-.logo h1 {
-  margin: 0;
-}
-
-.logo span {
-  color: var(--rmc-muted-low);
-  font-size: 10px;
+.logo img {
+  display: block;
+  width: min(180px, 100%);
+  height: auto;
+  margin: 0 auto;
 }
 
 .menu-group {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .menu-group h3 {
-  color: var(--rmc-muted-low);
-
-  font-size: 10px;
-
   margin-bottom: 6px;
+  color: var(--rmc-muted-low);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
-
-  text-align: left;
-
   margin-top: 4px;
-
   padding: 8px;
-
   background: var(--rmc-secondary);
-
-  border: none;
-
-  color: white;
-
-  border-radius: 4px;
-
-  cursor: pointer;
+  color: var(--rmc-text);
+  text-align: left;
 }
 
 .menu-item:hover {
   background: var(--rmc-secondary-hover);
+  box-shadow: none;
 }
 
 .menu-item.active {
   background: var(--rmc-primary);
 }
 
+.menu-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 18px;
+  color: var(--rmc-muted);
+  font-size: 15px;
+}
+
+.fi-br-menu-burger::before {
+  content: "\2630";
+}
+
+.fi-rs-file-pdf::before {
+  content: "PDF";
+  font-family: var(--rmc-font-ui);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.menu-icon-dot::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.menu-icon-img {
+  object-fit: contain;
+}
+
+.menu-item.active .menu-icon,
+.menu-item:hover .menu-icon {
+  color: var(--rmc-text);
+}
+
+/* =========================================================
+   Vistas y dashboard
+   Contenedores base y resumenes separados por herramienta.
+   ========================================================= */
+.content {
+  min-width: 0;
+}
+
 .view {
   display: none;
+  min-height: 340px;
+  padding: 14px;
 }
 
 .active-view {
   display: block;
+}
+
+.view-header,
+.block-title,
+.detail-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-block {
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.summary-grid-nike,
+.summary-grid-mockup {
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+}
+
+.summary-card {
+  min-height: 82px;
+  padding: 12px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+}
+
+.summary-card span {
+  display: block;
+  min-height: 28px;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.summary-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--rmc-text);
+  font-size: 25px;
+  line-height: 1;
+}
+
+.summary-card.danger strong,
+.status-error {
+  color: var(--rmc-log-error);
+}
+
+.status-ok {
+  color: var(--rmc-log-success);
+}
+
+.status-warning {
+  color: var(--rmc-log-warning);
+}
+
+/* =========================================================
+   Graficas simples
+   Barras CSS generadas desde public/js/app.js.
+   ========================================================= */
+.chart-panel {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--rmc-surface-soft);
+}
+
+.dashboard-table-panel {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+}
+
+.chart-canvas {
+  min-height: 190px;
+  padding: 4px;
+}
+
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: 220px;
+}
+
+.chart-grid-line {
+  stroke: var(--rmc-border);
+  stroke-width: 1;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--rmc-primary-hover);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.chart-point {
+  fill: var(--rmc-primary-hover);
+  stroke: var(--rmc-text);
+  stroke-width: 2;
+}
+
+.chart-bar {
+  fill: var(--rmc-primary);
+  filter: drop-shadow(0 0 4px rgba(162, 26, 47, 0.36));
+}
+
+.chart-label,
+.chart-value {
+  fill: var(--rmc-muted);
+  font-family: var(--rmc-font-ui);
+  font-size: 11px;
+  text-anchor: middle;
+}
+
+.chart-value {
+  fill: var(--rmc-text);
+  font-weight: 700;
+}
+
+.chart-empty {
+  color: var(--rmc-muted-low);
+  font-size: 11px;
+}
+
+/* =========================================================
+   Tablas
+   Filtro por texto/columna, contador y sort por encabezado.
+   ========================================================= */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-field);
+}
+
+.table-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.table-search {
+  flex: 1 1 220px;
+  min-width: 160px;
+  padding: 7px 9px;
+}
+
+.table-column {
+  flex: 0 1 190px;
+  padding: 7px 8px;
+}
+
+.table-count {
+  margin-left: auto;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.compact-table {
+  min-width: 0;
+}
+
+th,
+td {
+  padding: 8px;
+  border-bottom: 1px solid var(--rmc-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--rmc-surface-deep);
+  color: var(--rmc-muted);
+  font-size: 11px;
+}
+
+td {
+  color: var(--rmc-text-soft);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.filtered-out {
+  display: none;
+}
+
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  text-align: left;
+}
+
+.sort-button:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+.sort-indicator {
+  margin-left: 6px;
+  color: var(--rmc-muted-low);
+  font-size: 10px;
+}
+
+.table-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  min-height: 28px;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   Detalles y Registry
+   Paneles secundarios, modal y formulario de alta CEP.
+   ========================================================= */
+.detail-panel {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--rmc-surface-soft);
+}
+
+.detail-header {
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.detail-actions {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.detail-actions .secondary-button {
+  min-height: 28px;
+  padding: 5px 10px;
+}
+
+.run-info {
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.registry-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 10px;
+}
+
+.registry-grid table {
+  min-width: 0;
+}
+
+.modal {
+  width: min(460px, calc(100vw - 24px));
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface);
+  color: var(--rmc-text);
+}
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.modal form {
+  display: grid;
+  gap: 12px;
+}
+
+.modal-header,
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.modal label {
+  display: grid;
+  gap: 5px;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.modal input {
+  width: 100%;
+  padding: 8px 9px;
+}
+
+.form-message {
+  min-height: 16px;
+  margin: 0;
+  color: var(--rmc-log-warning);
+  font-size: 11px;
+}
+
+.hidden {
+  display: none;
+}
+
+/* =========================================================
+   Log compacto
+   Se colapsa por defecto para liberar espacio del dashboard.
+   ========================================================= */
+.log-container {
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid #333333;
+  border-radius: 4px;
+  background: var(--rmc-surface-deep);
+  color: var(--rmc-log-text);
+  font-family: var(--rmc-font-log);
+  font-size: 10px;
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #333333;
+  color: #cccccc;
+  font-family: var(--rmc-font-log);
+  font-weight: bold;
+}
+
+.log-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+#btnToggleLog,
+#btnClearLog {
+  width: auto;
+  min-height: 22px;
+  padding: 3px 8px;
+  background: var(--rmc-secondary);
+  color: var(--rmc-muted);
+  font-family: var(--rmc-font-ui);
+  font-size: 10px;
+}
+
+#btnToggleLog:hover,
+#btnClearLog:hover {
+  background: var(--rmc-secondary-hover);
+  box-shadow: none;
+}
+
+#terminal {
+  height: 150px;
+  padding: 8px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.log-collapsed #terminal {
+  display: none;
+}
+
+.log-line {
+  margin-bottom: 3px;
+}
+
+.log-info {
+  color: var(--rmc-log-text);
+}
+
+.log-error {
+  color: var(--rmc-log-error);
+}
+
+.log-success {
+  color: var(--rmc-log-success);
+}
+
+.log-warning {
+  color: var(--rmc-log-warning);
+}
+
+.footer-credits {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rmc-border);
+  color: var(--rmc-muted-low);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* =========================================================
+   Responsive
+   Drawer lateral en pantallas pequenas y grids mas compactas.
+   ========================================================= */
+@media (max-width: 1180px) {
+  .summary-grid-nike,
+  .summary-grid-mockup {
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  body {
+    padding-top: 56px;
+  }
+
+  .top-navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 46px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--rmc-border);
+    background: var(--rmc-surface-deep);
+  }
+
+  .sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+  }
+
+  .top-navbar-title {
+    color: var(--rmc-muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: block;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+
+  .app-layout,
+  .registry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 46px;
+    left: 0;
+    z-index: 35;
+    width: min(285px, calc(100vw - 44px));
+    height: calc(100vh - 46px);
+    min-height: auto;
+    overflow-y: auto;
+    transform: translateX(calc(-100% - 12px));
+    transition: transform 180ms ease;
+  }
+
+  body.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  body.sidebar-open .sidebar-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .logo img {
+    width: min(190px, 100%);
+  }
+
+  .summary-grid,
+  .summary-grid-nike,
+  .summary-grid-mockup {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  body {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .summary-grid,
+  .summary-grid-nike,
+  .summary-grid-mockup {
+    grid-template-columns: 1fr;
+  }
+
+  .table-tools {
+    align-items: stretch;
+  }
+
+  .table-search,
+  .table-column,
+  .table-clear,
+  .table-count {
+    flex: 1 1 100%;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .detail-actions {
+    justify-content: flex-start;
+  }
 }
