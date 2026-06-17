@@ -82,6 +82,28 @@ function normalizeMonth(row) {
   };
 }
 
+function safeGet(query, fallback) {
+  try {
+    return query();
+  } catch (error) {
+    if (error && (error.code === "SQLITE_ERROR" || error.code === "SQLITE_SCHEMA")) {
+      return fallback;
+    }
+    throw error;
+  }
+}
+
+function safeAll(query, fallback) {
+  try {
+    return query();
+  } catch (error) {
+    if (error && (error.code === "SQLITE_ERROR" || error.code === "SQLITE_SCHEMA")) {
+      return fallback;
+    }
+    throw error;
+  }
+}
+
 // Agrupa ejecuciones Nike por dia y calcula tiempo promedio/piezas.
 function buildNikeDaily(rows) {
   const days = new Map();
@@ -210,12 +232,12 @@ function buildMockupMonthly(rows) {
 // Dashboard principal: mezcla metricas generales, Nike, MockupTool y datos para graficas.
 router.get("/", (req, res) => {
   try {
-    const tools = db.prepare(`
+    const tools = safeGet(() => db.prepare(`
       SELECT COUNT(*) AS total
       FROM cep_registry
-    `).get();
+    `).get(), { total: 0 });
 
-    const nikeRuns = db.prepare(`
+    const nikeRuns = safeGet(() => db.prepare(`
       SELECT
         COUNT(*) AS total,
         COALESCE(SUM(pedidos), 0) AS pedidos,
@@ -224,34 +246,34 @@ router.get("/", (req, res) => {
         COALESCE(SUM(ok), 0) AS ok,
         COALESCE(SUM(errores), 0) AS errores
       FROM rmcop_nike_runs
-    `).get();
+    `).get(), { total: 0, pedidos: 0, piezas: 0, estilos: 0, ok: 0, errores: 0 });
 
-    const nikeItems = db.prepare(`
+    const nikeItems = safeGet(() => db.prepare(`
       SELECT 
         COUNT(*) AS registros,
         COALESCE(SUM(piezas), 0) AS piezas,
         SUM(CASE WHEN error IS NOT NULL AND TRIM(error) != '' THEN 1 ELSE 0 END) AS errores
       FROM rmcop_nike_items
-    `).get();
+    `).get(), { registros: 0, piezas: 0, errores: 0 });
 
-    const nikeRecentRuns = db.prepare(`
+    const nikeRecentRuns = safeAll(() => db.prepare(`
       SELECT id, created_at, tiempo, piezas, pedidos, errores
       FROM rmcop_nike_runs
       ORDER BY id DESC
       LIMIT 12
-    `).all().reverse();
+    `).all(), []).reverse();
 
-    const nikeDailyRuns = db.prepare(`
+    const nikeDailyRuns = safeAll(() => db.prepare(`
       SELECT id, created_at, tiempo, piezas, pedidos, errores
       FROM rmcop_nike_runs
       ORDER BY id ASC
-    `).all();
+    `).all(), []);
 
     const nikeDurationSeconds = nikeRecentRuns
       .map(run => durationToSeconds(run.tiempo))
       .filter(seconds => seconds > 0);
 
-    const mockupRuns = db.prepare(`
+    const mockupRuns = safeGet(() => db.prepare(`
       SELECT
         COUNT(*) AS total,
         COALESCE(SUM(pdfs_generados), 0) AS plantillas,
@@ -260,45 +282,45 @@ router.get("/", (req, res) => {
         COALESCE(SUM(grupos_consolidados), 0) AS grupos_consolidados,
         COUNT(DISTINCT disenador) AS disenadores
       FROM rmc_mockuptool_runs
-    `).get();
+    `).get(), { total: 0, plantillas: 0, faltantes: 0, filas_seleccionadas: 0, grupos_consolidados: 0, disenadores: 0 });
 
-    const mockupItems = db.prepare(`
+    const mockupItems = safeGet(() => db.prepare(`
       SELECT
         COUNT(*) AS registros,
         SUM(CASE WHEN error IS NOT NULL AND TRIM(error) != '' THEN 1 ELSE 0 END) AS errores
       FROM rmc_mockuptool_items
-    `).get();
+    `).get(), { registros: 0, errores: 0 });
 
-    const mockupRecentRuns = db.prepare(`
+    const mockupRecentRuns = safeAll(() => db.prepare(`
       SELECT id, fecha, hora, styles, pdfs_generados, mockups_faltantes
       FROM rmc_mockuptool_runs
       ORDER BY id DESC
       LIMIT 12
-    `).all().reverse();
+    `).all(), []).reverse();
 
-    const mockupDailyRuns = db.prepare(`
+    const mockupDailyRuns = safeAll(() => db.prepare(`
       SELECT id, fecha, pdfs_generados, mockups_faltantes
       FROM rmc_mockuptool_runs
       ORDER BY id ASC
-    `).all();
+    `).all(), []);
 
-    const gitCommits = db.prepare(`
+    const gitCommits = safeGet(() => db.prepare(`
       SELECT COUNT(*) AS total
       FROM rmcop_nike_git_commits
-    `).get();
+    `).get(), { total: 0 });
 
-    const registry = db.prepare(`
+    const registry = safeAll(() => db.prepare(`
       SELECT source_app, runs_table, app_version, updated_at
       FROM cep_registry
       ORDER BY source_app
-    `).all();
+    `).all(), []);
 
     const avgNikeSeconds = nikeDurationSeconds.length
       ? nikeDurationSeconds.reduce((sum, seconds) => sum + seconds, 0) / nikeDurationSeconds.length
       : 0;
 
     res.json({
-      toolsCount: tools.total,
+      toolsCount: tools.total || 0,
       gitCommits: gitCommits.total,
       errores: (nikeItems.errores || 0) + (mockupItems.errores || 0),
       registry,
@@ -343,11 +365,11 @@ router.get("/", (req, res) => {
 // Lista de CEPs registrados para la pantalla CEP Registry.
 router.get("/registry", (req, res) => {
   try {
-    const registry = db.prepare(`
+    const registry = safeAll(() => db.prepare(`
       SELECT source_app, runs_table, app_version, created_at, updated_at
       FROM cep_registry
       ORDER BY source_app
-    `).all();
+    `).all(), []);
 
     res.json(registry);
   } catch (error) {
@@ -401,27 +423,27 @@ router.get("/tables", (req, res) => {
     const tables = [
       {
         name: "cep_registry",
-        rows: db.prepare("SELECT COUNT(*) AS total FROM cep_registry").get().total
+        rows: safeGet(() => db.prepare("SELECT COUNT(*) AS total FROM cep_registry").get().total, 0)
       },
       {
         name: "rmcop_nike_runs",
-        rows: db.prepare("SELECT COUNT(*) AS total FROM rmcop_nike_runs").get().total
+        rows: safeGet(() => db.prepare("SELECT COUNT(*) AS total FROM rmcop_nike_runs").get().total, 0)
       },
       {
         name: "rmcop_nike_items",
-        rows: db.prepare("SELECT COUNT(*) AS total FROM rmcop_nike_items").get().total
+        rows: safeGet(() => db.prepare("SELECT COUNT(*) AS total FROM rmcop_nike_items").get().total, 0)
       },
       {
         name: "rmcop_nike_git_commits",
-        rows: db.prepare("SELECT COUNT(*) AS total FROM rmcop_nike_git_commits").get().total
+        rows: safeGet(() => db.prepare("SELECT COUNT(*) AS total FROM rmcop_nike_git_commits").get().total, 0)
       },
       {
         name: "rmc_mockuptool_runs",
-        rows: db.prepare("SELECT COUNT(*) AS total FROM rmc_mockuptool_runs").get().total
+        rows: safeGet(() => db.prepare("SELECT COUNT(*) AS total FROM rmc_mockuptool_runs").get().total, 0)
       },
       {
         name: "rmc_mockuptool_items",
-        rows: db.prepare("SELECT COUNT(*) AS total FROM rmc_mockuptool_items").get().total
+        rows: safeGet(() => db.prepare("SELECT COUNT(*) AS total FROM rmc_mockuptool_items").get().total, 0)
       }
     ];
 

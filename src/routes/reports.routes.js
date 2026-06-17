@@ -94,4 +94,87 @@ router.get("/nike/:id/excel", async (req, res) => {
   }
 });
 
+router.get("/mockup/:id/excel", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const run = db.prepare(`
+      SELECT id
+      FROM rmc_mockuptool_runs
+      WHERE id = ?
+    `).get(id);
+
+    if (!run) {
+      res.status(404).json({ error: "Ejecucion MockupTool no encontrada" });
+      return;
+    }
+
+    const items = db.prepare(`
+      SELECT
+        wo,
+        herramienta,
+        fila_excel,
+        ship_order,
+        style,
+        style_family,
+        equipo,
+        variante,
+        version,
+        talla,
+        piezas,
+        archivo,
+        estado,
+        error,
+        tiempo,
+        clave
+      FROM rmc_mockuptool_items
+      WHERE run_id = ?
+      ORDER BY equipo, style, talla
+    `).all(id);
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("MockupTool");
+
+    sheet.columns = [
+      { header: "WO", key: "wo", width: 18 },
+      { header: "Herramienta", key: "herramienta", width: 18 },
+      { header: "Fila Excel", key: "fila_excel", width: 12 },
+      { header: "Ship Order", key: "ship_order", width: 18 },
+      { header: "Style", key: "style", width: 16 },
+      { header: "Family", key: "style_family", width: 16 },
+      { header: "Equipo", key: "equipo", width: 22 },
+      { header: "Variante", key: "variante", width: 16 },
+      { header: "Version", key: "version", width: 12 },
+      { header: "Talla", key: "talla", width: 10 },
+      { header: "Piezas", key: "piezas", width: 10 },
+      { header: "Archivo", key: "archivo", width: 35 },
+      { header: "Estado", key: "estado", width: 14 },
+      { header: "Error", key: "error", width: 35 },
+      { header: "Tiempo", key: "tiempo", width: 14 },
+      { header: "Clave", key: "clave", width: 30 }
+    ];
+
+    items.forEach(item => sheet.addRow(item));
+    sheet.getRow(1).font = { bold: true };
+    sheet.autoFilter = "A1:P1";
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=MockupTool_${id}.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    res.status(500).json({
+      error: "No se pudo generar el reporte Excel MockupTool",
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

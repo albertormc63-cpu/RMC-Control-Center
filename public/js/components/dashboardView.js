@@ -67,7 +67,7 @@ window.RMCComponents.dashboardView = function dashboardView() {
         </div>
 
         <div class="chart-panel">
-          <h4>Tiempo promedio por dia</h4>
+          <h4>Piezas por ejecucion Nike</h4>
           <div id="nikeTimeChart" class="chart-canvas"></div>
         </div>
 

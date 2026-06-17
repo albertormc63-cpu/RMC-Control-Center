@@ -41,6 +41,32 @@ function formatNumber(value) {
   return numberFormatter.format(Number(value || 0));
 }
 
+function formatDDMM(value) {
+  if (!value) {
+    return "";
+  }
+
+  const parts = String(value).trim().split("/");
+
+  if (parts.length === 3) {
+    return `${parts[0].padStart(2, "0")}/${parts[1].padStart(2, "0")}`;
+  }
+
+  const isoMatch = String(value).match(/^(\d{4})(\d{2})(\d{2})/);
+
+  if (isoMatch) {
+    return `${isoMatch[3]}/${isoMatch[2]}`;
+  }
+
+  const dt = new Date(value);
+
+  if (!Number.isNaN(dt.getTime())) {
+    return dt.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  }
+
+  return value;
+}
+
 // Agrega una linea al log compacto. El log puede estar colapsado sin perder mensajes.
 function appendLog(message, type = "info") {
   const terminal = getElement("terminal");
@@ -389,6 +415,22 @@ function drawChartGrid(svg, chart) {
     line.setAttribute("class", "chart-grid-line");
     svg.appendChild(line);
   }
+
+  const xAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  xAxis.setAttribute("x1", chart.left);
+  xAxis.setAttribute("y1", chart.top + chart.height);
+  xAxis.setAttribute("x2", chart.left + chart.width);
+  xAxis.setAttribute("y2", chart.top + chart.height);
+  xAxis.setAttribute("class", "chart-axis-line");
+  svg.appendChild(xAxis);
+
+  const yAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  yAxis.setAttribute("x1", chart.left);
+  yAxis.setAttribute("y1", chart.top);
+  yAxis.setAttribute("x2", chart.left);
+  yAxis.setAttribute("y2", chart.top + chart.height);
+  yAxis.setAttribute("class", "chart-axis-line");
+  svg.appendChild(yAxis);
 }
 
 // Dibuja etiquetas inferiores por dia.
@@ -538,6 +580,34 @@ function renderExecutionBarChart(containerId, rows, options) {
     labels[index].textContent = options.label(row);
   });
 
+  if (options.title) {
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    title.setAttribute("x", chart.left + (chart.width / 2));
+    title.setAttribute("y", chart.top - 6);
+    title.setAttribute("class", "chart-title");
+    title.textContent = options.title;
+    svg.appendChild(title);
+  }
+
+  if (options.xLabel) {
+    const xAxisLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    xAxisLabel.setAttribute("x", chart.left + (chart.width / 2));
+    xAxisLabel.setAttribute("y", chart.top + chart.height + 36);
+    xAxisLabel.setAttribute("class", "chart-axis-label");
+    xAxisLabel.textContent = options.xLabel;
+    svg.appendChild(xAxisLabel);
+  }
+
+  if (options.yLabel) {
+    const yAxisLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    yAxisLabel.setAttribute("x", chart.left - 38);
+    yAxisLabel.setAttribute("y", chart.top + (chart.height / 2));
+    yAxisLabel.setAttribute("transform", `rotate(-90 ${chart.left - 38} ${chart.top + (chart.height / 2)})`);
+    yAxisLabel.setAttribute("class", "chart-axis-label");
+    yAxisLabel.textContent = options.yLabel;
+    svg.appendChild(yAxisLabel);
+  }
+
   container.appendChild(svg);
 }
 
@@ -592,9 +662,15 @@ async function loadDashboard() {
   setText("mockupRowsSelected", formatNumber(data.mockup.filasSeleccionadas));
   setText("mockupDesigners", formatNumber(data.mockup.disenadores));
 
-  renderDailyLineChart("nikeTimeChart", data.nike.daily, {
-    value: day => day.avgSeconds || 0,
-    format: (value, day) => day.avgTiempo || "00:00:00"
+  const monthPeriod = new Date().toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+
+  renderExecutionBarChart("nikeTimeChart", data.nike.recentRuns, {
+    title: `Periodo: ${monthPeriod}`,
+    label: run => formatDDMM(run.created_at || run.id),
+    value: run => Number(run.piezas || 0),
+    format: value => formatNumber(value),
+    xLabel: "Fecha",
+    yLabel: "Total de piezas"
   });
 
   renderMonthlyTable("nikeMonthlyTable", data.nike.monthly, [
@@ -607,9 +683,15 @@ async function loadDashboard() {
   ]);
 
   renderExecutionBarChart("mockupTemplateChart", data.mockup.recentRuns, {
-    label: run => run.styles || run.id.slice(-6),
-    value: run => run.pdfs_generados || 0,
-    format: value => formatNumber(value)
+    title: `Periodo: ${monthPeriod}`,
+    label: run => {
+      const dateLabel = run.fecha ? formatDDMM(run.fecha) : formatDDMM(run.id);
+      return run.hora ? `${dateLabel} ${run.hora}` : dateLabel;
+    },
+    value: run => Number(run.pdfs_generados || 0),
+    format: value => formatNumber(value),
+    xLabel: "Fecha",
+    yLabel: "Total de piezas"
   });
 
   renderMonthlyTable("mockupMonthlyTable", data.mockup.monthly, [
@@ -624,7 +706,8 @@ async function loadDashboard() {
 
 // Carga la tabla de ejecuciones Nike.
 async function loadRuns() {
-  const runs = await getJSON("/api/nike/runs");
+  const data = await getJSON("/api/nike/runs");
+  const runs = Array.isArray(data) ? data : data.runs || [];
   const tbody = getElement("runsTable");
 
   tbody.innerHTML = "";
@@ -633,7 +716,7 @@ async function loadRuns() {
     const row = document.createElement("tr");
 
     addCell(row, run.id);
-    addCell(row, run.created_at || "");
+    addCell(row, formatDDMM(run.created_at));
     addCell(row, run.herramienta || "");
     addCell(row, formatNumber(run.pedidos));
     addCell(row, formatNumber(run.piezas));
@@ -649,7 +732,7 @@ async function loadRuns() {
 
   refreshTableFilter("runsTable");
   updateSortIndicators("runsTable");
-  appendLog(`RMCOp-Nike: ${runs.length} ejecuciones cargadas`, "success");
+  appendLog(`RMCOp-Nike: ${runs.length} ejecuciones cargadas (página ${data.page || 1})`, "success");
 }
 
 // Carga el detalle de una ejecucion Nike y muestra el panel bajo la tabla.
@@ -687,7 +770,8 @@ async function loadRunDetail(id) {
 
 // Carga la tabla de ejecuciones MockupTool.
 async function loadMockupRuns() {
-  const runs = await getJSON("/api/mockup/runs");
+  const data = await getJSON("/api/mockup/runs");
+  const runs = Array.isArray(data) ? data : data.runs || [];
   const tbody = getElement("mockupTable");
 
   tbody.innerHTML = "";
@@ -696,7 +780,7 @@ async function loadMockupRuns() {
     const row = document.createElement("tr");
 
     addCell(row, run.id);
-    addCell(row, run.fecha || "");
+    addCell(row, formatDDMM(run.fecha));
     addCell(row, run.hora || "");
     addCell(row, run.seccion || "");
     addCell(row, run.excel || "");
@@ -706,13 +790,14 @@ async function loadMockupRuns() {
     addCell(row, formatNumber(run.pdfs_generados));
     addCell(row, formatNumber(run.mockups_faltantes), run.mockups_faltantes ? "status-warning" : "status-ok");
     addButtonCell(row, "Ver", () => loadMockupDetail(run.id));
+    addLinkCell(row, "Excel", `/api/reports/mockup/${encodeURIComponent(run.id)}/excel`);
 
     tbody.appendChild(row);
   });
 
   refreshTableFilter("mockupTable");
   updateSortIndicators("mockupTable");
-  appendLog(`RMC MockupTool: ${runs.length} ejecuciones cargadas`, "success");
+  appendLog(`RMC MockupTool: ${runs.length} ejecuciones cargadas (página ${data.page || 1})`, "success");
 }
 
 // Carga el detalle de una ejecucion MockupTool.

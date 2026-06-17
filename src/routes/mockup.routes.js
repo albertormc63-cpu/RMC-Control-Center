@@ -6,13 +6,19 @@ const router = express.Router();
 // Lista las ejecuciones de MockupTool para explorarlas desde el dashboard.
 router.get("/runs", (req, res) => {
   try {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(10, Number(req.query.limit) || 100));
+    const offset = (page - 1) * limit;
+
     const runs = db.prepare(`
       SELECT *
       FROM rmc_mockuptool_runs
       ORDER BY id DESC
-    `).all();
+      LIMIT ?
+      OFFSET ?
+    `).all(limit, offset);
 
-    res.json(runs);
+    res.json({ page, limit, runs });
   } catch (error) {
     res.status(500).json({
       error: "No se pudieron leer las ejecuciones MockupTool",

@@ -391,6 +391,27 @@ input::placeholder {
   filter: drop-shadow(0 0 4px rgba(162, 26, 47, 0.36));
 }
 
+.chart-axis-line {
+  stroke: var(--rmc-text);
+  stroke-width: 1.25;
+}
+
+.chart-title {
+  fill: var(--rmc-text);
+  font-family: var(--rmc-font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.chart-axis-label {
+  fill: var(--rmc-muted);
+  font-family: var(--rmc-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
 .chart-label,
 .chart-value {
   fill: var(--rmc-muted);
