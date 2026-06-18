@@ -22,15 +22,11 @@ window.RMCComponents.nikeView = function nikeView() {
         <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Fecha</th>
+              <th>Emb</th>
               <th>Herramienta</th>
               <th>Pedidos</th>
               <th>Piezas</th>
-              <th>Estilos</th>
               <th>Tiempo</th>
-              <th>OK</th>
-              <th>Errores</th>
               <th>Detalle</th>
               <th>Excel</th>
             </tr>

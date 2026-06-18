@@ -504,6 +504,14 @@ tr:last-child td {
   border-bottom: none;
 }
 
+tbody tr:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+tbody tr:hover td {
+  color: var(--rmc-text);
+}
+
 .filtered-out {
   display: none;
 }

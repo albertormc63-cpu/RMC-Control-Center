@@ -22,17 +22,13 @@ window.RMCComponents.mockupView = function mockupView() {
         <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Fecha</th>
-              <th>Hora</th>
+              <th>Emb</th>
               <th>Seccion</th>
-              <th>Excel</th>
               <th>Disenador</th>
               <th>Styles</th>
-              <th>Tallas</th>
               <th>Plantillas</th>
-              <th>Faltantes</th>
               <th>Detalle</th>
+              <th>Excel</th>
             </tr>
           </thead>
 

@@ -714,19 +714,17 @@ async function loadRuns() {
 
   runs.forEach(run => {
     const row = document.createElement("tr");
+    row.dataset.runId = run.id;
 
-    addCell(row, run.id);
-    addCell(row, formatDDMM(run.created_at));
+    addCell(row, formatDDMM(run.fecha_embarque || run.created_at));
     addCell(row, run.herramienta || "");
     addCell(row, formatNumber(run.pedidos));
     addCell(row, formatNumber(run.piezas));
-    addCell(row, formatNumber(run.estilos));
     addCell(row, run.tiempo || "");
-    addCell(row, formatNumber(run.ok));
-    addCell(row, formatNumber(run.errores), run.errores ? "status-error" : "status-ok");
     addButtonCell(row, "Ver", () => loadRunDetail(run.id));
     addLinkCell(row, "Excel", `/api/reports/nike/${encodeURIComponent(run.id)}/excel`);
 
+    row.addEventListener("dblclick", () => loadRunDetail(run.id));
     tbody.appendChild(row);
   });
 
@@ -743,7 +741,7 @@ async function loadRunDetail(id) {
   const tbody = getElement("itemsTable");
 
   detailSection.classList.remove("hidden");
-  runInfo.textContent = `${data.run.id} | ${data.run.created_at || ""} | ${formatNumber(data.run.piezas)} piezas | ${data.run.tiempo || "sin tiempo"} | ${formatNumber(data.run.errores)} errores`;
+  runInfo.textContent = `${data.run.id} | ${formatDDMM(data.run.fecha_embarque || data.run.created_at || "")} | ${data.run.herramienta || ""} | ${formatNumber(data.run.piezas)} piezas | ${data.run.tiempo || "sin tiempo"} | ${formatNumber(data.run.errores)} errores`;
   tbody.innerHTML = "";
 
   data.items.forEach(item => {
@@ -778,20 +776,17 @@ async function loadMockupRuns() {
 
   runs.forEach(run => {
     const row = document.createElement("tr");
+    row.dataset.runId = run.id;
 
-    addCell(row, run.id);
     addCell(row, formatDDMM(run.fecha));
-    addCell(row, run.hora || "");
     addCell(row, run.seccion || "");
-    addCell(row, run.excel || "");
     addCell(row, run.disenador || "");
     addCell(row, run.styles || "");
-    addCell(row, run.tallas || "");
     addCell(row, formatNumber(run.pdfs_generados));
-    addCell(row, formatNumber(run.mockups_faltantes), run.mockups_faltantes ? "status-warning" : "status-ok");
     addButtonCell(row, "Ver", () => loadMockupDetail(run.id));
     addLinkCell(row, "Excel", `/api/reports/mockup/${encodeURIComponent(run.id)}/excel`);
 
+    row.addEventListener("dblclick", () => loadMockupDetail(run.id));
     tbody.appendChild(row);
   });
 
