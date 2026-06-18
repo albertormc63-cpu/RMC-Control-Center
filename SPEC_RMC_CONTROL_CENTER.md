@@ -535,6 +535,7 @@ Responsabilidades:
 - Filtro por texto/columna.
 - Panel de detalle.
 - Tabla de items Nike.
+- Mostrar herramienta por ítem en detalle.
 - Boton ocultar detalle.
 
 ### mockupView.js

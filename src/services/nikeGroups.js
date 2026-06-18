@@ -20,14 +20,13 @@ const TOOL_SQL = `
   COALESCE(NULLIF(TRIM(herramienta), ''), 'RMCOp-Nike')
 `;
 
-// Busca un run y todos los runs que comparten embarque, ano y herramienta.
+// Busca un run y todos los runs que comparten la misma fecha de embarque y año.
 function getNikeRunGroup(db, sampleRunId) {
   const run = db.prepare(`
     SELECT
       *,
       ${EMBARK_DATE_SQL} AS group_embark_date,
-      ${RUN_YEAR_SQL} AS group_year,
-      ${TOOL_SQL} AS group_tool
+      ${RUN_YEAR_SQL} AS group_year
     FROM rmcop_nike_runs
     WHERE id = ?
   `).get(sampleRunId);
@@ -40,21 +39,18 @@ function getNikeRunGroup(db, sampleRunId) {
     SELECT
       *,
       ${EMBARK_DATE_SQL} AS group_embark_date,
-      ${RUN_YEAR_SQL} AS group_year,
-      ${TOOL_SQL} AS group_tool
+      ${RUN_YEAR_SQL} AS group_year
     FROM rmcop_nike_runs
     WHERE ${EMBARK_DATE_SQL} = ?
       AND ${RUN_YEAR_SQL} = ?
-      AND ${TOOL_SQL} = ?
     ORDER BY id DESC
-  `).all(run.group_embark_date, run.group_year, run.group_tool);
+  `).all(run.group_embark_date, run.group_year);
 
   return {
     run,
     groupRuns,
     embarkDate: run.group_embark_date,
     year: run.group_year,
-    herramienta: run.group_tool,
     runIds: groupRuns.map(groupRun => groupRun.id),
     pedidos: groupRuns.reduce((total, groupRun) => total + Number(groupRun.pedidos || 0), 0),
     piezas: groupRuns.reduce((total, groupRun) => total + Number(groupRun.piezas || 0), 0)

@@ -727,7 +727,6 @@ async function loadRuns() {
         ? `${run.run_count} ${Number(run.run_count) === 1 ? "ejecución" : "ejecuciones"}`
         : "1 ejecución"
     );
-    addCell(row, run.herramienta || "RMCOp-Nike Personalizadas");
     addCell(row, formatNumber(run.pedidos));
     addCell(row, formatNumber(run.piezas));
     addButtonCell(row, "Ver", () => loadRunDetail(actionId));
@@ -753,13 +752,14 @@ async function loadRunDetail(id) {
   const runCount = Number(data.runCount || 1);
   const executionLabel = runCount === 1 ? "ejecución" : "ejecuciones";
 
-  runInfo.textContent = `${runCount} ${executionLabel} | ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)} | ${data.herramienta || data.run?.herramienta || "RMCOp-Nike Personalizadas"} | ${formatNumber(data.totalPieces || data.run?.piezas)} piezas | ${data.year || ""}`;
+  runInfo.textContent = `${runCount} ${executionLabel} | ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)} | ${formatNumber(data.totalPieces || data.run?.piezas)} piezas | ${data.year || ""}`;
   tbody.innerHTML = "";
 
   data.items.forEach(item => {
     const row = document.createElement("tr");
 
     addCell(row, item.run_id || "");
+    addCell(row, item.herramienta || "");
     addCell(row, item.wo || "");
     addCell(row, item.equipo || "");
     addCell(row, item.style || "");

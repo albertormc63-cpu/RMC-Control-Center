@@ -1,4 +1,4 @@
-// Componente RMCOp-Nike: ejecuciones, filtros y detalle de items.
+// Componente RMCOp-Nike: historial de ejecuciones y detalle por embarque.
 window.RMCComponents = window.RMCComponents || {};
 
 window.RMCComponents.nikeView = function nikeView() {
@@ -25,7 +25,6 @@ window.RMCComponents.nikeView = function nikeView() {
               <th>Emb</th>
               <th>Año</th>
               <th>Ej.</th>
-              <th>Herramienta</th>
               <th>Pedidos</th>
               <th>Piezas</th>
               <th>Detalle</th>
@@ -63,6 +62,7 @@ window.RMCComponents.nikeView = function nikeView() {
             <thead>
               <tr>
                 <th>ID Run</th>
+                <th>Herramienta</th>
                 <th>WO</th>
                 <th>Equipo</th>
                 <th>Style</th>

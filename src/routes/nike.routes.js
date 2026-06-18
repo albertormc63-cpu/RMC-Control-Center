@@ -30,13 +30,12 @@ router.get("/runs", (req, res) => {
       SELECT
         fecha_embarque,
         run_year,
-        herramienta,
         MAX(id) AS sample_run_id,
         COUNT(*) AS run_count,
         SUM(pedidos) AS pedidos,
         SUM(piezas) AS piezas
       FROM normalized_runs
-      GROUP BY fecha_embarque, run_year, herramienta
+      GROUP BY fecha_embarque, run_year
       ORDER BY MAX(id) DESC
       LIMIT ?
       OFFSET ?
@@ -74,7 +73,6 @@ router.get("/runs/:id", (req, res) => {
       run: group.run,
       groupDate: group.embarkDate,
       runCount: group.groupRuns.length,
-      herramienta: group.herramienta,
       totalPedidos: group.pedidos,
       totalPieces: group.piezas,
       year: group.year,
