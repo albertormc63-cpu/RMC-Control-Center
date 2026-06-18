@@ -1,9 +1,15 @@
 const express = require("express");
 const db = require("../db");
+const {
+  EMBARK_DATE_SQL,
+  RUN_YEAR_SQL,
+  TOOL_SQL,
+  getNikeRunGroup
+} = require("../services/nikeGroups");
 
 const router = express.Router();
 
-// Lista las ejecuciones Nike mas recientes para la tabla principal.
+// Lista las ejecuciones Nike agrupadas por fecha de embarque.
 router.get("/runs", (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -11,9 +17,27 @@ router.get("/runs", (req, res) => {
     const offset = (page - 1) * limit;
 
     const runs = db.prepare(`
-      SELECT *
-      FROM rmcop_nike_runs
-      ORDER BY id DESC
+      WITH normalized_runs AS (
+        SELECT
+          id,
+          ${EMBARK_DATE_SQL} AS fecha_embarque,
+          ${RUN_YEAR_SQL} AS run_year,
+          ${TOOL_SQL} AS herramienta,
+          COALESCE(pedidos, 0) AS pedidos,
+          COALESCE(piezas, 0) AS piezas
+        FROM rmcop_nike_runs
+      )
+      SELECT
+        fecha_embarque,
+        run_year,
+        herramienta,
+        MAX(id) AS sample_run_id,
+        COUNT(*) AS run_count,
+        SUM(pedidos) AS pedidos,
+        SUM(piezas) AS piezas
+      FROM normalized_runs
+      GROUP BY fecha_embarque, run_year, herramienta
+      ORDER BY MAX(id) DESC
       LIMIT ?
       OFFSET ?
     `).all(limit, offset);
@@ -27,32 +51,36 @@ router.get("/runs", (req, res) => {
   }
 });
 
-// Regresa una ejecucion Nike y todos sus items para el panel de detalle.
+// Regresa los items de Nike para todos los runs con la misma fecha de embarque.
 router.get("/runs/:id", (req, res) => {
   try {
     const { id } = req.params;
 
-    const run = db.prepare(`
-      SELECT *
-      FROM rmcop_nike_runs
-      WHERE id = ?
-    `).get(id);
+    const group = getNikeRunGroup(db, id);
 
-    // Si el usuario abre una ejecucion vieja o inexistente, se responde 404 limpio.
-    if (!run) {
+    if (!group) {
       res.status(404).json({ error: "Ejecucion Nike no encontrada" });
       return;
     }
 
-    // Los items se ordenan de forma natural para produccion: equipo, style y talla.
     const items = db.prepare(`
       SELECT *
       FROM rmcop_nike_items
-      WHERE run_id = ?
-      ORDER BY equipo, style, talla
-    `).all(id);
+      WHERE run_id IN (${group.runIds.map(() => "?").join(",")})
+      ORDER BY run_id, equipo, style, talla
+    `).all(...group.runIds);
 
-    res.json({ run, items });
+    res.json({
+      run: group.run,
+      groupDate: group.embarkDate,
+      runCount: group.groupRuns.length,
+      herramienta: group.herramienta,
+      totalPedidos: group.pedidos,
+      totalPieces: group.piezas,
+      year: group.year,
+      runIds: group.runIds,
+      items
+    });
   } catch (error) {
     res.status(500).json({
       error: "No se pudo leer el detalle Nike",

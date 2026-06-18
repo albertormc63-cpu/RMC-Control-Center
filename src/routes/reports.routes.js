@@ -1,6 +1,7 @@
 const express = require("express");
 const ExcelJS = require("exceljs");
 const db = require("../db");
+const { getNikeRunGroup } = require("../services/nikeGroups");
 
 const router = express.Router();
 
@@ -9,14 +10,10 @@ router.get("/nike/:id/excel", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const run = db.prepare(`
-      SELECT id
-      FROM rmcop_nike_runs
-      WHERE id = ?
-    `).get(id);
+    const group = getNikeRunGroup(db, id);
 
     // El reporte se genera solo si la ejecucion existe.
-    if (!run) {
+    if (!group) {
       res.status(404).json({ error: "Ejecucion Nike no encontrada" });
       return;
     }
@@ -24,6 +21,7 @@ router.get("/nike/:id/excel", async (req, res) => {
     // Columnas operativas que Produccion/Diseno suelen revisar en Excel.
     const items = db.prepare(`
       SELECT 
+        run_id,
         wo,
         ship_order,
         style,
@@ -41,15 +39,16 @@ router.get("/nike/:id/excel", async (req, res) => {
         tiempo,
         clave
       FROM rmcop_nike_items
-      WHERE run_id = ?
-      ORDER BY equipo, style, talla
-    `).all(id);
+      WHERE run_id IN (${group.runIds.map(() => "?").join(",")})
+      ORDER BY run_id, equipo, style, talla
+    `).all(...group.runIds);
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("RMCOp Nike");
 
     // Definicion explicita de headers para mantener estable el archivo exportado.
     sheet.columns = [
+      { header: "Run ID", key: "run_id", width: 20 },
       { header: "WO", key: "wo", width: 18 },
       { header: "Ship Order", key: "ship_order", width: 18 },
       { header: "Style", key: "style", width: 16 },
@@ -72,7 +71,7 @@ router.get("/nike/:id/excel", async (req, res) => {
 
     // Filtro nativo de Excel para que el archivo se pueda explorar al abrirlo.
     sheet.getRow(1).font = { bold: true };
-    sheet.autoFilter = "A1:P1";
+    sheet.autoFilter = "A1:Q1";
 
     res.setHeader(
       "Content-Type",
@@ -81,7 +80,7 @@ router.get("/nike/:id/excel", async (req, res) => {
 
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=RMCOp_Nike_${id}.xlsx`
+      `attachment; filename=RMCOp_Nike_${group.embarkDate.replace("/", "-")}_${group.year}.xlsx`
     );
 
     await workbook.xlsx.write(res);

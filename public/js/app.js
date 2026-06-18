@@ -714,17 +714,26 @@ async function loadRuns() {
 
   runs.forEach(run => {
     const row = document.createElement("tr");
-    row.dataset.runId = run.id;
+    const actionId = run.sample_run_id || run.id;
+    const isGrouped = typeof run.run_count !== "undefined";
+
+    row.dataset.runId = actionId;
 
     addCell(row, formatDDMM(run.fecha_embarque || run.created_at));
-    addCell(row, run.herramienta || "");
+    addCell(row, run.run_year || "");
+    addCell(
+      row,
+      isGrouped
+        ? `${run.run_count} ${Number(run.run_count) === 1 ? "ejecución" : "ejecuciones"}`
+        : "1 ejecución"
+    );
+    addCell(row, run.herramienta || "RMCOp-Nike Personalizadas");
     addCell(row, formatNumber(run.pedidos));
     addCell(row, formatNumber(run.piezas));
-    addCell(row, run.tiempo || "");
-    addButtonCell(row, "Ver", () => loadRunDetail(run.id));
-    addLinkCell(row, "Excel", `/api/reports/nike/${encodeURIComponent(run.id)}/excel`);
+    addButtonCell(row, "Ver", () => loadRunDetail(actionId));
+    addLinkCell(row, "Excel", `/api/reports/nike/${encodeURIComponent(actionId)}/excel`);
 
-    row.addEventListener("dblclick", () => loadRunDetail(run.id));
+    row.addEventListener("dblclick", () => loadRunDetail(actionId));
     tbody.appendChild(row);
   });
 
@@ -741,12 +750,16 @@ async function loadRunDetail(id) {
   const tbody = getElement("itemsTable");
 
   detailSection.classList.remove("hidden");
-  runInfo.textContent = `${data.run.id} | ${formatDDMM(data.run.fecha_embarque || data.run.created_at || "")} | ${data.run.herramienta || ""} | ${formatNumber(data.run.piezas)} piezas | ${data.run.tiempo || "sin tiempo"} | ${formatNumber(data.run.errores)} errores`;
+  const runCount = Number(data.runCount || 1);
+  const executionLabel = runCount === 1 ? "ejecución" : "ejecuciones";
+
+  runInfo.textContent = `${runCount} ${executionLabel} | ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)} | ${data.herramienta || data.run?.herramienta || "RMCOp-Nike Personalizadas"} | ${formatNumber(data.totalPieces || data.run?.piezas)} piezas | ${data.year || ""}`;
   tbody.innerHTML = "";
 
   data.items.forEach(item => {
     const row = document.createElement("tr");
 
+    addCell(row, item.run_id || "");
     addCell(row, item.wo || "");
     addCell(row, item.equipo || "");
     addCell(row, item.style || "");
