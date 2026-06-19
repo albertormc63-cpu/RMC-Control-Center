@@ -67,6 +67,28 @@ function formatDDMM(value) {
   return value;
 }
 
+function extractNikeType(tool) {
+  if (!tool) {
+    return "";
+  }
+
+  const normalized = String(tool).trim().toLowerCase();
+
+  if (normalized.includes("personalizadas")) {
+    return "Personalizadas";
+  }
+
+  if (normalized.includes("genericas") || normalized.includes("genéricas")) {
+    return "Genericas";
+  }
+
+  if (normalized.includes("manual")) {
+    return "Manual";
+  }
+
+  return String(tool).replace(/^RMCOp-Nike\s*/i, "").trim() || "Nike";
+}
+
 // Agrega una linea al log compacto. El log puede estar colapsado sin perder mensajes.
 function appendLog(message, type = "info") {
   const terminal = getElement("terminal");
@@ -752,24 +774,27 @@ async function loadRunDetail(id) {
   const runCount = Number(data.runCount || 1);
   const executionLabel = runCount === 1 ? "ejecución" : "ejecuciones";
 
-  runInfo.textContent = `${runCount} ${executionLabel} | ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)} | ${formatNumber(data.totalPieces || data.run?.piezas)} piezas | ${data.year || ""}`;
+  runInfo.textContent = `${runCount} ${executionLabel} | ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)} | ${data.herramienta || data.run?.herramienta || "RMCOp-Nike"} | ${formatNumber(data.totalPieces || data.run?.piezas)} piezas | ${data.year || ""}`;
   tbody.innerHTML = "";
 
   data.items.forEach(item => {
     const row = document.createElement("tr");
 
-    addCell(row, item.run_id || "");
-    addCell(row, item.herramienta || "");
+    row.dataset.itemId = item.id || "";
+    row.dataset.itemRunId = item.run_id || "";
+
     addCell(row, item.wo || "");
-    addCell(row, item.equipo || "");
     addCell(row, item.style || "");
+    addCell(row, item.equipo || "");
+    addCell(row, item.variante || "");
     addCell(row, item.talla || "");
     addCell(row, formatNumber(item.piezas));
     addCell(row, item.nombre || "");
     addCell(row, item.numero || "");
     addCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
-    addCell(row, item.error || "");
+    addButtonCell(row, "Ver mas", () => showNikeItemModal(item));
 
+    row.addEventListener("dblclick", () => showNikeItemModal(item));
     tbody.appendChild(row);
   });
 
@@ -946,6 +971,77 @@ function bindDetailControls() {
   }
 }
 
+function showNikeItemModal(item) {
+  const modal = getElement("nikeItemModal");
+  const title = getElement("nikeItemTitle");
+  const tool = getElement("nikeItemTool");
+  const runId = getElement("nikeItemRunId");
+  const status = getElement("nikeItemStatus");
+  const maqueta = getElement("nikeItemMaqueta");
+  const maquetaPath = getElement("nikeItemMaquetaPath");
+  const plantilla = getElement("nikeItemPlantilla");
+  const plantillaPath = getElement("nikeItemPlantillaPath");
+  const excel = getElement("nikeItemExcel");
+  const excelPath = getElement("nikeItemExcelPath");
+
+  if (!modal || !title || !tool || !runId || !status || !maqueta || !plantilla || !excel) {
+    return;
+  }
+
+  title.textContent = [item.wo, item.style, item.talla].filter(Boolean).join(" | ") || "Item Nike";
+  tool.textContent = item.herramienta || "Sin herramienta";
+  runId.textContent = item.run_id || "Sin run";
+  status.textContent = item.estado || "Sin estado";
+
+  const paths = {
+    maqueta: item.maqueta_path || item.path || item.archivo || "",
+    plantilla: item.plantilla_path || "",
+    excel: item.roster_path || item.excel_path || ""
+  };
+
+  maqueta.href = "#";
+  plantilla.href = "#";
+  excel.href = "#";
+  maqueta.dataset.path = paths.maqueta;
+  plantilla.dataset.path = paths.plantilla;
+  excel.dataset.path = paths.excel;
+
+  if (maquetaPath) maquetaPath.textContent = paths.maqueta || "Ruta pendiente de definir";
+  if (plantillaPath) plantillaPath.textContent = paths.plantilla || "Ruta pendiente de definir";
+  if (excelPath) excelPath.textContent = paths.excel || "Ruta pendiente de definir";
+
+  modal.showModal();
+}
+
+function bindNikeItemModal() {
+  const modal = getElement("nikeItemModal");
+  const closeButton = getElement("closeNikeItemModal");
+  const maquetaLink = getElement("nikeItemMaqueta");
+  const plantillaLink = getElement("nikeItemPlantilla");
+  const excelLink = getElement("nikeItemExcel");
+
+  if (!modal || !closeButton) {
+    return;
+  }
+
+  closeButton.addEventListener("click", () => {
+    modal.close();
+  });
+
+  [maquetaLink, plantillaLink, excelLink].forEach(link => {
+    if (!link) return;
+    link.addEventListener("click", event => {
+      event.preventDefault();
+      appendLog(
+        link.dataset.path
+          ? `Apertura en Finder pendiente: ${link.dataset.path}`
+          : "Ruta exacta pendiente de implementar",
+        "info"
+      );
+    });
+  });
+}
+
 // Conecta filtros de texto/columna para todas las tablas configuradas.
 function bindTableFilters() {
   filterTargets.forEach(tableId => {
@@ -1042,6 +1138,7 @@ async function init() {
   bindSidebarControls();
   bindLogControls();
   bindDetailControls();
+  bindNikeItemModal();
   bindTableFilters();
   bindTableSorting();
   bindRegistryModal();

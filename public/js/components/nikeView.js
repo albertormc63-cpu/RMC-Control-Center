@@ -61,17 +61,16 @@ window.RMCComponents.nikeView = function nikeView() {
           <table>
             <thead>
               <tr>
-                <th>ID Run</th>
-                <th>Herramienta</th>
                 <th>WO</th>
-                <th>Equipo</th>
                 <th>Style</th>
+                <th>Equipo</th>
+                <th>Variante</th>
                 <th>Talla</th>
                 <th>Piezas</th>
                 <th>Nombre</th>
                 <th>Numero</th>
                 <th>Estado</th>
-                <th>Error</th>
+                <th>Ver mas</th>
               </tr>
             </thead>
 
@@ -79,6 +78,57 @@ window.RMCComponents.nikeView = function nikeView() {
           </table>
         </div>
       </section>
+
+      <dialog id="nikeItemModal" class="modal nike-item-modal">
+        <div class="modal-header">
+          <div>
+            <span class="modal-eyebrow">Detalle de item</span>
+            <h3 id="nikeItemTitle">Item Nike</h3>
+          </div>
+          <button id="closeNikeItemModal" class="secondary-button" type="button">Cerrar</button>
+        </div>
+
+        <div class="nike-item-summary">
+          <div>
+            <span>Herramienta</span>
+            <strong id="nikeItemTool"></strong>
+          </div>
+          <div>
+            <span>Run ID</span>
+            <strong id="nikeItemRunId"></strong>
+          </div>
+          <div>
+            <span>Estado</span>
+            <strong id="nikeItemStatus"></strong>
+          </div>
+        </div>
+
+        <div class="resource-list">
+          <a id="nikeItemMaqueta" class="resource-link" href="#" aria-disabled="true">
+            <span class="resource-copy">
+              <strong>Ver Maqueta</strong>
+              <small id="nikeItemMaquetaPath">Ruta pendiente de definir</small>
+            </span>
+            <span class="resource-state">Pendiente</span>
+          </a>
+
+          <a id="nikeItemPlantilla" class="resource-link" href="#" aria-disabled="true">
+            <span class="resource-copy">
+              <strong>Ver Plantilla</strong>
+              <small id="nikeItemPlantillaPath">Ruta pendiente de definir</small>
+            </span>
+            <span class="resource-state">Pendiente</span>
+          </a>
+
+          <a id="nikeItemExcel" class="resource-link" href="#" aria-disabled="true">
+            <span class="resource-copy">
+              <strong>Ver WO/Roster en Excel</strong>
+              <small id="nikeItemExcelPath">Ruta pendiente de definir</small>
+            </span>
+            <span class="resource-state">Pendiente</span>
+          </a>
+        </div>
+      </dialog>
     </section>
   `;
 };

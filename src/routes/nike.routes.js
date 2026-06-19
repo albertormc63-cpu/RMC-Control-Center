@@ -73,6 +73,7 @@ router.get("/runs/:id", (req, res) => {
       run: group.run,
       groupDate: group.embarkDate,
       runCount: group.groupRuns.length,
+      herramienta: group.herramienta,
       totalPedidos: group.pedidos,
       totalPieces: group.piezas,
       year: group.year,
