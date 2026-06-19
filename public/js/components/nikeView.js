@@ -104,21 +104,25 @@ window.RMCComponents.nikeView = function nikeView() {
         </div>
 
         <div class="resource-list">
-          <a id="nikeItemMaqueta" class="resource-link" href="#" aria-disabled="true">
-            <span class="resource-copy">
+          <div class="resource-link">
+            <a id="nikeItemMaqueta" class="resource-main-action" href="#" aria-disabled="true">
               <strong>Ver Maqueta</strong>
               <small id="nikeItemMaquetaPath">Ruta pendiente de definir</small>
-            </span>
-            <span class="resource-state">Pendiente</span>
-          </a>
+            </a>
+            <a id="nikeItemMaquetaDownload" class="resource-state resource-download" href="#" aria-disabled="true">
+              Descargar
+            </a>
+          </div>
 
-          <a id="nikeItemPlantilla" class="resource-link" href="#" aria-disabled="true">
-            <span class="resource-copy">
+          <div class="resource-link">
+            <a id="nikeItemPlantilla" class="resource-main-action" href="#" aria-disabled="true">
               <strong>Ver Plantilla</strong>
               <small id="nikeItemPlantillaPath">Ruta pendiente de definir</small>
-            </span>
-            <span class="resource-state">Pendiente</span>
-          </a>
+            </a>
+            <a id="nikeItemPlantillaDownload" class="resource-state resource-download" href="#" aria-disabled="true">
+              Descargar
+            </a>
+          </div>
 
           <a id="nikeItemExcel" class="resource-link" href="#" aria-disabled="true">
             <span class="resource-copy">

@@ -8,6 +8,7 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 const mockupRoutes = require("./routes/mockup.routes");
 const nikeRoutes = require("./routes/nike.routes");
 const reportsRoutes = require("./routes/reports.routes");
+const filesRoutes = require("./routes/files.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,18 +29,21 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/mockup", mockupRoutes);
 app.use("/api/nike", nikeRoutes);
 app.use("/api/reports", reportsRoutes);
+app.use("/api/files", filesRoutes);
 
 // Manejador final para errores no capturados por rutas especificas.
 app.use((error, req, res, next) => {
   console.error(error);
-  res.status(500).json({
-    error: "Error interno del servidor",
+  res.status(error.status || 500).json({
+    error: error.status ? error.message : "Error interno del servidor",
     message: error.message
   });
 });
 
 // Escucha en 0.0.0.0 para que el Control Center sea visible en LAN.
 app.listen(PORT, "0.0.0.0", () => {
+  const lanHost = process.env.RMC_LAN_HOST || "IP-DE-LA-MAC";
   console.log("RMC LAN Reporter activo");
   console.log(`Local: http://localhost:${PORT}`);
+  console.log(`LAN: http://${lanHost}:${PORT}`);
 });

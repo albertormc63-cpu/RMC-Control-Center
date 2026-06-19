@@ -978,13 +978,15 @@ function showNikeItemModal(item) {
   const runId = getElement("nikeItemRunId");
   const status = getElement("nikeItemStatus");
   const maqueta = getElement("nikeItemMaqueta");
+  const maquetaDownload = getElement("nikeItemMaquetaDownload");
   const maquetaPath = getElement("nikeItemMaquetaPath");
   const plantilla = getElement("nikeItemPlantilla");
+  const plantillaDownload = getElement("nikeItemPlantillaDownload");
   const plantillaPath = getElement("nikeItemPlantillaPath");
   const excel = getElement("nikeItemExcel");
   const excelPath = getElement("nikeItemExcelPath");
 
-  if (!modal || !title || !tool || !runId || !status || !maqueta || !plantilla || !excel) {
+  if (!modal || !title || !tool || !runId || !status || !maqueta || !maquetaDownload || !plantilla || !plantillaDownload || !excel) {
     return;
   }
 
@@ -994,17 +996,40 @@ function showNikeItemModal(item) {
   status.textContent = item.estado || "Sin estado";
 
   const paths = {
-    maqueta: item.maqueta_path || item.path || item.archivo || "",
-    plantilla: item.plantilla_path || "",
+    maqueta: item.maqueta_path || "",
+    plantilla: item.plantilla_path || item.path || "",
     excel: item.roster_path || item.excel_path || ""
   };
 
-  maqueta.href = "#";
-  plantilla.href = "#";
+  const hasMaqueta = Boolean(item.id && paths.maqueta);
+  maqueta.href = hasMaqueta
+    ? `/api/files/nike/${encodeURIComponent(item.id)}/maqueta/view`
+    : "#";
+  maqueta.target = hasMaqueta ? "_blank" : "";
+  maquetaDownload.href = hasMaqueta
+    ? `/api/files/nike/${encodeURIComponent(item.id)}/maqueta/download`
+    : "#";
+  const hasPlantilla = Boolean(item.id && paths.plantilla);
+  plantilla.href = hasPlantilla
+    ? `/api/files/nike/${encodeURIComponent(item.id)}/plantilla/view`
+    : "#";
+  plantilla.target = hasPlantilla ? "_blank" : "";
+  plantillaDownload.href = hasPlantilla
+    ? `/api/files/nike/${encodeURIComponent(item.id)}/plantilla/download`
+    : "#";
   excel.href = "#";
   maqueta.dataset.path = paths.maqueta;
+  maquetaDownload.dataset.path = paths.maqueta;
   plantilla.dataset.path = paths.plantilla;
+  plantillaDownload.dataset.path = paths.plantilla;
   excel.dataset.path = paths.excel;
+
+  maqueta.setAttribute("aria-disabled", String(!hasMaqueta));
+  maquetaDownload.setAttribute("aria-disabled", String(!hasMaqueta));
+  maquetaDownload.textContent = hasMaqueta ? "Descargar" : "Pendiente";
+  plantilla.setAttribute("aria-disabled", String(!hasPlantilla));
+  plantillaDownload.setAttribute("aria-disabled", String(!hasPlantilla));
+  plantillaDownload.textContent = hasPlantilla ? "Descargar" : "Pendiente";
 
   if (maquetaPath) maquetaPath.textContent = paths.maqueta || "Ruta pendiente de definir";
   if (plantillaPath) plantillaPath.textContent = paths.plantilla || "Ruta pendiente de definir";
@@ -1017,7 +1042,9 @@ function bindNikeItemModal() {
   const modal = getElement("nikeItemModal");
   const closeButton = getElement("closeNikeItemModal");
   const maquetaLink = getElement("nikeItemMaqueta");
+  const maquetaDownload = getElement("nikeItemMaquetaDownload");
   const plantillaLink = getElement("nikeItemPlantilla");
+  const plantillaDownload = getElement("nikeItemPlantillaDownload");
   const excelLink = getElement("nikeItemExcel");
 
   if (!modal || !closeButton) {
@@ -1028,13 +1055,18 @@ function bindNikeItemModal() {
     modal.close();
   });
 
-  [maquetaLink, plantillaLink, excelLink].forEach(link => {
+  [maquetaLink, maquetaDownload, plantillaLink, plantillaDownload, excelLink].forEach(link => {
     if (!link) return;
     link.addEventListener("click", event => {
+      if (link.getAttribute("aria-disabled") !== "true") {
+        appendLog(`Archivo solicitado: ${link.dataset.path}`, "success");
+        return;
+      }
+
       event.preventDefault();
       appendLog(
         link.dataset.path
-          ? `Apertura en Finder pendiente: ${link.dataset.path}`
+          ? `Archivo pendiente de habilitar: ${link.dataset.path}`
           : "Ruta exacta pendiente de implementar",
         "info"
       );

@@ -6,6 +6,7 @@ const {
   TOOL_SQL,
   getNikeRunGroup
 } = require("../services/nikeGroups");
+const { attachNikeFilePaths } = require("../services/nikeFiles");
 
 const router = express.Router();
 
@@ -62,12 +63,13 @@ router.get("/runs/:id", (req, res) => {
       return;
     }
 
-    const items = db.prepare(`
+    const rawItems = db.prepare(`
       SELECT *
       FROM rmcop_nike_items
       WHERE run_id IN (${group.runIds.map(() => "?").join(",")})
       ORDER BY run_id, equipo, style, talla
     `).all(...group.runIds);
+    const items = rawItems.map(item => attachNikeFilePaths(db, item));
 
     res.json({
       run: group.run,

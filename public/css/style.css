@@ -701,6 +701,46 @@ tbody tr:hover td {
   text-decoration: none;
 }
 
+.resource-main-action {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.resource-main-action[aria-disabled="false"] strong {
+  color: #ffffff;
+}
+
+.resource-main-action strong,
+.resource-main-action small {
+  display: block;
+}
+
+.resource-main-action small {
+  overflow: hidden;
+  color: var(--rmc-muted-low);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-download {
+  text-decoration: none;
+}
+
+.resource-download[aria-disabled="false"] {
+  background: #821424;
+  color: #ffffff;
+}
+
+.resource-download[aria-disabled="false"]:hover {
+  background: #a21a2f;
+}
+
 .resource-link:hover {
   border-color: var(--rmc-border-strong);
   background: var(--rmc-surface-deep);
