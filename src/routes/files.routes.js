@@ -9,29 +9,7 @@ const router = express.Router();
 // Limita cualquier lectura de archivos al volumen autorizado para RMC.
 const fileRoot = path.resolve(process.env.RMC_FILE_ROOT || "/Volumes/Fullsize");
 
-function getNikeFile(itemId, fileType) {
-  if (!["maqueta", "plantilla"].includes(fileType)) {
-    const error = new Error("Tipo de archivo Nike no reconocido");
-    error.status = 404;
-    throw error;
-  }
-
-  const item = getNikeItemWithFilePaths(db, itemId);
-
-  if (!item) {
-    const error = new Error("Item Nike no encontrado");
-    error.status = 404;
-    throw error;
-  }
-
-  const selectedPath = fileType === "maqueta" ? item.maqueta_path : item.plantilla_path;
-
-  if (!selectedPath || !path.isAbsolute(selectedPath)) {
-    const error = new Error(`El item no tiene una ruta de ${fileType} registrada`);
-    error.status = 404;
-    throw error;
-  }
-
+function validateFilePath(item, selectedPath) {
   const requestedPath = path.resolve(selectedPath);
   const relativePath = path.relative(fileRoot, requestedPath);
 
@@ -66,9 +44,74 @@ function getNikeFile(itemId, fileType) {
   };
 }
 
+function getNikeFile(itemId, fileType) {
+  if (!["maqueta", "plantilla"].includes(fileType)) {
+    const error = new Error("Tipo de archivo Nike no reconocido");
+    error.status = 404;
+    throw error;
+  }
+
+  const item = getNikeItemWithFilePaths(db, itemId);
+
+  if (!item) {
+    const error = new Error("Item Nike no encontrado");
+    error.status = 404;
+    throw error;
+  }
+
+  const selectedPath = fileType === "maqueta" ? item.maqueta_path : item.plantilla_path;
+
+  if (!selectedPath || !path.isAbsolute(selectedPath)) {
+    const error = new Error(`El item no tiene una ruta de ${fileType} registrada`);
+    error.status = 404;
+    throw error;
+  }
+
+  return validateFilePath(item, selectedPath);
+}
+
+function getMockupFile(itemId) {
+  const item = db.prepare(`
+    SELECT id, path
+    FROM rmc_mockuptool_items
+    WHERE id = ?
+  `).get(itemId);
+
+  if (!item) {
+    const error = new Error("Item MockupTool no encontrado");
+    error.status = 404;
+    throw error;
+  }
+
+  if (!item.path || !path.isAbsolute(item.path)) {
+    const error = new Error("El item no tiene una ruta de maqueta registrada");
+    error.status = 404;
+    throw error;
+  }
+
+  return validateFilePath(item, item.path);
+}
+
 function sendNikeFile(req, res, next, disposition) {
   try {
     const file = getNikeFile(req.params.itemId, req.params.fileType);
+
+    res.type(path.extname(file.fileName));
+    res.setHeader(
+      "Content-Disposition",
+      `${disposition}; filename*=UTF-8''${encodeURIComponent(file.fileName)}`
+    );
+    res.sendFile(file.filePath, error => {
+      if (error) next(error);
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+function sendMockupFile(req, res, next, disposition) {
+  try {
+    const file = getMockupFile(req.params.itemId);
 
     res.type(path.extname(file.fileName));
     res.setHeader(
@@ -91,6 +134,14 @@ router.get("/nike/:itemId/:fileType/view", (req, res, next) => {
 // Fuerza la descarga del archivo original conservando su nombre.
 router.get("/nike/:itemId/:fileType/download", (req, res, next) => {
   sendNikeFile(req, res, next, "attachment");
+});
+
+router.get("/mockup/:itemId/maqueta/view", (req, res, next) => {
+  sendMockupFile(req, res, next, "inline");
+});
+
+router.get("/mockup/:itemId/maqueta/download", (req, res, next) => {
+  sendMockupFile(req, res, next, "attachment");
 });
 
 module.exports = router;

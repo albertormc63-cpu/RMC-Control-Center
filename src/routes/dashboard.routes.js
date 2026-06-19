@@ -380,43 +380,6 @@ router.get("/registry", (req, res) => {
   }
 });
 
-// Alta manual de apps CEP. Solo registra metadata, no crea tablas operativas.
-router.post("/registry", (req, res) => {
-  try {
-    const sourceApp = String(req.body.source_app || "").trim();
-    const runsTable = String(req.body.runs_table || "").trim();
-    const appVersion = String(req.body.app_version || "").trim();
-
-    if (!sourceApp || !runsTable) {
-      res.status(400).json({
-        error: "Faltan datos",
-        message: "source_app y runs_table son obligatorios"
-      });
-      return;
-    }
-
-    db.prepare(`
-      INSERT INTO cep_registry (source_app, runs_table, app_version)
-      VALUES (?, ?, ?)
-    `).run(sourceApp, runsTable, appVersion || null);
-
-    const created = db.prepare(`
-      SELECT source_app, runs_table, app_version, created_at, updated_at
-      FROM cep_registry
-      WHERE source_app = ?
-    `).get(sourceApp);
-
-    res.status(201).json(created);
-  } catch (error) {
-    const isDuplicate = error.code === "SQLITE_CONSTRAINT_PRIMARYKEY";
-
-    res.status(isDuplicate ? 409 : 500).json({
-      error: isDuplicate ? "CEP ya registrado" : "No se pudo registrar el CEP",
-      message: error.message
-    });
-  }
-});
-
 // Conteo fijo de tablas conocidas para diagnostico rapido de la BD.
 router.get("/tables", (req, res) => {
   try {

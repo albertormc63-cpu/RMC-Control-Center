@@ -24,5 +24,7 @@ La BD conserva rutas absolutas bajo `/Volumes/Fullsize`. El navegador no recibe 
 - `GET /api/files/nike/:itemId/maqueta/view` muestra la maqueta creada por RMC MockupTool.
 - `GET /api/files/nike/:itemId/plantilla/view` muestra la plantilla creada por RMCOp-Nike.
 - Al cambiar `/view` por `/download`, se descarga el archivo correspondiente.
+- `GET /api/files/mockup/:itemId/maqueta/view` muestra la maqueta desde el detalle MockupTool.
+- `GET /api/files/mockup/:itemId/maqueta/download` descarga esa maqueta.
 
 No se ejecutan comandos `open`, `explorer` ni rutas recibidas directamente desde el navegador. Esto permite que el mismo flujo funcione desde clientes Mac y Windows sin abrir Finder en la Mac servidor.

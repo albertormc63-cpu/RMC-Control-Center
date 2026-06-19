@@ -19,12 +19,12 @@ window.RMCComponents.sidebar = function sidebar() {
       <section class="menu-group">
         <h3>HERRAMIENTAS</h3>
         <button class="menu-item" type="button" data-view="nike-view">
-          <span>RMCOp-Nike</span>
+          <span>Pedidos RMC Nike</span>
           <img class="menu-icon menu-icon-img" src="/assets/logo%20nike.svg" alt="">
         </button>
 
         <button class="menu-item" type="button" data-view="mockup-view">
-          <span>RMC MockupTool</span>
+          <span>Maquetas RMC Nike</span>
           <i class="fi fi-rs-file-pdf menu-icon" aria-hidden="true"></i>
         </button>
       </section>
@@ -95,6 +95,5 @@ window.RMCComponents.renderApp = function renderApp(root) {
       Creado por Jose Alberto Villarreal Garcia
     </footer>
 
-    ${window.RMCComponents.registryModal()}
   `;
 };

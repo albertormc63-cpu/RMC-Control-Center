@@ -1,9 +1,14 @@
 const express = require("express");
 const db = require("../db");
+const {
+  MOCKUP_EMBARK_DATE_SQL,
+  MOCKUP_RUN_YEAR_SQL,
+  getMockupRunGroup
+} = require("../services/mockupGroups");
 
 const router = express.Router();
 
-// Lista las ejecuciones de MockupTool para explorarlas desde el dashboard.
+// Lista embarques MockupTool agrupando sus ejecuciones por fecha y ano.
 router.get("/runs", (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -11,9 +16,25 @@ router.get("/runs", (req, res) => {
     const offset = (page - 1) * limit;
 
     const runs = db.prepare(`
-      SELECT *
-      FROM rmc_mockuptool_runs
-      ORDER BY id DESC
+      WITH normalized_runs AS (
+        SELECT
+          id,
+          ${MOCKUP_EMBARK_DATE_SQL} AS fecha_embarque,
+          ${MOCKUP_RUN_YEAR_SQL} AS run_year,
+          COALESCE(filas_seleccionadas, 0) AS pedidos,
+          COALESCE(pdfs_generados, 0) AS maquetas
+        FROM rmc_mockuptool_runs
+      )
+      SELECT
+        fecha_embarque,
+        run_year,
+        MAX(id) AS sample_run_id,
+        COUNT(*) AS run_count,
+        SUM(pedidos) AS pedidos,
+        SUM(maquetas) AS maquetas
+      FROM normalized_runs
+      GROUP BY fecha_embarque, run_year
+      ORDER BY MAX(id) DESC
       LIMIT ?
       OFFSET ?
     `).all(limit, offset);
@@ -27,32 +48,37 @@ router.get("/runs", (req, res) => {
   }
 });
 
-// Regresa una ejecucion MockupTool y sus items consolidados.
+// Regresa todos los items del embarque al que pertenece la ejecucion elegida.
 router.get("/runs/:id", (req, res) => {
   try {
     const { id } = req.params;
 
-    const run = db.prepare(`
-      SELECT *
-      FROM rmc_mockuptool_runs
-      WHERE id = ?
-    `).get(id);
+    const group = getMockupRunGroup(db, id);
 
     // Evita que la UI intente pintar detalles cuando el id no existe.
-    if (!run) {
+    if (!group) {
       res.status(404).json({ error: "Ejecucion MockupTool no encontrada" });
       return;
     }
 
-    // Orden pensado para revisar plantillas por equipo/style/talla.
+    // Conserva el run_id para identificar de que ejecucion proviene cada maqueta.
     const items = db.prepare(`
       SELECT *
       FROM rmc_mockuptool_items
-      WHERE run_id = ?
-      ORDER BY equipo, style, talla
-    `).all(id);
+      WHERE run_id IN (${group.runIds.map(() => "?").join(",")})
+      ORDER BY run_id, equipo, style, talla
+    `).all(...group.runIds);
 
-    res.json({ run, items });
+    res.json({
+      run: group.run,
+      groupDate: group.embarkDate,
+      runCount: group.groupRuns.length,
+      totalPedidos: group.pedidos,
+      totalMaquetas: group.maquetas,
+      year: group.year,
+      runIds: group.runIds,
+      items
+    });
   } catch (error) {
     res.status(500).json({
       error: "No se pudo leer el detalle MockupTool",

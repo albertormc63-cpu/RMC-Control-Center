@@ -1,6 +1,7 @@
 const express = require("express");
 const ExcelJS = require("exceljs");
 const db = require("../db");
+const { getMockupRunGroup } = require("../services/mockupGroups");
 const { getNikeRunGroup } = require("../services/nikeGroups");
 
 const router = express.Router();
@@ -97,13 +98,9 @@ router.get("/mockup/:id/excel", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const run = db.prepare(`
-      SELECT id
-      FROM rmc_mockuptool_runs
-      WHERE id = ?
-    `).get(id);
+    const group = getMockupRunGroup(db, id);
 
-    if (!run) {
+    if (!group) {
       res.status(404).json({ error: "Ejecucion MockupTool no encontrada" });
       return;
     }
@@ -111,6 +108,7 @@ router.get("/mockup/:id/excel", async (req, res) => {
     const items = db.prepare(`
       SELECT
         wo,
+        run_id,
         herramienta,
         fila_excel,
         ship_order,
@@ -127,15 +125,16 @@ router.get("/mockup/:id/excel", async (req, res) => {
         tiempo,
         clave
       FROM rmc_mockuptool_items
-      WHERE run_id = ?
-      ORDER BY equipo, style, talla
-    `).all(id);
+      WHERE run_id IN (${group.runIds.map(() => "?").join(",")})
+      ORDER BY run_id, equipo, style, talla
+    `).all(...group.runIds);
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("MockupTool");
 
     sheet.columns = [
       { header: "WO", key: "wo", width: 18 },
+      { header: "Run ID", key: "run_id", width: 20 },
       { header: "Herramienta", key: "herramienta", width: 18 },
       { header: "Fila Excel", key: "fila_excel", width: 12 },
       { header: "Ship Order", key: "ship_order", width: 18 },
@@ -155,7 +154,7 @@ router.get("/mockup/:id/excel", async (req, res) => {
 
     items.forEach(item => sheet.addRow(item));
     sheet.getRow(1).font = { bold: true };
-    sheet.autoFilter = "A1:P1";
+    sheet.autoFilter = "A1:Q1";
 
     res.setHeader(
       "Content-Type",
@@ -163,7 +162,7 @@ router.get("/mockup/:id/excel", async (req, res) => {
     );
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=MockupTool_${id}.xlsx`
+      `attachment; filename=MockupTool_${group.embarkDate.replace("/", "-")}_${group.year}.xlsx`
     );
 
     await workbook.xlsx.write(res);

@@ -2,7 +2,16 @@
 
 Documento vivo de referencia para entender el estado, decisiones y reglas del repo `RMC Control Center`.
 
-Ultima actualizacion: 2026-06-16
+Ultima actualizacion: 2026-06-19
+
+## Actualizacion Operativa 19/06/2026
+
+- El menu Herramientas muestra `Pedidos RMC Nike` y `Maquetas RMC Nike`.
+- RMCOp-Nike y RMC MockupTool agrupan sus ejecuciones por `fecha_embarque` y ano.
+- El detalle MockupTool consolida todos los runs del embarque y permite abrir cada maqueta con boton o doble clic.
+- Los reportes Excel MockupTool incluyen todos los runs del embarque agrupado.
+- CEP Registry funciona en modo solo lectura: no existe boton, modal ni endpoint para registrar apps desde la interfaz.
+- Las especificaciones historicas posteriores sobre alta manual en Registry quedan reemplazadas por esta politica.
 
 ## Objetivo
 
@@ -914,4 +923,3 @@ Pruebas realizadas durante el desarrollo:
 - Agregar endpoint generico por CEP cuando haya mas herramientas.
 - Agregar autenticacion si se expone mas alla de LAN confiable.
 - Agregar respaldo/validacion de schema al iniciar.
-

@@ -1,4 +1,4 @@
-// Componente CEP Registry: inventario de herramientas y modal de alta.
+// Componente CEP Registry: inventario de herramientas en modo solo lectura.
 window.RMCComponents = window.RMCComponents || {};
 
 window.RMCComponents.exportsView = function exportsView() {
@@ -15,7 +15,6 @@ window.RMCComponents.registryView = function registryView() {
     <section id="registry-view" class="view">
       <div class="view-header">
         <h2>CEP Registry</h2>
-        <button id="openRegistryModal" type="button">Agregar nuevo</button>
       </div>
 
       <div class="registry-grid">
@@ -52,39 +51,5 @@ window.RMCComponents.registryView = function registryView() {
         </section>
       </div>
     </section>
-  `;
-};
-
-window.RMCComponents.registryModal = function registryModal() {
-  return `
-    <dialog id="registryModal" class="modal">
-      <form id="registryForm" method="dialog">
-        <div class="modal-header">
-          <h3>Agregar CEP</h3>
-          <button id="closeRegistryModal" class="secondary-button" type="button">Cerrar</button>
-        </div>
-
-        <label>
-          App
-          <input name="source_app" type="text" placeholder="RMC Optimizador" required>
-        </label>
-
-        <label>
-          Tabla runs
-          <input name="runs_table" type="text" placeholder="rmc_optimizador_runs" required>
-        </label>
-
-        <label>
-          Version
-          <input name="app_version" type="text" placeholder="1.0.0">
-        </label>
-
-        <p id="registryFormMessage" class="form-message"></p>
-
-        <div class="modal-actions">
-          <button type="submit">Guardar</button>
-        </div>
-      </form>
-    </dialog>
   `;
 };

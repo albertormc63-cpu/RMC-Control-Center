@@ -124,22 +124,6 @@ async function getJSON(url) {
   return response.json();
 }
 
-// POST JSON usado por formularios como el alta de CEP Registry.
-async function postJSON(url, payload) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.message || body.error || "No se pudo guardar");
-  }
-
-  return response.json();
-}
-
 // Crea una celda de tabla y la agrega a la fila recibida.
 function addCell(row, value, className) {
   const cell = document.createElement("td");
@@ -814,23 +798,25 @@ async function loadMockupRuns() {
 
   runs.forEach(run => {
     const row = document.createElement("tr");
-    row.dataset.runId = run.id;
+    const actionId = run.sample_run_id || run.id;
+    const runCount = Number(run.run_count || 1);
+    row.dataset.runId = actionId;
 
-    addCell(row, formatDDMM(run.fecha));
-    addCell(row, run.seccion || "");
-    addCell(row, run.disenador || "");
-    addCell(row, run.styles || "");
-    addCell(row, formatNumber(run.pdfs_generados));
-    addButtonCell(row, "Ver", () => loadMockupDetail(run.id));
-    addLinkCell(row, "Excel", `/api/reports/mockup/${encodeURIComponent(run.id)}/excel`);
+    addCell(row, formatDDMM(run.fecha_embarque || run.fecha));
+    addCell(row, run.run_year || "");
+    addCell(row, `${runCount} ${runCount === 1 ? "ejecución" : "ejecuciones"}`);
+    addCell(row, formatNumber(run.pedidos));
+    addCell(row, formatNumber(run.maquetas));
+    addButtonCell(row, "Ver", () => loadMockupDetail(actionId));
+    addLinkCell(row, "Excel", `/api/reports/mockup/${encodeURIComponent(actionId)}/excel`);
 
-    row.addEventListener("dblclick", () => loadMockupDetail(run.id));
+    row.addEventListener("dblclick", () => loadMockupDetail(actionId));
     tbody.appendChild(row);
   });
 
   refreshTableFilter("mockupTable");
   updateSortIndicators("mockupTable");
-  appendLog(`RMC MockupTool: ${runs.length} ejecuciones cargadas (página ${data.page || 1})`, "success");
+  appendLog(`Maquetas RMC Nike: ${runs.length} embarques cargados`, "success");
 }
 
 // Carga el detalle de una ejecucion MockupTool.
@@ -841,20 +827,25 @@ async function loadMockupDetail(id) {
   const tbody = getElement("mockupItemsTable");
 
   detailSection.classList.remove("hidden");
-  runInfo.textContent = `${data.run.id} | ${data.run.fecha || ""} ${data.run.hora || ""} | ${formatNumber(data.run.pdfs_generados)} plantillas`;
+  const runCount = Number(data.runCount || 1);
+  runInfo.textContent = `${runCount} ${runCount === 1 ? "ejecución" : "ejecuciones"} | ${formatDDMM(data.groupDate || data.run.fecha_embarque)} | ${formatNumber(data.totalMaquetas)} maquetas | ${data.year || ""}`;
   tbody.innerHTML = "";
 
   data.items.forEach(item => {
     const row = document.createElement("tr");
 
     addCell(row, item.wo || "");
-    addCell(row, item.equipo || "");
     addCell(row, item.style || "");
+    addCell(row, item.equipo || "");
+    addCell(row, item.variante || "");
     addCell(row, item.talla || "");
     addCell(row, formatNumber(item.piezas));
-    addCell(row, item.archivo || "");
     addCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
-    addCell(row, item.error || "");
+    addButtonCell(row, "Ver mas", () => showMockupItemModal(item));
+
+    row.dataset.itemId = item.id || "";
+    row.dataset.itemRunId = item.run_id || "";
+    row.addEventListener("dblclick", () => showMockupItemModal(item));
 
     tbody.appendChild(row);
   });
@@ -862,7 +853,7 @@ async function loadMockupDetail(id) {
   refreshTableFilter("mockupItemsTable");
   updateSortIndicators("mockupItemsTable");
   detailSection.scrollIntoView({ behavior: "smooth", block: "start" });
-  appendLog(`Detalle MockupTool ${id}: ${data.items.length} items`, "success");
+  appendLog(`Detalle de maquetas ${id}: ${data.items.length} items`, "success");
 }
 
 // Carga CEP Registry y el conteo de tablas SQLite conocidas.
@@ -1074,6 +1065,73 @@ function bindNikeItemModal() {
   });
 }
 
+// Muestra exclusivamente la maqueta creada por RMC MockupTool para este item.
+function showMockupItemModal(item) {
+  const modal = getElement("mockupItemModal");
+  const title = getElement("mockupItemTitle");
+  const tool = getElement("mockupItemTool");
+  const runId = getElement("mockupItemRunId");
+  const status = getElement("mockupItemStatus");
+  const maqueta = getElement("mockupItemMaqueta");
+  const download = getElement("mockupItemMaquetaDownload");
+  const pathLabel = getElement("mockupItemMaquetaPath");
+
+  if (!modal || !title || !tool || !runId || !status || !maqueta || !download) {
+    return;
+  }
+
+  const hasMaqueta = Boolean(item.id && item.path);
+  title.textContent = [item.wo, item.style, item.talla].filter(Boolean).join(" | ") || "Maqueta";
+  tool.textContent = item.herramienta || "RMC MockupTool";
+  runId.textContent = item.run_id || "Sin run";
+  status.textContent = item.estado || "Sin estado";
+  maqueta.href = hasMaqueta
+    ? `/api/files/mockup/${encodeURIComponent(item.id)}/maqueta/view`
+    : "#";
+  maqueta.target = hasMaqueta ? "_blank" : "";
+  download.href = hasMaqueta
+    ? `/api/files/mockup/${encodeURIComponent(item.id)}/maqueta/download`
+    : "#";
+  maqueta.dataset.path = item.path || "";
+  download.dataset.path = item.path || "";
+  maqueta.setAttribute("aria-disabled", String(!hasMaqueta));
+  download.setAttribute("aria-disabled", String(!hasMaqueta));
+  download.textContent = hasMaqueta ? "Descargar" : "Pendiente";
+
+  if (pathLabel) {
+    pathLabel.textContent = item.path || "Ruta pendiente de definir";
+  }
+
+  modal.showModal();
+}
+
+function bindMockupItemModal() {
+  const modal = getElement("mockupItemModal");
+  const closeButton = getElement("closeMockupItemModal");
+  const maqueta = getElement("mockupItemMaqueta");
+  const download = getElement("mockupItemMaquetaDownload");
+
+  if (!modal || !closeButton) {
+    return;
+  }
+
+  closeButton.addEventListener("click", () => modal.close());
+
+  [maqueta, download].forEach(link => {
+    if (!link) return;
+
+    link.addEventListener("click", event => {
+      if (link.getAttribute("aria-disabled") !== "true") {
+        appendLog(`Maqueta solicitada: ${link.dataset.path}`, "success");
+        return;
+      }
+
+      event.preventDefault();
+      appendLog("La maqueta no tiene una ruta disponible", "info");
+    });
+  });
+}
+
 // Conecta filtros de texto/columna para todas las tablas configuradas.
 function bindTableFilters() {
   filterTargets.forEach(tableId => {
@@ -1115,51 +1173,6 @@ function bindTableSorting() {
   sortableTargets.forEach(setupSortableTable);
 }
 
-// Conecta el modal de CEP Registry y guarda nuevos registros en la API.
-function bindRegistryModal() {
-  const modal = getElement("registryModal");
-  const openButton = getElement("openRegistryModal");
-  const closeButton = getElement("closeRegistryModal");
-  const form = getElement("registryForm");
-  const message = getElement("registryFormMessage");
-
-  if (!modal || !openButton || !closeButton || !form) {
-    return;
-  }
-
-  openButton.addEventListener("click", () => {
-    message.textContent = "";
-    form.reset();
-    modal.showModal();
-  });
-
-  closeButton.addEventListener("click", () => {
-    modal.close();
-  });
-
-  form.addEventListener("submit", async event => {
-    event.preventDefault();
-    message.textContent = "Guardando...";
-
-    const formData = new FormData(form);
-    const payload = {
-      source_app: formData.get("source_app"),
-      runs_table: formData.get("runs_table"),
-      app_version: formData.get("app_version")
-    };
-
-    try {
-      await postJSON("/api/dashboard/registry", payload);
-      modal.close();
-      await Promise.all([loadDashboard(), loadRegistry()]);
-      appendLog(`CEP registrado: ${payload.source_app}`, "success");
-    } catch (error) {
-      message.textContent = error.message;
-      appendLog(error.message, "error");
-    }
-  });
-}
-
 // Arranque de la aplicacion: primero conecta eventos, luego carga datos iniciales.
 async function init() {
   if (window.RMCComponents?.renderApp) {
@@ -1171,9 +1184,9 @@ async function init() {
   bindLogControls();
   bindDetailControls();
   bindNikeItemModal();
+  bindMockupItemModal();
   bindTableFilters();
   bindTableSorting();
-  bindRegistryModal();
 
   try {
     await Promise.all([
