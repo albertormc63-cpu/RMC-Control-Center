@@ -30,16 +30,34 @@ function secondsToDuration(totalSeconds) {
     .join(":");
 }
 
-// Normaliza fechas DD/MM/YYYY o ids YYYYMMDD-* para poder agrupar por dia.
+// Obtiene el ano de ejecucion para completar embarques guardados como DD/MM.
+function getRowYear(row) {
+  const executionDate = row.created_at || row.fecha || "";
+  const dateMatch = String(executionDate).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const idMatch = String(row.id || "").match(/^(\d{4})(\d{2})(\d{2})/);
+
+  return dateMatch?.[3] || idMatch?.[1] || "";
+}
+
+// Prioriza fecha_embarque y usa la fecha de ejecucion solo como respaldo.
 function normalizeDay(row) {
-  const rawDate = row.created_at || row.fecha || "";
+  const rawDate = row.fecha_embarque || row.created_at || row.fecha || "";
   const dateMatch = String(rawDate).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const embarkMatch = String(rawDate).match(/^(\d{2})\/(\d{2})$/);
   const idMatch = String(row.id || "").match(/^(\d{4})(\d{2})(\d{2})/);
 
   if (dateMatch) {
     return {
       key: `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`,
       label: `${dateMatch[1]}/${dateMatch[2]}`
+    };
+  }
+
+  if (embarkMatch) {
+    const year = getRowYear(row);
+    return {
+      key: `${year}-${embarkMatch[2]}-${embarkMatch[1]}`,
+      label: `${embarkMatch[1]}/${embarkMatch[2]}`
     };
   }
 
@@ -58,14 +76,23 @@ function normalizeDay(row) {
 
 // Normaliza una fecha a mes YYYY-MM para tablas historicas mensuales.
 function normalizeMonth(row) {
-  const rawDate = row.created_at || row.fecha || "";
+  const rawDate = row.fecha_embarque || row.created_at || row.fecha || "";
   const dateMatch = String(rawDate).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const embarkMatch = String(rawDate).match(/^(\d{2})\/(\d{2})$/);
   const idMatch = String(row.id || "").match(/^(\d{4})(\d{2})(\d{2})/);
 
   if (dateMatch) {
     return {
       key: `${dateMatch[3]}-${dateMatch[2]}`,
       label: `${dateMatch[2]}/${dateMatch[3]}`
+    };
+  }
+
+  if (embarkMatch) {
+    const year = getRowYear(row);
+    return {
+      key: `${year}-${embarkMatch[2]}`,
+      label: `${embarkMatch[2]}/${year}`
     };
   }
 
@@ -104,7 +131,7 @@ function safeAll(query, fallback) {
   }
 }
 
-// Agrupa ejecuciones Nike por dia y calcula tiempo promedio/piezas.
+// Agrupa ejecuciones Nike por fecha de embarque y calcula tiempo/piezas.
 function buildNikeDaily(rows) {
   const days = new Map();
 
@@ -183,7 +210,7 @@ function buildNikeMonthly(rows) {
     }));
 }
 
-// Agrupa ejecuciones MockupTool por dia y suma plantillas/faltantes.
+// Agrupa ejecuciones MockupTool por fecha de embarque.
 function buildMockupDaily(rows) {
   const days = new Map();
 
@@ -257,14 +284,14 @@ router.get("/", (req, res) => {
     `).get(), { registros: 0, piezas: 0, errores: 0 });
 
     const nikeRecentRuns = safeAll(() => db.prepare(`
-      SELECT id, created_at, tiempo, piezas, pedidos, errores
+      SELECT id, created_at, fecha_embarque, tiempo, piezas, pedidos, errores
       FROM rmcop_nike_runs
       ORDER BY id DESC
       LIMIT 12
     `).all(), []).reverse();
 
     const nikeDailyRuns = safeAll(() => db.prepare(`
-      SELECT id, created_at, tiempo, piezas, pedidos, errores
+      SELECT id, created_at, fecha_embarque, tiempo, piezas, pedidos, errores
       FROM rmcop_nike_runs
       ORDER BY id ASC
     `).all(), []);
@@ -292,14 +319,14 @@ router.get("/", (req, res) => {
     `).get(), { registros: 0, errores: 0 });
 
     const mockupRecentRuns = safeAll(() => db.prepare(`
-      SELECT id, fecha, hora, styles, pdfs_generados, mockups_faltantes
+      SELECT id, fecha, fecha_embarque, hora, styles, pdfs_generados, mockups_faltantes
       FROM rmc_mockuptool_runs
       ORDER BY id DESC
       LIMIT 12
     `).all(), []).reverse();
 
     const mockupDailyRuns = safeAll(() => db.prepare(`
-      SELECT id, fecha, pdfs_generados, mockups_faltantes
+      SELECT id, fecha, fecha_embarque, pdfs_generados, mockups_faltantes
       FROM rmc_mockuptool_runs
       ORDER BY id ASC
     `).all(), []);

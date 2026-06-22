@@ -285,6 +285,24 @@ input::placeholder {
   gap: 8px;
 }
 
+.dashboard-period-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.dashboard-period-filter label {
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dashboard-period-filter input[type="month"] {
+  min-height: 32px;
+  padding: 5px 8px;
+}
+
 .dashboard-block {
   margin-bottom: 12px;
   padding: 12px;

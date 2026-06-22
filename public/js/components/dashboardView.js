@@ -32,6 +32,11 @@ window.RMCComponents.dashboardView = function dashboardView() {
       <section class="dashboard-block">
         <div class="block-title">
           <h3>RMCOp-Nike</h3>
+          <div class="dashboard-period-filter">
+            <label for="nikeMonthFilter">Mes de embarque</label>
+            <input id="nikeMonthFilter" type="month">
+            <button id="nikeMonthAll" class="secondary-button" type="button">Todos</button>
+          </div>
         </div>
 
         <div class="summary-grid summary-grid-nike">
@@ -67,7 +72,7 @@ window.RMCComponents.dashboardView = function dashboardView() {
         </div>
 
         <div class="chart-panel">
-          <h4>Piezas por ejecucion Nike</h4>
+          <h4>Piezas por fecha de embarque</h4>
           <div id="nikeTimeChart" class="chart-canvas"></div>
         </div>
 
@@ -77,7 +82,7 @@ window.RMCComponents.dashboardView = function dashboardView() {
             <table class="compact-table">
               <thead>
                 <tr>
-                  <th>Mes</th>
+                  <th>Mes/Año</th>
                   <th>Ejecuciones</th>
                   <th>Pedidos</th>
                   <th>Piezas</th>
@@ -94,6 +99,11 @@ window.RMCComponents.dashboardView = function dashboardView() {
       <section class="dashboard-block">
         <div class="block-title">
           <h3>RMC MockupTool</h3>
+          <div class="dashboard-period-filter">
+            <label for="mockupMonthFilter">Mes de embarque</label>
+            <input id="mockupMonthFilter" type="month">
+            <button id="mockupMonthAll" class="secondary-button" type="button">Todos</button>
+          </div>
         </div>
 
         <div class="summary-grid summary-grid-mockup">
@@ -129,7 +139,7 @@ window.RMCComponents.dashboardView = function dashboardView() {
         </div>
 
         <div class="chart-panel">
-          <h4>Plantillas por ejecucion</h4>
+          <h4>Maquetas por fecha de embarque</h4>
           <div id="mockupTemplateChart" class="chart-canvas"></div>
         </div>
 
@@ -139,7 +149,7 @@ window.RMCComponents.dashboardView = function dashboardView() {
             <table class="compact-table">
               <thead>
                 <tr>
-                  <th>Mes</th>
+                  <th>Mes/Año</th>
                   <th>Ejecuciones</th>
                   <th>Plantillas</th>
                   <th>Faltantes</th>

@@ -1,4 +1,4 @@
-// Normaliza fecha de embarque y ano para agrupar ejecuciones MockupTool.
+// Normaliza fecha de embarque y a;o para agrupar ejecuciones MockupTool.
 const MOCKUP_EMBARK_DATE_SQL = `
   CASE
     WHEN TRIM(COALESCE(fecha_embarque, '')) <> ''

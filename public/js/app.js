@@ -22,6 +22,9 @@ const sortableTargets = [
 // Estado de ordenamiento por tabla. Permite alternar ascendente/descendente.
 const sortState = {};
 
+// Conserva la ultima respuesta del dashboard para filtrar meses sin pedirla otra vez.
+let dashboardData = null;
+
 // Acceso corto a elementos por id para evitar repetir document.getElementById.
 function getElement(id) {
   return document.getElementById(id);
@@ -646,9 +649,105 @@ function renderMonthlyTable(tableId, rows, columns) {
   });
 }
 
+function filterDashboardPeriod(rows, monthKey) {
+  if (!monthKey) {
+    return rows;
+  }
+
+  return rows.filter(row => String(row.key || "").startsWith(monthKey));
+}
+
+function renderNikeDashboardPeriod(monthKey) {
+  if (!dashboardData) return;
+
+  renderExecutionBarChart(
+    "nikeTimeChart",
+    filterDashboardPeriod(dashboardData.nike.daily, monthKey),
+    {
+      title: monthKey ? `Embarques ${monthKey.slice(5, 7)}/${monthKey.slice(0, 4)}` : "Todos los embarques",
+      label: shipment => shipment.label,
+      value: shipment => Number(shipment.piezas || 0),
+      format: value => formatNumber(value),
+      xLabel: "Embarque",
+      yLabel: "Total de piezas"
+    }
+  );
+
+  renderMonthlyTable(
+    "nikeMonthlyTable",
+    filterDashboardPeriod(dashboardData.nike.monthly, monthKey),
+    [
+      { value: item => item.label },
+      { value: item => formatNumber(item.runs) },
+      { value: item => formatNumber(item.pedidos) },
+      { value: item => formatNumber(item.piezas) },
+      { value: item => item.avgTiempo || "00:00:00" },
+      { value: item => formatNumber(item.errores) }
+    ]
+  );
+}
+
+function renderMockupDashboardPeriod(monthKey) {
+  if (!dashboardData) return;
+
+  renderExecutionBarChart(
+    "mockupTemplateChart",
+    filterDashboardPeriod(dashboardData.mockup.daily, monthKey),
+    {
+      title: monthKey ? `Embarques ${monthKey.slice(5, 7)}/${monthKey.slice(0, 4)}` : "Todos los embarques",
+      label: shipment => shipment.label,
+      value: shipment => Number(shipment.plantillas || 0),
+      format: value => formatNumber(value),
+      xLabel: "Embarque",
+      yLabel: "Total de maquetas"
+    }
+  );
+
+  renderMonthlyTable(
+    "mockupMonthlyTable",
+    filterDashboardPeriod(dashboardData.mockup.monthly, monthKey),
+    [
+      { value: item => item.label },
+      { value: item => formatNumber(item.runs) },
+      { value: item => formatNumber(item.plantillas) },
+      { value: item => formatNumber(item.faltantes) }
+    ]
+  );
+}
+
+function getInitialDashboardMonth(monthlyRows) {
+  const currentMonth = new Date().toISOString().slice(0, 7);
+
+  if (monthlyRows.some(row => row.key === currentMonth)) {
+    return currentMonth;
+  }
+
+  return monthlyRows.at(-1)?.key || "";
+}
+
+// Cada selector controla exclusivamente la grafica y tabla de su herramienta.
+function bindDashboardMonthFilters() {
+  const nikeInput = getElement("nikeMonthFilter");
+  const mockupInput = getElement("mockupMonthFilter");
+
+  nikeInput?.addEventListener("change", () => renderNikeDashboardPeriod(nikeInput.value));
+  mockupInput?.addEventListener("change", () => renderMockupDashboardPeriod(mockupInput.value));
+
+  getElement("nikeMonthAll")?.addEventListener("click", () => {
+    nikeInput.value = "";
+    renderNikeDashboardPeriod("");
+  });
+
+  getElement("mockupMonthAll")?.addEventListener("click", () => {
+    mockupInput.value = "";
+    renderMockupDashboardPeriod("");
+  });
+}
+
 // Pinta las tarjetas y graficas del dashboard con la estructura que manda la API.
 async function loadDashboard() {
   const data = await getJSON("/api/dashboard");
+  dashboardData = data;
 
   setText("toolsCount", formatNumber(data.toolsCount));
   setText("gitCommits", formatNumber(data.gitCommits));
@@ -668,44 +767,19 @@ async function loadDashboard() {
   setText("mockupRowsSelected", formatNumber(data.mockup.filasSeleccionadas));
   setText("mockupDesigners", formatNumber(data.mockup.disenadores));
 
-  const monthPeriod = new Date().toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  const nikeMonthInput = getElement("nikeMonthFilter");
+  const mockupMonthInput = getElement("mockupMonthFilter");
 
-  renderExecutionBarChart("nikeTimeChart", data.nike.recentRuns, {
-    title: `Periodo: ${monthPeriod}`,
-    label: run => formatDDMM(run.created_at || run.id),
-    value: run => Number(run.piezas || 0),
-    format: value => formatNumber(value),
-    xLabel: "Fecha",
-    yLabel: "Total de piezas"
-  });
+  if (nikeMonthInput && !nikeMonthInput.value) {
+    nikeMonthInput.value = getInitialDashboardMonth(data.nike.monthly);
+  }
 
-  renderMonthlyTable("nikeMonthlyTable", data.nike.monthly, [
-    { value: item => item.label },
-    { value: item => formatNumber(item.runs) },
-    { value: item => formatNumber(item.pedidos) },
-    { value: item => formatNumber(item.piezas) },
-    { value: item => item.avgTiempo || "00:00:00" },
-    { value: item => formatNumber(item.errores) }
-  ]);
+  if (mockupMonthInput && !mockupMonthInput.value) {
+    mockupMonthInput.value = getInitialDashboardMonth(data.mockup.monthly);
+  }
 
-  renderExecutionBarChart("mockupTemplateChart", data.mockup.recentRuns, {
-    title: `Periodo: ${monthPeriod}`,
-    label: run => {
-      const dateLabel = run.fecha ? formatDDMM(run.fecha) : formatDDMM(run.id);
-      return run.hora ? `${dateLabel} ${run.hora}` : dateLabel;
-    },
-    value: run => Number(run.pdfs_generados || 0),
-    format: value => formatNumber(value),
-    xLabel: "Fecha",
-    yLabel: "Total de piezas"
-  });
-
-  renderMonthlyTable("mockupMonthlyTable", data.mockup.monthly, [
-    { value: item => item.label },
-    { value: item => formatNumber(item.runs) },
-    { value: item => formatNumber(item.plantillas) },
-    { value: item => formatNumber(item.faltantes) }
-  ]);
+  renderNikeDashboardPeriod(nikeMonthInput?.value || "");
+  renderMockupDashboardPeriod(mockupMonthInput?.value || "");
 
   appendLog("Dashboard actualizado", "success");
 }
@@ -1185,6 +1259,7 @@ async function init() {
   bindDetailControls();
   bindNikeItemModal();
   bindMockupItemModal();
+  bindDashboardMonthFilters();
   bindTableFilters();
   bindTableSorting();
 
