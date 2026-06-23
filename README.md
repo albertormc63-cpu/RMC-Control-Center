@@ -1,28 +1,67 @@
 # RMC Control Center
 
-Sistema de monitoreo y visualización para herramientas internas RMC.
+Panel web interno para monitorear y visualizar datos de herramientas CEP de RMC.
 
-## Herramientas Integradas
+El Control Center es consumidor de datos: lee la base SQLite compartida, agrupa ejecuciones, muestra metricas operativas, expone archivos autorizados y genera reportes Excel. No es la herramienta que produce, corrige o escribe las tablas operativas de CEPs.
 
-* RMCOp-Nike
-* RMC MockupTool
+## Stack
 
-## Tecnologías
+- Node.js + Express
+- SQLite con `better-sqlite3`
+- HTML, CSS y JavaScript vanilla
+- `exceljs` para reportes Excel
+- Sin framework frontend, sin bundler y sin build step
 
-* Node.js
-* Express
-* SQLite
-* HTML
-* CSS
-* JavaScript
+## Como correr
 
-## Objetivos
+Configurar `.env`:
 
-* Centralizar registros de herramientas CEP.
-* Visualizar ejecuciones y métricas.
-* Generar reportes internos.
-* Proporcionar acceso LAN para Producción y Diseño.
+```env
+RMC_DB_PATH=/Users/rmlsub1/Documents/RMC - CEP/RMC_BD/RMC_CEP.sqlite
+RMC_FILE_ROOT=/Volumes/Fullsize
+RMC_LAN_HOST=RMLART2.local
+PORT=3000
+```
 
-## Estado
+Comandos:
 
-En desarrollo activo.
+```bash
+npm install
+npm run dev
+```
+
+Produccion local:
+
+```bash
+npm start
+```
+
+Healthcheck:
+
+```http
+GET /health
+```
+
+## Mapa de documentacion
+
+- `AGENTS.md`: reglas para Codex y otros agentes.
+- `CURRENT_STATE.md`: memoria caliente del estado actual.
+- `TASK_ROUTER.md`: que leer segun la tarea.
+- `docs/architecture/ARCHITECTURE.md`: arquitectura y estructura del repo.
+- `docs/api/API_ROUTES.md`: rutas HTTP y contratos de respuesta.
+- `docs/sqlite/SQLITE_READ_MODEL.md`: tablas leidas por Control Center.
+- `docs/integrations/RMCOP_NIKE_CONTRACT.md`: contrato de lectura RMCOp-Nike.
+- `docs/integrations/RMC_MOCKUPTOOL_CONTRACT.md`: contrato de lectura RMC MockupTool.
+- `docs/processes/DASHBOARD_AND_REPORTS.md`: dashboard, agrupaciones y reportes.
+- `docs/processes/TOOL_REGISTRY.md`: CEP Registry en modo lectura.
+- `docs/lan/LAN_AND_FILES.md`: acceso LAN y archivos servidos.
+- `docs/ui/UI_CONTRACT.md`: contrato visual y UI.
+
+## Invariantes criticas
+
+- Mantener Control Center como visualizador/consumidor; no convertirlo en escritor de tablas CEP.
+- No mezclar reglas internas de RMCOp-Nike o RMC MockupTool; documentar solo lo que Control Center necesita para leer y mostrar.
+- Mantener IDs HTML, rutas Express y contratos API estables.
+- Mantener `pdfs_generados` como `Plantillas` en UI.
+- Mantener lectura de archivos limitada a `RMC_FILE_ROOT`.
+- Mantener el servidor escuchando en `0.0.0.0` para LAN.
