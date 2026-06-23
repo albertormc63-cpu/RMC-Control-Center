@@ -111,6 +111,21 @@ window.RMCComponents.mockupView = function mockupView() {
               Descargar
             </a>
           </div>
+
+          <div class="resource-link">
+            <a id="mockupItemExcel" class="resource-main-action" href="#" aria-disabled="true">
+              <strong>Descargar Excel</strong>
+              <small id="mockupItemExcelPath">Sin Excel vinculado</small>
+            </a>
+            <div class="resource-link-actions">
+              <a id="mockupItemExcelPreview" class="resource-state resource-download" href="#" aria-disabled="true">
+                Ver Excel
+              </a>
+              <a id="mockupItemExcelCopy" class="resource-state resource-download" href="#" aria-disabled="true">
+                Copiar ruta
+              </a>
+            </div>
+          </div>
         </div>
       </dialog>
     </section>

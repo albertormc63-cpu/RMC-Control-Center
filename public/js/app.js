@@ -25,6 +25,10 @@ const sortState = {};
 // Conserva la ultima respuesta del dashboard para filtrar meses sin pedirla otra vez.
 let dashboardData = null;
 
+// Cache de embarques agrupados para abrir detalle desde graficas sin nuevas rutas backend.
+let nikeRunsCache = [];
+let mockupRunsCache = [];
+
 // Acceso corto a elementos por id para evitar repetir document.getElementById.
 function getElement(id) {
   return document.getElementById(id);
@@ -70,6 +74,19 @@ function formatDDMM(value) {
   return value;
 }
 
+function getShipmentYearFromKey(key) {
+  const match = String(key || "").match(/^(\d{4})-/);
+  return match?.[1] || "";
+}
+
+function getRunShipmentDate(run) {
+  return formatDDMM(run.fecha_embarque || run.created_at || run.fecha);
+}
+
+function getRunActionId(run) {
+  return run?.sample_run_id || run?.id || "";
+}
+
 function extractNikeType(tool) {
   if (!tool) {
     return "";
@@ -105,6 +122,13 @@ function appendLog(message, type = "info") {
   line.textContent = `[${new Date().toLocaleTimeString("es-MX")}] ${message}`;
   terminal.appendChild(line);
   terminal.scrollTop = terminal.scrollHeight;
+}
+
+function addEmptyTableRow(tbody, message, colSpan) {
+  const row = document.createElement("tr");
+  const cell = addCell(row, message);
+  cell.colSpan = colSpan;
+  tbody.appendChild(row);
 }
 
 // Wrapper para fetch JSON con mensajes de error legibles desde la API.
@@ -185,6 +209,95 @@ function switchView(viewId) {
 
   closeSidebar();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function findRunByShipment(tool, fechaEmbarque, shipmentKey) {
+  const targetDate = formatDDMM(fechaEmbarque);
+  const targetYear = getShipmentYearFromKey(shipmentKey);
+  const runs = tool === "nike" ? nikeRunsCache : mockupRunsCache;
+
+  const exactYearMatch = runs.find(run => {
+    return getRunShipmentDate(run) === targetDate
+      && (!targetYear || String(run.run_year || "") === targetYear);
+  });
+
+  return exactYearMatch || runs.find(run => getRunShipmentDate(run) === targetDate) || null;
+}
+
+function showEmptyShipmentDetail(tool, fechaEmbarque, message) {
+  const config = tool === "nike"
+    ? {
+        viewId: "nike-view",
+        detailId: "detailSection",
+        infoId: "runInfo",
+        tableId: "itemsTable",
+        colSpan: 10,
+        label: "Nike"
+      }
+    : {
+        viewId: "mockup-view",
+        detailId: "mockupDetailSection",
+        infoId: "mockupRunInfo",
+        tableId: "mockupItemsTable",
+        colSpan: 8,
+        label: "MockupTool"
+      };
+  const detailSection = getElement(config.detailId);
+  const runInfo = getElement(config.infoId);
+  const tbody = getElement(config.tableId);
+
+  switchView(config.viewId);
+
+  if (!detailSection || !runInfo || !tbody) {
+    return;
+  }
+
+  detailSection.classList.remove("hidden");
+  runInfo.textContent = `Embarque ${formatDDMM(fechaEmbarque)} | Sin items disponibles`;
+  tbody.innerHTML = "";
+  addEmptyTableRow(tbody, message || `No hay items registrados para el embarque ${formatDDMM(fechaEmbarque)}.`, config.colSpan);
+  refreshTableFilter(config.tableId);
+  updateSortIndicators(config.tableId);
+  detailSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  appendLog(`${config.label}: sin items para embarque ${formatDDMM(fechaEmbarque)}`, "info");
+}
+
+async function navigateToShipmentDetail(tool, fechaEmbarque, shipmentKey) {
+  const config = tool === "nike"
+    ? {
+        viewId: "nike-view",
+        loadDetail: loadRunDetail,
+        label: "Pedidos RMC Nike"
+      }
+    : {
+        viewId: "mockup-view",
+        loadDetail: loadMockupDetail,
+        label: "Maquetas RMC Nike"
+      };
+  const run = findRunByShipment(tool, fechaEmbarque, shipmentKey);
+
+  switchView(config.viewId);
+
+  if (!run) {
+    showEmptyShipmentDetail(
+      tool,
+      fechaEmbarque,
+      `No se encontro un embarque ${config.label} para la fecha ${formatDDMM(fechaEmbarque)}.`
+    );
+    return;
+  }
+
+  try {
+    await config.loadDetail(getRunActionId(run));
+    appendLog(`${config.label}: detalle abierto desde dashboard para ${formatDDMM(fechaEmbarque)}`, "success");
+  } catch (error) {
+    console.error(error);
+    showEmptyShipmentDetail(
+      tool,
+      fechaEmbarque,
+      `No se pudo abrir el detalle del embarque ${formatDDMM(fechaEmbarque)}.`
+    );
+  }
 }
 
 // Obtiene los textos de encabezado de una tabla segun el id de su tbody.
@@ -546,6 +659,28 @@ function renderDailyBarChart(containerId, rows, options) {
   container.appendChild(svg);
 }
 
+function bindShipmentBar(bar, row, options) {
+  if (!options.tool) {
+    return;
+  }
+
+  const fechaEmbarque = options.shipmentDate ? options.shipmentDate(row) : row.label;
+
+  bar.dataset.tool = options.tool;
+  bar.dataset.fechaEmbarque = fechaEmbarque;
+  bar.dataset.shipmentKey = row.key || "";
+  bar.setAttribute("role", "button");
+  bar.setAttribute("tabindex", "0");
+  bar.setAttribute(
+    "aria-label",
+    `Abrir detalle de ${options.tool === "nike" ? "Nike" : "MockupTool"} para embarque ${fechaEmbarque}`
+  );
+  bar.addEventListener("dblclick", event => {
+    event.preventDefault();
+    navigateToShipmentDetail(options.tool, fechaEmbarque, row.key);
+  });
+}
+
 // Grafica de barras por ejecucion; ideal para comparar corridas Mockup por style.
 function renderExecutionBarChart(containerId, rows, options) {
   const container = prepareChart(containerId, rows);
@@ -576,6 +711,7 @@ function renderExecutionBarChart(containerId, rows, options) {
     bar.setAttribute("height", height);
     bar.setAttribute("rx", 4);
     bar.setAttribute("class", "chart-bar");
+    bindShipmentBar(bar, row, options);
     valueLabel.setAttribute("x", x);
     valueLabel.setAttribute("y", height > chart.height - 20 ? chart.top + 16 : chart.top + chart.height - height - 8);
     valueLabel.setAttribute("class", "chart-value");
@@ -665,6 +801,8 @@ function renderNikeDashboardPeriod(monthKey) {
     filterDashboardPeriod(dashboardData.nike.daily, monthKey),
     {
       title: monthKey ? `Embarques ${monthKey.slice(5, 7)}/${monthKey.slice(0, 4)}` : "Todos los embarques",
+      tool: "nike",
+      shipmentDate: shipment => shipment.label,
       label: shipment => shipment.label,
       value: shipment => Number(shipment.piezas || 0),
       format: value => formatNumber(value),
@@ -695,6 +833,8 @@ function renderMockupDashboardPeriod(monthKey) {
     filterDashboardPeriod(dashboardData.mockup.daily, monthKey),
     {
       title: monthKey ? `Embarques ${monthKey.slice(5, 7)}/${monthKey.slice(0, 4)}` : "Todos los embarques",
+      tool: "mockup",
+      shipmentDate: shipment => shipment.label,
       label: shipment => shipment.label,
       value: shipment => Number(shipment.plantillas || 0),
       format: value => formatNumber(value),
@@ -790,6 +930,7 @@ async function loadRuns() {
   const runs = Array.isArray(data) ? data : data.runs || [];
   const tbody = getElement("runsTable");
 
+  nikeRunsCache = runs;
   tbody.innerHTML = "";
 
   runs.forEach(run => {
@@ -835,6 +976,14 @@ async function loadRunDetail(id) {
   runInfo.textContent = `${runCount} ${executionLabel} | ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)} | ${data.herramienta || data.run?.herramienta || "RMCOp-Nike"} | ${formatNumber(data.totalPieces || data.run?.piezas)} piezas | ${data.year || ""}`;
   tbody.innerHTML = "";
 
+  if (!data.items.length) {
+    addEmptyTableRow(
+      tbody,
+      `No hay items registrados para el embarque ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)}.`,
+      10
+    );
+  }
+
   data.items.forEach(item => {
     const row = document.createElement("tr");
 
@@ -868,6 +1017,7 @@ async function loadMockupRuns() {
   const runs = Array.isArray(data) ? data : data.runs || [];
   const tbody = getElement("mockupTable");
 
+  mockupRunsCache = runs;
   tbody.innerHTML = "";
 
   runs.forEach(run => {
@@ -904,6 +1054,14 @@ async function loadMockupDetail(id) {
   const runCount = Number(data.runCount || 1);
   runInfo.textContent = `${runCount} ${runCount === 1 ? "ejecución" : "ejecuciones"} | ${formatDDMM(data.groupDate || data.run.fecha_embarque)} | ${formatNumber(data.totalMaquetas)} maquetas | ${data.year || ""}`;
   tbody.innerHTML = "";
+
+  if (!data.items.length) {
+    addEmptyTableRow(
+      tbody,
+      `No hay items registrados para el embarque ${formatDDMM(data.groupDate || data.run.fecha_embarque)}.`,
+      8
+    );
+  }
 
   data.items.forEach(item => {
     const row = document.createElement("tr");
@@ -1049,9 +1207,11 @@ function showNikeItemModal(item) {
   const plantillaDownload = getElement("nikeItemPlantillaDownload");
   const plantillaPath = getElement("nikeItemPlantillaPath");
   const excel = getElement("nikeItemExcel");
+  const excelPreview = getElement("nikeItemExcelPreview");
+  const excelCopy = getElement("nikeItemExcelCopy");
   const excelPath = getElement("nikeItemExcelPath");
 
-  if (!modal || !title || !tool || !runId || !status || !maqueta || !maquetaDownload || !plantilla || !plantillaDownload || !excel) {
+  if (!modal || !title || !tool || !runId || !status || !maqueta || !maquetaDownload || !plantilla || !plantillaDownload || !excel || !excelPreview || !excelCopy) {
     return;
   }
 
@@ -1063,7 +1223,7 @@ function showNikeItemModal(item) {
   const paths = {
     maqueta: item.maqueta_path || "",
     plantilla: item.plantilla_path || item.path || "",
-    excel: item.roster_path || item.excel_path || ""
+    excel: item.excel_path || item.roster_path || ""
   };
 
   const hasMaqueta = Boolean(item.id && paths.maqueta);
@@ -1082,12 +1242,21 @@ function showNikeItemModal(item) {
   plantillaDownload.href = hasPlantilla
     ? `/api/files/nike/${encodeURIComponent(item.id)}/plantilla/download`
     : "#";
-  excel.href = "#";
+  const hasExcelDownload = Boolean(item.id);
+  const hasExcelPath = Boolean(paths.excel);
+  excel.href = hasExcelDownload
+    ? `/api/files/nike/${encodeURIComponent(item.id)}/excel/download`
+    : "#";
+  excelPreview.href = hasExcelDownload
+    ? `/api/files/nike/${encodeURIComponent(item.id)}/excel/preview`
+    : "#";
   maqueta.dataset.path = paths.maqueta;
   maquetaDownload.dataset.path = paths.maqueta;
   plantilla.dataset.path = paths.plantilla;
   plantillaDownload.dataset.path = paths.plantilla;
   excel.dataset.path = paths.excel;
+  excelPreview.dataset.path = paths.excel;
+  excelCopy.dataset.path = paths.excel;
 
   maqueta.setAttribute("aria-disabled", String(!hasMaqueta));
   maquetaDownload.setAttribute("aria-disabled", String(!hasMaqueta));
@@ -1095,10 +1264,14 @@ function showNikeItemModal(item) {
   plantilla.setAttribute("aria-disabled", String(!hasPlantilla));
   plantillaDownload.setAttribute("aria-disabled", String(!hasPlantilla));
   plantillaDownload.textContent = hasPlantilla ? "Descargar" : "Pendiente";
+  excel.setAttribute("aria-disabled", String(!hasExcelDownload));
+  excelPreview.setAttribute("aria-disabled", String(!hasExcelDownload));
+  excelCopy.setAttribute("aria-disabled", String(!hasExcelPath));
+  excelCopy.textContent = hasExcelPath ? "Copiar ruta" : "Sin ruta";
 
   if (maquetaPath) maquetaPath.textContent = paths.maqueta || "Ruta pendiente de definir";
   if (plantillaPath) plantillaPath.textContent = paths.plantilla || "Ruta pendiente de definir";
-  if (excelPath) excelPath.textContent = paths.excel || "Ruta pendiente de definir";
+  if (excelPath) excelPath.textContent = paths.excel || "Excel disponible por backend";
 
   modal.showModal();
 }
@@ -1111,6 +1284,8 @@ function bindNikeItemModal() {
   const plantillaLink = getElement("nikeItemPlantilla");
   const plantillaDownload = getElement("nikeItemPlantillaDownload");
   const excelLink = getElement("nikeItemExcel");
+  const excelPreview = getElement("nikeItemExcelPreview");
+  const excelCopy = getElement("nikeItemExcelCopy");
 
   if (!modal || !closeButton) {
     return;
@@ -1120,15 +1295,42 @@ function bindNikeItemModal() {
     modal.close();
   });
 
-  [maquetaLink, maquetaDownload, plantillaLink, plantillaDownload, excelLink].forEach(link => {
+  [maquetaLink, maquetaDownload, plantillaLink, plantillaDownload, excelLink, excelPreview].forEach(link => {
     if (!link) return;
     link.addEventListener("click", event => {
       if (link.getAttribute("aria-disabled") !== "true") {
-        appendLog(`Archivo solicitado: ${link.dataset.path}`, "success");
+        if (link === excelPreview) {
+          event.preventDefault();
+          appendLog("Preview Excel Nike solicitado", "success");
+          loadExcelPreview(link.href);
+          return;
+        }
+
+        if (link === excelLink) {
+          event.preventDefault();
+          appendLog(
+            link.dataset.path
+              ? `Excel Nike solicitado: ${link.dataset.path}`
+              : "Excel Nike solicitado por backend",
+            "success"
+          );
+          downloadLinkedFile(link, "RMCOp_Nike_item.xlsx");
+          return;
+        }
+
+        appendLog(
+          `Archivo solicitado: ${link.dataset.path}`,
+          "success"
+        );
         return;
       }
 
       event.preventDefault();
+      if (link === excelLink || link === excelPreview) {
+        appendLog("Sin Excel vinculado", "info");
+        return;
+      }
+
       appendLog(
         link.dataset.path
           ? `Archivo pendiente de habilitar: ${link.dataset.path}`
@@ -1137,6 +1339,215 @@ function bindNikeItemModal() {
       );
     });
   });
+
+  if (excelCopy) {
+    excelCopy.addEventListener("click", event => {
+      event.preventDefault();
+
+      if (excelCopy.getAttribute("aria-disabled") === "true") {
+        appendLog("Sin Excel vinculado para copiar", "info");
+        return;
+      }
+
+      copyResourcePath(excelCopy.dataset.path, "Excel Nike");
+    });
+  }
+}
+
+async function copyResourcePath(pathValue, label) {
+  if (!pathValue) {
+    appendLog(`Sin ruta para copiar: ${label}`, "info");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(pathValue);
+    appendLog(`Ruta copiada: ${label}`, "success");
+  } catch (error) {
+    console.error(error);
+    appendLog("No se pudo copiar la ruta al portapapeles", "error");
+  }
+}
+
+function getDownloadFileName(response, fallback) {
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+
+  if (encodedMatch) {
+    return decodeURIComponent(encodedMatch[1]);
+  }
+
+  return plainMatch?.[1] || fallback;
+}
+
+async function downloadLinkedFile(link, fallbackName) {
+  try {
+    const response = await fetch(link.href);
+
+    if (!response.ok) {
+      let message = "No se pudo descargar el Excel vinculado";
+
+      try {
+        const body = await response.json();
+        message = body.message || body.error || message;
+      } catch (error) {
+        message = response.statusText || message;
+      }
+
+      appendLog(message, "error");
+      alert(message);
+      return;
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const downloadLink = document.createElement("a");
+
+    downloadLink.href = downloadUrl;
+    downloadLink.download = getDownloadFileName(response, fallbackName);
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    URL.revokeObjectURL(downloadUrl);
+  } catch (error) {
+    console.error(error);
+    appendLog("No se pudo descargar el Excel vinculado", "error");
+    alert("No se pudo descargar el Excel vinculado");
+  }
+}
+
+function ensureExcelPreviewModal() {
+  let modal = getElement("excelPreviewModal");
+
+  if (modal) {
+    return modal;
+  }
+
+  modal = document.createElement("dialog");
+  modal.id = "excelPreviewModal";
+  modal.className = "modal excel-preview-modal";
+
+  const header = document.createElement("div");
+  header.className = "modal-header";
+
+  const titleWrap = document.createElement("div");
+  const eyebrow = document.createElement("span");
+  const title = document.createElement("h3");
+  eyebrow.className = "modal-eyebrow";
+  eyebrow.textContent = "Preview Excel";
+  title.id = "excelPreviewTitle";
+  title.textContent = "Excel";
+  titleWrap.append(eyebrow, title);
+
+  const closeButton = document.createElement("button");
+  closeButton.id = "closeExcelPreviewModal";
+  closeButton.className = "secondary-button";
+  closeButton.type = "button";
+  closeButton.textContent = "Cerrar";
+  closeButton.addEventListener("click", () => modal.close());
+  header.append(titleWrap, closeButton);
+
+  const meta = document.createElement("p");
+  meta.id = "excelPreviewMeta";
+  meta.className = "excel-preview-meta";
+  meta.textContent = "Cargando...";
+
+  const wrap = document.createElement("div");
+  wrap.className = "excel-preview-wrap";
+
+  const table = document.createElement("table");
+  table.id = "excelPreviewTable";
+  table.className = "excel-preview-table";
+  wrap.appendChild(table);
+
+  modal.append(header, meta, wrap);
+  document.body.appendChild(modal);
+
+  return modal;
+}
+
+function renderExcelPreviewTable(rows) {
+  const table = getElement("excelPreviewTable");
+
+  if (!table) {
+    return;
+  }
+
+  table.textContent = "";
+
+  if (!rows.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.textContent = "La hoja no tiene datos para mostrar";
+    row.appendChild(cell);
+    table.appendChild(row);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  rows.forEach(rowValues => {
+    const row = document.createElement("tr");
+
+    rowValues.forEach(value => {
+      const cell = document.createElement("td");
+      cell.textContent = value ?? "";
+      row.appendChild(cell);
+    });
+
+    fragment.appendChild(row);
+  });
+
+  table.appendChild(fragment);
+}
+
+async function loadExcelPreview(url) {
+  const modal = ensureExcelPreviewModal();
+  const title = getElement("excelPreviewTitle");
+  const meta = getElement("excelPreviewMeta");
+
+  if (title) {
+    title.textContent = "Excel";
+  }
+
+  if (meta) {
+    meta.textContent = "Cargando preview...";
+  }
+
+  renderExcelPreviewTable([]);
+  modal.showModal();
+
+  try {
+    const data = await getJSON(url);
+
+    if (title) {
+      title.textContent = data.fileName || "Excel";
+    }
+
+    if (meta) {
+      const truncatedText = data.truncated
+        ? ` | Vista limitada a ${formatNumber(data.maxRows)} filas`
+        : "";
+      meta.textContent = `${data.sheetName || "Primera hoja"} | ${formatNumber(data.rowCount)} filas | ${formatNumber(data.columnCount)} columnas${truncatedText}`;
+    }
+
+    renderExcelPreviewTable(data.rows || []);
+    appendLog(`Preview Excel cargado: ${data.fileName || "archivo"}`, "success");
+  } catch (error) {
+    console.error(error);
+
+    if (title) {
+      title.textContent = "No se pudo leer el Excel";
+    }
+
+    if (meta) {
+      meta.textContent = error.message || "No se pudo cargar el preview";
+    }
+
+    renderExcelPreviewTable([]);
+    appendLog(error.message || "No se pudo cargar el preview Excel", "error");
+  }
 }
 
 // Muestra exclusivamente la maqueta creada por RMC MockupTool para este item.
@@ -1149,12 +1560,18 @@ function showMockupItemModal(item) {
   const maqueta = getElement("mockupItemMaqueta");
   const download = getElement("mockupItemMaquetaDownload");
   const pathLabel = getElement("mockupItemMaquetaPath");
+  const excel = getElement("mockupItemExcel");
+  const excelPreview = getElement("mockupItemExcelPreview");
+  const excelCopy = getElement("mockupItemExcelCopy");
+  const excelPath = getElement("mockupItemExcelPath");
 
-  if (!modal || !title || !tool || !runId || !status || !maqueta || !download) {
+  if (!modal || !title || !tool || !runId || !status || !maqueta || !download || !excel || !excelPreview || !excelCopy) {
     return;
   }
 
   const hasMaqueta = Boolean(item.id && item.path);
+  const hasExcelDownload = Boolean(item.id);
+  const hasExcelPath = Boolean(item.excel_path);
   title.textContent = [item.wo, item.style, item.talla].filter(Boolean).join(" | ") || "Maqueta";
   tool.textContent = item.herramienta || "RMC MockupTool";
   runId.textContent = item.run_id || "Sin run";
@@ -1166,14 +1583,31 @@ function showMockupItemModal(item) {
   download.href = hasMaqueta
     ? `/api/files/mockup/${encodeURIComponent(item.id)}/maqueta/download`
     : "#";
+  excel.href = hasExcelDownload
+    ? `/api/files/mockup/${encodeURIComponent(item.id)}/excel/download`
+    : "#";
+  excelPreview.href = hasExcelDownload
+    ? `/api/files/mockup/${encodeURIComponent(item.id)}/excel/preview`
+    : "#";
   maqueta.dataset.path = item.path || "";
   download.dataset.path = item.path || "";
+  excel.dataset.path = item.excel_path || "";
+  excelPreview.dataset.path = item.excel_path || "";
+  excelCopy.dataset.path = item.excel_path || "";
   maqueta.setAttribute("aria-disabled", String(!hasMaqueta));
   download.setAttribute("aria-disabled", String(!hasMaqueta));
   download.textContent = hasMaqueta ? "Descargar" : "Pendiente";
+  excel.setAttribute("aria-disabled", String(!hasExcelDownload));
+  excelPreview.setAttribute("aria-disabled", String(!hasExcelDownload));
+  excelCopy.setAttribute("aria-disabled", String(!hasExcelPath));
+  excelCopy.textContent = hasExcelPath ? "Copiar ruta" : "Sin ruta";
 
   if (pathLabel) {
     pathLabel.textContent = item.path || "Ruta pendiente de definir";
+  }
+
+  if (excelPath) {
+    excelPath.textContent = item.excel_path || "Excel vinculado por corrida";
   }
 
   modal.showModal();
@@ -1184,6 +1618,9 @@ function bindMockupItemModal() {
   const closeButton = getElement("closeMockupItemModal");
   const maqueta = getElement("mockupItemMaqueta");
   const download = getElement("mockupItemMaquetaDownload");
+  const excel = getElement("mockupItemExcel");
+  const excelPreview = getElement("mockupItemExcelPreview");
+  const excelCopy = getElement("mockupItemExcelCopy");
 
   if (!modal || !closeButton) {
     return;
@@ -1191,19 +1628,54 @@ function bindMockupItemModal() {
 
   closeButton.addEventListener("click", () => modal.close());
 
-  [maqueta, download].forEach(link => {
+  [maqueta, download, excel, excelPreview].forEach(link => {
     if (!link) return;
 
     link.addEventListener("click", event => {
       if (link.getAttribute("aria-disabled") !== "true") {
-        appendLog(`Maqueta solicitada: ${link.dataset.path}`, "success");
+        if (link === excelPreview) {
+          event.preventDefault();
+          appendLog("Preview Excel MockupTool solicitado", "success");
+          loadExcelPreview(link.href);
+          return;
+        }
+
+        if (link === excel) {
+          event.preventDefault();
+          appendLog(
+            link.dataset.path
+              ? `Excel MockupTool solicitado: ${link.dataset.path}`
+              : "Excel MockupTool solicitado por backend",
+            "success"
+          );
+          downloadLinkedFile(link, "RMC_MockupTool_item.xlsx");
+          return;
+        }
+
+        appendLog(
+          `Maqueta solicitada: ${link.dataset.path}`,
+          "success"
+        );
         return;
       }
 
       event.preventDefault();
-      appendLog("La maqueta no tiene una ruta disponible", "info");
+      appendLog((link === excel || link === excelPreview) ? "Sin Excel vinculado" : "La maqueta no tiene una ruta disponible", "info");
     });
   });
+
+  if (excelCopy) {
+    excelCopy.addEventListener("click", event => {
+      event.preventDefault();
+
+      if (excelCopy.getAttribute("aria-disabled") === "true") {
+        appendLog("Sin Excel vinculado para copiar", "info");
+        return;
+      }
+
+      copyResourcePath(excelCopy.dataset.path, "Excel MockupTool");
+    });
+  }
 }
 
 // Conecta filtros de texto/columna para todas las tablas configuradas.

@@ -149,3 +149,5 @@ GET /api/reports/mockup/:id/excel
 ```
 
 Ambos reportes exportan todos los items del grupo de embarque. No deben limitarse al run de muestra.
+
+Las barras del dashboard permiten doble click para navegar a Nike o MockupTool y abrir el detalle filtrado por fecha_embarque.

@@ -1,10 +1,12 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const ExcelJS = require("exceljs");
 const db = require("../db");
 const { getNikeItemWithFilePaths } = require("../services/nikeFiles");
 
 const router = express.Router();
+const EXCEL_PREVIEW_MAX_ROWS = 300;
 
 // Limita cualquier lectura de archivos al volumen autorizado para RMC.
 const fileRoot = path.resolve(process.env.RMC_FILE_ROOT || "/Volumes/Fullsize");
@@ -70,6 +72,32 @@ function getNikeFile(itemId, fileType) {
   return validateFilePath(item, selectedPath);
 }
 
+function getNikeExcelFile(itemId) {
+  const item = db.prepare(`
+    SELECT r.excel_path
+    FROM rmcop_nike_items i
+    LEFT JOIN rmcop_nike_runs r
+      ON r.id = i.run_id
+    WHERE i.id = ?
+  `).get(itemId);
+
+  if (!item) {
+    const error = new Error("Item Nike no encontrado");
+    error.status = 404;
+    throw error;
+  }
+
+  const selectedPath = item.excel_path;
+
+  if (!selectedPath || !path.isAbsolute(selectedPath)) {
+    const error = new Error("El item no tiene una ruta de Excel registrada");
+    error.status = 404;
+    throw error;
+  }
+
+  return validateFilePath(item, selectedPath);
+}
+
 function getMockupFile(itemId) {
   const item = db.prepare(`
     SELECT id, path
@@ -90,6 +118,29 @@ function getMockupFile(itemId) {
   }
 
   return validateFilePath(item, item.path);
+}
+
+function getMockupExcelFile(itemId) {
+  const item = db.prepare(`
+    SELECT r.excel_path
+    FROM rmc_mockuptool_items i
+    LEFT JOIN rmc_mockuptool_runs r ON r.id = i.run_id
+    WHERE i.id = ?
+  `).get(itemId);
+
+  if (!item) {
+    const error = new Error("Item MockupTool no encontrado");
+    error.status = 404;
+    throw error;
+  }
+
+  if (!item.excel_path || !path.isAbsolute(item.excel_path)) {
+    const error = new Error("El item no tiene una ruta de Excel registrada");
+    error.status = 404;
+    throw error;
+  }
+
+  return validateFilePath(item, item.excel_path);
 }
 
 function sendNikeFile(req, res, next, disposition) {
@@ -126,9 +177,119 @@ function sendMockupFile(req, res, next, disposition) {
   }
 }
 
+function sendExcelFile(req, res, next, getFile) {
+  try {
+    const file = getFile(req.params.itemId);
+
+    res.type(path.extname(file.fileName));
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`
+    );
+    res.sendFile(file.filePath, error => {
+      if (error) next(error);
+    });
+  } catch (error) {
+    if (error.status === 403) {
+      error.status = 404;
+    }
+
+    next(error);
+  }
+}
+
+function normalizeExcelCellValue(value) {
+  if (value === null || typeof value === "undefined") {
+    return "";
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === "object") {
+    if (Object.prototype.hasOwnProperty.call(value, "result")) {
+      return normalizeExcelCellValue(value.result);
+    }
+
+    if (value.text) {
+      return String(value.text);
+    }
+
+    if (value.hyperlink && value.text) {
+      return String(value.text);
+    }
+
+    if (Array.isArray(value.richText)) {
+      return value.richText.map(part => part.text || "").join("");
+    }
+
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+async function sendExcelPreview(req, res, next, getFile) {
+  try {
+    const file = getFile(req.params.itemId);
+    const workbook = new ExcelJS.Workbook();
+
+    await workbook.xlsx.readFile(file.filePath);
+
+    const worksheet = workbook.worksheets[0];
+
+    if (!worksheet) {
+      const error = new Error("El Excel no tiene hojas disponibles");
+      error.status = 404;
+      throw error;
+    }
+
+    const rowCount = worksheet.actualRowCount || worksheet.rowCount || 0;
+    const columnCount = worksheet.actualColumnCount || worksheet.columnCount || 0;
+    const maxRows = EXCEL_PREVIEW_MAX_ROWS;
+    const rows = [];
+
+    for (let rowIndex = 1; rowIndex <= Math.min(rowCount, maxRows); rowIndex += 1) {
+      const row = worksheet.getRow(rowIndex);
+      const values = [];
+
+      for (let columnIndex = 1; columnIndex <= columnCount; columnIndex += 1) {
+        values.push(normalizeExcelCellValue(row.getCell(columnIndex).value));
+      }
+
+      rows.push(values);
+    }
+
+    res.json({
+      fileName: file.fileName,
+      sheetName: worksheet.name,
+      rowCount,
+      columnCount,
+      truncated: rowCount > maxRows,
+      maxRows,
+      rows
+    });
+  } catch (error) {
+    if (error.status === 403) {
+      error.status = 404;
+    }
+
+    next(error);
+  }
+}
+
 // Abre PDFs y otros archivos compatibles dentro del navegador.
 router.get("/nike/:itemId/:fileType/view", (req, res, next) => {
   sendNikeFile(req, res, next, "inline");
+});
+
+router.get("/nike/:itemId/excel/preview", (req, res, next) => {
+  sendExcelPreview(req, res, next, getNikeExcelFile);
+});
+
+router.get("/nike/:itemId/excel/download", (req, res, next) => {
+  sendExcelFile(req, res, next, getNikeExcelFile);
 });
 
 // Fuerza la descarga del archivo original conservando su nombre.
@@ -142,6 +303,14 @@ router.get("/mockup/:itemId/maqueta/view", (req, res, next) => {
 
 router.get("/mockup/:itemId/maqueta/download", (req, res, next) => {
   sendMockupFile(req, res, next, "attachment");
+});
+
+router.get("/mockup/:itemId/excel/download", (req, res, next) => {
+  sendExcelFile(req, res, next, getMockupExcelFile);
+});
+
+router.get("/mockup/:itemId/excel/preview", (req, res, next) => {
+  sendExcelPreview(req, res, next, getMockupExcelFile);
 });
 
 module.exports = router;

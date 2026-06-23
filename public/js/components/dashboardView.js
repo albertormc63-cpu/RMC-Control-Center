@@ -34,7 +34,7 @@ window.RMCComponents.dashboardView = function dashboardView() {
           <h3>RMCOp-Nike</h3>
           <div class="dashboard-period-filter">
             <label for="nikeMonthFilter">Mes de embarque</label>
-            <input id="nikeMonthFilter" type="month">
+            <input class="MonthFilter" id="nikeMonthFilter" type="month">
             <button id="nikeMonthAll" class="secondary-button" type="button">Todos</button>
           </div>
         </div>
@@ -101,7 +101,7 @@ window.RMCComponents.dashboardView = function dashboardView() {
           <h3>RMC MockupTool</h3>
           <div class="dashboard-period-filter">
             <label for="mockupMonthFilter">Mes de embarque</label>
-            <input id="mockupMonthFilter" type="month">
+            <input class="MonthFilter" id="mockupMonthFilter" type="month">
             <button id="mockupMonthAll" class="secondary-button" type="button">Todos</button>
           </div>
         </div>

@@ -408,6 +408,14 @@ input::placeholder {
   fill: var(--rmc-primary);
   filter: drop-shadow(0 0 4px rgba(162, 26, 47, 0.36));
 }
+.chart-bar:hover {
+  fill: var(--rmc-primary-hover);
+  filter: drop-shadow(0 0 6px rgba(146, 21, 40, 0.45));
+}
+.chart-bar:focus {
+  fill: var(--rmc-primary-strong);
+  outline: none; /* Quita el borde cuadrado por defecto */
+}
 
 .chart-axis-line {
   stroke: var(--rmc-text);
@@ -750,6 +758,14 @@ tbody tr:hover td {
   text-decoration: none;
 }
 
+.resource-link-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .resource-download[aria-disabled="false"] {
   background: #821424;
   color: #ffffff;
@@ -787,6 +803,39 @@ tbody tr:hover td {
   color: var(--rmc-log-warning);
   font-size: 10px;
   font-weight: 700;
+}
+
+.excel-preview-modal {
+  width: min(1080px, calc(100vw - 24px));
+  padding: 18px;
+}
+
+.excel-preview-meta {
+  margin: 8px 0 12px;
+  color: var(--rmc-muted);
+  font-size: 12px;
+}
+
+.excel-preview-wrap {
+  max-height: min(62vh, 620px);
+  overflow: auto;
+  border: 1px solid var(--rmc-border);
+  background: var(--rmc-field);
+}
+
+.excel-preview-table {
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.excel-preview-table td {
+  max-width: 280px;
+  padding: 7px 8px;
+  border: 1px solid var(--rmc-border);
+  color: var(--rmc-text-soft);
+  overflow-wrap: anywhere;
+  vertical-align: top;
 }
 
 .form-message {
@@ -984,6 +1033,11 @@ tbody tr:hover td {
     grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
 }
+
+.MonthFilter::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+
 
 @media (max-width: 520px) {
   body {

@@ -124,13 +124,20 @@ window.RMCComponents.nikeView = function nikeView() {
             </a>
           </div>
 
-          <a id="nikeItemExcel" class="resource-link" href="#" aria-disabled="true">
-            <span class="resource-copy">
-              <strong>Ver WO/Roster en Excel</strong>
-              <small id="nikeItemExcelPath">Ruta pendiente de definir</small>
-            </span>
-            <span class="resource-state">Pendiente</span>
-          </a>
+          <div class="resource-link">
+            <a id="nikeItemExcel" class="resource-main-action" href="#" aria-disabled="true">
+              <strong>Descargar Excel</strong>
+              <small id="nikeItemExcelPath">Sin Excel vinculado</small>
+            </a>
+            <div class="resource-link-actions">
+              <a id="nikeItemExcelPreview" class="resource-state resource-download" href="#" aria-disabled="true">
+                Ver Excel
+              </a>
+              <a id="nikeItemExcelCopy" class="resource-state resource-download" href="#" aria-disabled="true">
+                Copiar ruta
+              </a>
+            </div>
+          </div>
         </div>
       </dialog>
     </section>
