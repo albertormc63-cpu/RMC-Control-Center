@@ -36,6 +36,11 @@ Produccion local:
 npm start
 ```
 
+inicialización de tablas:
+```bash
+node scripts/create-sync-tables.js
+```
+
 Healthcheck:
 
 ```http
