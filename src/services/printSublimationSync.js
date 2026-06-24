@@ -39,6 +39,10 @@ function extractSourceYear(sheetName, fechaEmbarque) {
   return String(new Date().getFullYear());
 }
 
+function isPartialRow(row) {
+  return normalizeKeyPart(row.fecha_embarque).includes("PARCIAL");
+}
+
 function buildNaturalKey(row, sourceYear) {
   const parts = [
     sourceYear,
@@ -46,9 +50,17 @@ function buildNaturalKey(row, sourceYear) {
     row.style,
     row.roster,
     row.process,
-    row.fecha_embarque,
-    row.num_impresion_papel
+    row.fecha_impresion_papel,
+    row.num_impresion_papel,
+    row.plotter_number
   ];
+
+  // Regla de negocio:
+  // Si es parcial, cada línea del Excel puede representar una bajada parcial distinta,
+  // aunque los datos se vean repetidos. Por eso se preserva por source_row.
+  if (isPartialRow(row)) {
+    parts.push(`ROW:${row.source_row}`);
+  }
 
   return parts.map(normalizeKeyPart).join("|");
 }
