@@ -9,6 +9,7 @@ const mockupRoutes = require("./routes/mockup.routes");
 const nikeRoutes = require("./routes/nike.routes");
 const reportsRoutes = require("./routes/reports.routes");
 const filesRoutes = require("./routes/files.routes");
+const syncRoutes = require("./routes/sync.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,6 +31,7 @@ app.use("/api/mockup", mockupRoutes);
 app.use("/api/nike", nikeRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/files", filesRoutes);
+app.use("/api/sync", syncRoutes);
 
 // Manejador final para errores no capturados por rutas especificas.
 app.use((error, req, res, next) => {
