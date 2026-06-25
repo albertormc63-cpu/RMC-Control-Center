@@ -708,6 +708,77 @@ tbody tr:hover td {
   font-size: 12px;
 }
 
+.tracking-panel {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 11px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-field);
+}
+
+.tracking-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tracking-header h4 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.tracking-header strong {
+  flex: 0 0 auto;
+  color: var(--rmc-log-warning);
+  font-size: 11px;
+  text-align: right;
+}
+
+.tracking-summary {
+  margin: 0;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.tracking-match-list {
+  display: grid;
+  gap: 6px;
+}
+
+.tracking-match {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+  color: var(--rmc-text-soft);
+  font-size: 11px;
+}
+
+.tracking-match strong {
+  color: var(--rmc-text);
+}
+
+.operational-status {
+  display: grid;
+  gap: 2px;
+}
+
+.operational-status strong {
+  color: var(--rmc-text);
+  font-size: 12px;
+}
+
+.operational-status span {
+  color: var(--rmc-muted-low);
+  font-size: 10px;
+}
+
 .resource-list {
   display: grid;
   gap: 8px;

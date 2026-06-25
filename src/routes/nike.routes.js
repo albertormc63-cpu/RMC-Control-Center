@@ -10,6 +10,74 @@ const { attachNikeFilePaths } = require("../services/nikeFiles");
 
 const router = express.Router();
 
+function buildPrintSublimationState(summary) {
+  if (!summary || Number(summary.activeCount || 0) === 0) {
+    return {
+      status: "En proceso de impresion",
+      detail: "Sin coincidencia en Sublimado",
+      stage: "impresion",
+      hasPrintSublimationLog: false
+    };
+  }
+
+  if (Number(summary.partialCount || 0) > 0) {
+    return {
+      status: "Parcial en Sublimado",
+      detail: `${summary.activeCount} registros activos | ${summary.totalReportedQuantity} piezas reportadas`,
+      stage: "sublimado",
+      hasPrintSublimationLog: true
+    };
+  }
+
+  return {
+    status: "Bajado a Sublimado",
+    detail: `${summary.activeCount} registros activos | ${summary.totalReportedQuantity} piezas reportadas`,
+    stage: "sublimado",
+    hasPrintSublimationLog: true
+  };
+}
+
+function getPrintSublimationSummariesByWorkOrder(workOrders) {
+  const uniqueWorkOrders = [...new Set(workOrders.filter(Boolean).map(String))];
+
+  if (!uniqueWorkOrders.length) {
+    return new Map();
+  }
+
+  try {
+    const rows = db.prepare(`
+      SELECT
+        work_order,
+        COUNT(*) AS matches,
+        SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS activeCount,
+        SUM(CASE WHEN is_active = 1 THEN COALESCE(order_quantity, 0) ELSE 0 END) AS totalReportedQuantity,
+        SUM(
+          CASE
+            WHEN is_active = 1 AND UPPER(COALESCE(fecha_embarque, '')) LIKE '%PARCIAL%'
+            THEN 1
+            ELSE 0
+          END
+        ) AS partialCount
+      FROM rmc_print_sublimation_log
+      WHERE work_order IN (${uniqueWorkOrders.map(() => "?").join(",")})
+      GROUP BY work_order
+    `).all(...uniqueWorkOrders);
+
+    return new Map(rows.map(row => [String(row.work_order), {
+      matches: Number(row.matches || 0),
+      activeCount: Number(row.activeCount || 0),
+      totalReportedQuantity: Number(row.totalReportedQuantity || 0),
+      partialCount: Number(row.partialCount || 0)
+    }]));
+  } catch (error) {
+    if (error && (error.code === "SQLITE_ERROR" || error.code === "SQLITE_SCHEMA")) {
+      return new Map();
+    }
+
+    throw error;
+  }
+}
+
 // Lista las ejecuciones Nike agrupadas por fecha de embarque.
 router.get("/runs", (req, res) => {
   try {
@@ -69,7 +137,25 @@ router.get("/runs/:id", (req, res) => {
       WHERE run_id IN (${group.runIds.map(() => "?").join(",")})
       ORDER BY run_id, equipo, style, talla
     `).all(...group.runIds);
-    const items = rawItems.map(item => attachNikeFilePaths(db, item));
+    const printSummaryByWorkOrder = getPrintSublimationSummariesByWorkOrder(
+      rawItems.map(item => item.wo)
+    );
+    const items = rawItems.map(item => {
+      const printSublimationSummary = printSummaryByWorkOrder.get(String(item.wo || "")) || {
+        matches: 0,
+        activeCount: 0,
+        totalReportedQuantity: 0,
+        partialCount: 0
+      };
+
+      return {
+        ...attachNikeFilePaths(db, item),
+        print_sublimation: {
+          summary: printSublimationSummary,
+          state: buildPrintSublimationState(printSublimationSummary)
+        }
+      };
+    });
 
     res.json({
       run: group.run,
@@ -145,8 +231,12 @@ router.get("/items/:id/print-sublimation", (req, res) => {
           matches: 0,
           totalReportedQuantity: 0,
           partialCount: 0,
-          activeCount: 0
+          activeCount: 0,
+          inactiveCount: 0,
+          styleMatches: 0,
+          rosterMatches: 0
         },
+        state: buildPrintSublimationState(null),
         matches: []
       });
       return;
@@ -260,6 +350,7 @@ router.get("/items/:id/print-sublimation", (req, res) => {
       hasWorkOrder: true,
       hasPrintSublimationLog: activeMatches.length > 0,
       summary,
+      state: buildPrintSublimationState(summary),
       matches: formattedMatches
     });
 

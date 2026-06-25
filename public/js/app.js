@@ -131,6 +131,38 @@ function addEmptyTableRow(tbody, message, colSpan) {
   tbody.appendChild(row);
 }
 
+function getNikeOperationalState(item) {
+  const state = item.print_sublimation?.state;
+
+  if (state?.status) {
+    return state;
+  }
+
+  return {
+    status: "En proceso de impresion",
+    detail: "Sin coincidencia en Sublimado",
+    stage: "impresion",
+    hasPrintSublimationLog: false
+  };
+}
+
+function addOperationalStatusCell(row, item) {
+  const state = getNikeOperationalState(item);
+  const cell = document.createElement("td");
+  const wrapper = document.createElement("div");
+  const status = document.createElement("strong");
+  const detail = document.createElement("span");
+
+  wrapper.className = "operational-status";
+  wrapper.dataset.stage = state.stage || "impresion";
+  status.textContent = state.status;
+  detail.textContent = state.detail || "";
+  wrapper.append(status, detail);
+  cell.appendChild(wrapper);
+  row.appendChild(cell);
+  return cell;
+}
+
 // Wrapper para fetch JSON con mensajes de error legibles desde la API.
 async function getJSON(url) {
   const response = await fetch(url);
@@ -998,7 +1030,7 @@ async function loadRunDetail(id) {
     addCell(row, formatNumber(item.piezas));
     addCell(row, item.nombre || "");
     addCell(row, item.numero || "");
-    addCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
+    addOperationalStatusCell(row, item);
     addButtonCell(row, "Ver mas", () => showNikeItemModal(item));
 
     row.addEventListener("dblclick", () => showNikeItemModal(item));
@@ -1194,6 +1226,116 @@ function bindDetailControls() {
   }
 }
 
+function renderNikePrintSublimationTracking(data, loading = false) {
+  const status = getElement("nikeItemPrintStatus");
+  const summary = getElement("nikeItemPrintSummary");
+  const matches = getElement("nikeItemPrintMatches");
+
+  if (!status || !summary || !matches) {
+    return;
+  }
+
+  matches.textContent = "";
+
+  if (loading) {
+    status.textContent = "Consultando";
+    summary.textContent = "Consultando reporte de impresores...";
+    return;
+  }
+
+  const state = data?.state || {
+    status: "En proceso de impresion",
+    detail: "Sin coincidencia en Sublimado"
+  };
+  const info = data?.summary || {};
+
+  status.textContent = state.status;
+
+  if (!data?.hasWorkOrder) {
+    summary.textContent = "Sin WO disponible para cruzar con el reporte de impresion/sublimado.";
+    return;
+  }
+
+  if (!data?.hasPrintSublimationLog) {
+    summary.textContent = "En proceso de impresion. No detectado todavia en reporte de impresion/sublimado.";
+    return;
+  }
+
+  summary.textContent = [
+    `WO: ${data.item?.wo || ""}`,
+    `Cantidad reportada: ${formatNumber(info.totalReportedQuantity)}`,
+    `Registros activos: ${formatNumber(info.activeCount)}`,
+    `Parciales: ${formatNumber(info.partialCount)}`
+  ].join(" | ");
+
+  (data.matches || []).slice(0, 6).forEach(match => {
+    const item = document.createElement("div");
+    const title = document.createElement("strong");
+    const detail = document.createElement("span");
+    const sync = document.createElement("span");
+
+    item.className = "tracking-match";
+    title.textContent = [
+      match.process || "Proceso sin dato",
+      match.plotter_number ? `Plotter ${match.plotter_number}` : "",
+      Number(match.is_partial) === 1 ? "Parcial" : ""
+    ].filter(Boolean).join(" | ");
+    detail.textContent = [
+      `Style: ${match.style || "N/D"}`,
+      `Roster: ${match.roster || "N/D"}`,
+      `Cantidad: ${formatNumber(match.order_quantity)}`,
+      `Imp. papel: ${match.num_impresion_papel || "N/D"}`,
+      `Fecha: ${match.fecha_impresion_papel || "N/D"}`,
+      `Embarque: ${match.fecha_embarque || "N/D"}`
+    ].join(" | ");
+    sync.textContent = [
+      `Disenador: ${match.disenador || "N/D"}`,
+      `Impresor: ${match.impresor || "N/D"}`,
+      `Ultima sync: ${match.last_seen_at_display || "N/D"}`
+    ].join(" | ");
+
+    item.append(title, detail, sync);
+    matches.appendChild(item);
+  });
+
+  if ((data.matches || []).length > 6) {
+    const extra = document.createElement("div");
+    extra.className = "tracking-match";
+    extra.textContent = `Hay ${formatNumber(data.matches.length - 6)} coincidencias adicionales.`;
+    matches.appendChild(extra);
+  }
+}
+
+async function loadNikePrintSublimationTracking(itemId) {
+  if (!itemId) {
+    renderNikePrintSublimationTracking({
+      hasWorkOrder: false,
+      hasPrintSublimationLog: false
+    });
+    return;
+  }
+
+  renderNikePrintSublimationTracking(null, true);
+
+  try {
+    const data = await getJSON(`/api/nike/items/${encodeURIComponent(itemId)}/print-sublimation`);
+    renderNikePrintSublimationTracking(data);
+  } catch (error) {
+    console.error(error);
+    renderNikePrintSublimationTracking({
+      hasWorkOrder: true,
+      hasPrintSublimationLog: false,
+      state: {
+        status: "Sin datos de tracking",
+        detail: "No se pudo consultar impresion/sublimado"
+      },
+      summary: {},
+      matches: []
+    });
+    appendLog(error.message || "No se pudo consultar impresion/sublimado", "error");
+  }
+}
+
 function showNikeItemModal(item) {
   const modal = getElement("nikeItemModal");
   const title = getElement("nikeItemTitle");
@@ -1215,10 +1357,11 @@ function showNikeItemModal(item) {
     return;
   }
 
+  const operationalState = getNikeOperationalState(item);
   title.textContent = [item.wo, item.style, item.talla].filter(Boolean).join(" | ") || "Item Nike";
   tool.textContent = item.herramienta || "Sin herramienta";
   runId.textContent = item.run_id || "Sin run";
-  status.textContent = item.estado || "Sin estado";
+  status.textContent = operationalState.status;
 
   const paths = {
     maqueta: item.maqueta_path || "",
@@ -1272,6 +1415,16 @@ function showNikeItemModal(item) {
   if (maquetaPath) maquetaPath.textContent = paths.maqueta || "Ruta pendiente de definir";
   if (plantillaPath) plantillaPath.textContent = paths.plantilla || "Ruta pendiente de definir";
   if (excelPath) excelPath.textContent = paths.excel || "Excel disponible por backend";
+
+  renderNikePrintSublimationTracking({
+    item,
+    hasWorkOrder: Boolean(item.wo),
+    hasPrintSublimationLog: Boolean(item.print_sublimation?.state?.hasPrintSublimationLog),
+    summary: item.print_sublimation?.summary || {},
+    state: operationalState,
+    matches: []
+  });
+  loadNikePrintSublimationTracking(item.id);
 
   modal.showModal();
 }

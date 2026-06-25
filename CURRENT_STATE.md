@@ -101,10 +101,11 @@ No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop
 - Una fila del reporte de impresores puede representar varias piezas Nike.
 - Si `fecha_embarque` contiene `*PARCIAL`, el registro debe preservarse como bajada parcial independiente.
 - Fechas internas de sync pueden venir en UTC; UI debe usar campos `*_display` cuando existan.
+- La tabla `Detalle Nike` muestra estado operativo por area: `En proceso de impresion`, `Bajado a Sublimado` o `Parcial en Sublimado`.
+- El modal de item Nike muestra bloque `Impresion / Sublimado` consumiendo `GET /api/nike/items/:id/print-sublimation`.
 
 ## Pendientes inmediatos conocidos
 
-- Mostrar bloque `Impresion / Sublimado` en detalle de item Nike usando `GET /api/nike/items/:id/print-sublimation`.
 - Mantener documentacion en `docs/` sincronizada con cambios reales.
 - Validar cualquier cambio de dashboard contra `docs/processes/DASHBOARD_AND_REPORTS.md`.
 - Revisar impacto de nuevas herramientas CEP en `TOOL_REGISTRY.md` antes de implementar.

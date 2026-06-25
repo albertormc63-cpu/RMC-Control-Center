@@ -24,7 +24,8 @@ Implementado para el reporte de impresores:
 - Regla especial para registros `*PARCIAL` implementada.
 - Endpoint manual de sincronizacion funcionando.
 - Endpoint de cruce Nike item -> impresion/sublimado funcionando.
-- Pendiente: mostrar bloque visual en el detalle del item Nike dentro de la UI.
+- Bloque visual `Impresion / Sublimado` en detalle de item Nike implementado.
+- Tabla detalle de items Nike muestra estado operativo por area usando resumen de sync.
 - Pendiente posterior: polling automatico.
 
 Validacion observada:
@@ -461,6 +462,12 @@ Respuesta resumida:
     "styleMatches": 1,
     "rosterMatches": 1
   },
+  "state": {
+    "status": "Bajado a Sublimado",
+    "detail": "1 registros activos | 1 piezas reportadas",
+    "stage": "sublimado",
+    "hasPrintSublimationLog": true
+  },
   "matches": [
     {
       "plotter_number": "FD1",
@@ -483,26 +490,22 @@ Respuesta resumida:
 }
 ```
 
-## Pendiente UI/UX para Codex
+## UI/UX implementada
 
-Objetivo inmediato:
+La tabla `Detalle Nike` muestra en la columna `Estado` un estado operativo calculado desde la tabla espejo:
 
-```text
-Mostrar un bloque "Impresion / Sublimado" dentro del detalle de item Nike.
-```
+- `En proceso de impresion`: no hay coincidencia activa en `rmc_print_sublimation_log`.
+- `Bajado a Sublimado`: hay coincidencia activa por `work_order = wo`.
+- `Parcial en Sublimado`: hay coincidencia activa y alguna fila contiene `PARCIAL` en `fecha_embarque`.
 
-Contexto que debe leer Codex para esta tarea:
+El modal `Ver mas` del item Nike muestra un bloque `Impresion / Sublimado` con resumen y hasta seis coincidencias del reporte de impresores.
 
-1. `CURRENT_STATE.md`
-2. `TASK_ROUTER.md`
-3. `docs/sqlite/database-sync.md`
-4. `docs/ui/UI_CONTRACT.md` si existe y la tarea toca estilos/componentes.
-
-Archivos probables a tocar:
+Archivos relacionados:
 
 - `public/js/components/nikeView.js`
-- `public/js/app.js` si ahi se controla apertura/render del detalle.
-- `public/css/style.css` si hace falta estilo visual.
+- `public/js/app.js`
+- `public/css/style.css`
+- `src/routes/nike.routes.js`
 
 Endpoint a consumir:
 
@@ -554,7 +557,7 @@ Parcial: si
 Este registro corresponde a una bajada parcial a Sublimado.
 ```
 
-## Polling automatico pendiente
+## Pendiente posterior: polling automatico
 
 No implementado todavia.
 
