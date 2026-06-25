@@ -90,4 +90,185 @@ router.get("/runs/:id", (req, res) => {
   }
 });
 
+// Regresa coincidencias del reporte de impresión/sublimado para un item Nike.
+// Relación principal:
+// rmcop_nike_items.wo = rmc_print_sublimation_log.work_order
+router.get("/items/:id/print-sublimation", (req, res) => {
+  try {
+    const itemId = Number(req.params.id);
+
+    if (!Number.isInteger(itemId) || itemId <= 0) {
+      res.status(400).json({
+        error: "ID de item Nike inválido"
+      });
+      return;
+    }
+
+    const item = db.prepare(`
+      SELECT
+        id,
+        run_id,
+        fila_excel,
+        wo,
+        ship_order,
+        style,
+        style_family,
+        equipo,
+        variante,
+        version,
+        talla,
+        piezas,
+        nombre,
+        numero,
+        archivo,
+        estado,
+        fecha_embarque,
+        roster,
+        path
+      FROM rmcop_nike_items
+      WHERE id = ?
+    `).get(itemId);
+
+    if (!item) {
+      res.status(404).json({
+        error: "Item Nike no encontrado"
+      });
+      return;
+    }
+
+    if (!item.wo) {
+      res.json({
+        item,
+        hasWorkOrder: false,
+        hasPrintSublimationLog: false,
+        summary: {
+          matches: 0,
+          totalReportedQuantity: 0,
+          partialCount: 0,
+          activeCount: 0
+        },
+        matches: []
+      });
+      return;
+    }
+
+    const matches = db.prepare(`
+      SELECT
+        id,
+        source_id,
+        type,
+        plotter_number,
+        work_order,
+        style,
+        roster,
+        process,
+        order_quantity,
+        fecha_impresion_papel,
+        num_impresion_papel,
+        disenador,
+        impresor,
+        fecha_embarque,
+        source_file,
+        source_sheet,
+        source_row,
+        source_year,
+        natural_key,
+        row_hash,
+        first_seen_at,
+        last_seen_at,
+        is_active,
+        missing_since,
+
+        CASE
+          WHEN UPPER(COALESCE(fecha_embarque, '')) LIKE '%PARCIAL%'
+          THEN 1
+          ELSE 0
+        END AS is_partial,
+
+        CASE
+          WHEN TRIM(UPPER(COALESCE(style, ''))) = TRIM(UPPER(COALESCE(?, '')))
+          THEN 1
+          ELSE 0
+        END AS style_match,
+
+        CASE
+          WHEN TRIM(UPPER(COALESCE(roster, ''))) = TRIM(UPPER(COALESCE(?, '')))
+          THEN 1
+          ELSE 0
+        END AS roster_match
+
+      FROM rmc_print_sublimation_log
+      WHERE work_order = ?
+      ORDER BY
+        is_active DESC,
+        fecha_impresion_papel DESC,
+        source_row DESC
+    `).all(item.style || "", item.roster || "", item.wo);
+
+    
+    const activeMatches = matches.filter(match => match.is_active === 1);
+
+    const summary = {
+      matches: matches.length,
+      activeCount: activeMatches.length,
+      inactiveCount: matches.length - activeMatches.length,
+      totalReportedQuantity: activeMatches.reduce((total, match) => {
+        return total + (Number(match.order_quantity) || 0);
+      }, 0),
+      partialCount: activeMatches.filter(match => match.is_partial === 1).length,
+      styleMatches: activeMatches.filter(match => match.style_match === 1).length,
+      rosterMatches: activeMatches.filter(match => match.roster_match === 1).length
+    };
+    
+    function formatLocalDateTime(value) {
+      if (!value) return null;
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+
+      return new Intl.DateTimeFormat("es-MX", {
+        timeZone: "America/Mexico_City",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      }).format(date);
+    }
+
+    const formattedMatches = matches.map(match => ({
+      ...match,
+
+      // valores originales crudos de BD
+      first_seen_at_raw: match.first_seen_at,
+      last_seen_at_raw: match.last_seen_at,
+      missing_since_raw: match.missing_since,
+
+      // valores bonitos para mostrar en RMC CC
+      first_seen_at_display: formatLocalDateTime(match.first_seen_at),
+      last_seen_at_display: formatLocalDateTime(match.last_seen_at),
+      missing_since_display: formatLocalDateTime(match.missing_since)
+    }));
+
+    res.json({
+      item,
+      hasWorkOrder: true,
+      hasPrintSublimationLog: activeMatches.length > 0,
+      summary,
+      matches: formattedMatches
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: "No se pudo consultar impresión/sublimado para el item Nike",
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

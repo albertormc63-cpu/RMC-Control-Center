@@ -1,25 +1,148 @@
 # RMC CC - Sincronización de fuentes externas
 
+Ultima actualizacion: 2026-06-25.
+
 ## Objetivo
 
-RMCCC no reemplaza los Exceles operativos de cada área. Los lee como fuentes externas, guarda una tabla espejo en SQLite y permite cruzar esos datos con los módulos internos como Nike, Rapid, 27 Sports, etc.
+RMCCC no reemplaza los Exceles operativos de cada area. Los lee como fuentes externas, guarda una tabla espejo en SQLite y permite cruzar esos datos con los modulos internos como Nike, Rapid, 27 Sports, etc.
+
+La regla principal del modulo es:
+
+```text
+Excel operativo existente -> tabla espejo RMCCC -> consulta/cruce en LAN
+```
+
+El area sigue usando su Excel. RMCCC solo consolida, audita y muestra datos relacionados.
+
+## Estado actual del modulo
+
+Implementado para el reporte de impresores:
+
+- Fuente externa registrada en `rmc_external_sources`.
+- Lectura manual del Excel funcionando.
+- Tabla espejo `rmc_print_sublimation_log` recibiendo registros completos.
+- Regla especial para registros `*PARCIAL` implementada.
+- Endpoint manual de sincronizacion funcionando.
+- Endpoint de cruce Nike item -> impresion/sublimado funcionando.
+- Pendiente: mostrar bloque visual en el detalle del item Nike dentro de la UI.
+- Pendiente posterior: polling automatico.
+
+Validacion observada:
+
+```text
+POST /api/sync/sources/1/run
+ok: true
+rows_valid: 4990
+rows_inserted: 1
+rows_unchanged: 4989
+rows_skipped: 0
+```
 
 ## Fuentes externas registradas
 
-### Reporte de Impresión y Reposiciones
+### Reporte de Impresion y Reposiciones
 
-- Área: Diseño / Impresión
+- Area: Diseno / Impresion
 - Tipo: `print_sublimation_excel`
 - Archivo real:
   `/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposicioes.xlsx`
 - Hoja:
   `Impresión - Sublimado 2026`
+- Encabezados reales:
+  fila 3, columnas A:L
+- Datos reales:
+  desde fila 4
 - Tabla espejo:
   `rmc_print_sublimation_log`
 
-## Tabla espejo: rmc_print_sublimation_log
+El archivo es un reporte anual. Actualmente contiene todos los registros del ano y al parecer se vacia/inicia nuevamente cada ano.
 
-Esta tabla guarda los datos del Excel de impresores.
+## Interpretacion operativa del Excel de impresores
+
+El Excel de impresores no representa necesariamente una pieza individual. Una fila puede representar un registro/lote/bajada de impresion.
+
+Ejemplo:
+
+```text
+Excel origen Nike / 27 Sports / Rapid:
+WO 123 - SO 555 - Roster A - pieza 1
+WO 123 - SO 555 - Roster A - pieza 2
+WO 123 - SO 555 - Roster A - pieza 3
+
+Excel impresores:
+WO 123 - Roster A - cantidad 3
+```
+
+Por eso una fila de `rmc_print_sublimation_log` puede relacionarse con varias filas de `rmcop_nike_items`.
+
+Ojo: tambien puede existir el mismo `ship_order` con diferente `wo` o diferente `roster`. No asumir que `ship_order` identifica por si solo una pieza o lote.
+
+## Tablas auxiliares creadas
+
+Estas tablas pertenecen a la capa de sincronizacion/consolidacion de RMCCC. No son tablas operativas de CEPs.
+
+### `rmc_external_sources`
+
+Registra fuentes externas que RMCCC puede leer.
+
+Campos principales:
+
+- `id`
+- `name`
+- `area`
+- `source_type`
+- `file_path`
+- `sheet_name`
+- `active`
+- `last_mtime_ms`
+- `last_size_bytes`
+- `last_sync_at`
+- `last_status`
+- `last_error`
+- `created_at`
+- `updated_at`
+
+Uso actual:
+
+```text
+source_type = print_sublimation_excel
+```
+
+### `rmc_sync_runs`
+
+Guarda cada corrida de sincronizacion.
+
+Campos principales:
+
+- `id`
+- `source_id`
+- `started_at`
+- `finished_at`
+- `status`
+- `rows_read`
+- `rows_valid`
+- `rows_inserted`
+- `rows_updated`
+- `rows_unchanged`
+- `rows_missing`
+- `rows_skipped`
+- `error_message`
+
+Sirve para mostrar o auditar:
+
+```text
+Ultima sync
+filas leidas
+filas nuevas
+filas actualizadas
+filas sin cambios
+filas desaparecidas
+errores
+```
+
+### `rmc_print_sublimation_log`
+
+Tabla espejo del Excel de impresores.
 
 Columnas importadas desde Excel:
 
@@ -53,7 +176,16 @@ Columnas internas de control:
 - `created_at`
 - `updated_at`
 
-## Regla de natural_key
+Indices importantes:
+
+- `UNIQUE(source_id, natural_key)`
+- indice por `work_order`
+- indice por `style`
+- indice por `roster`
+- indice por `fecha_embarque`
+- indice por `is_active`
+
+## Regla de `natural_key`
 
 Para registros normales, la llave natural se genera con:
 
@@ -66,3 +198,396 @@ process
 fecha_impresion_papel
 num_impresion_papel
 plotter_number
+```
+
+Ejemplo:
+
+```text
+2026|173589|A1000H||CP|6/15/26|1|FD1
+```
+
+### Regla especial para `*PARCIAL`
+
+Si `fecha_embarque` contiene `PARCIAL`, la llave natural tambien incluye `source_row`:
+
+```text
+source_year
+work_order
+style
+roster
+process
+fecha_impresion_papel
+num_impresion_papel
+plotter_number
+ROW:source_row
+```
+
+Motivo de negocio:
+
+```text
+*PARCIAL significa que no terminaron un corte completo y bajaron a Sublimado solo cierta cantidad de piezas de ese corte.
+```
+
+Por eso, aunque varias filas `*PARCIAL` parezcan duplicadas, se deben conservar como registros independientes porque forman parte del conteo operativo que llevan hacia Sublimado.
+
+No usar `impresor` como parte de la llave porque puede corregirse. Si cambia, debe actualizar el registro, no crear otro. No usar `source_row` en registros normales porque si mueven filas en Excel se perderia continuidad.
+
+## Regla de `row_hash`
+
+`row_hash` se calcula con el contenido operativo de la fila:
+
+- `type`
+- `plotter_number`
+- `work_order`
+- `style`
+- `roster`
+- `process`
+- `order_quantity`
+- `fecha_impresion_papel`
+- `num_impresion_papel`
+- `disenador`
+- `impresor`
+- `fecha_embarque`
+
+Uso:
+
+```text
+natural_key no existe -> insertar
+natural_key existe y row_hash cambio -> actualizar
+natural_key existe y row_hash igual -> marcar como unchanged/touch
+registro antes activo ya no aparece -> is_active = 0, missing_since = timestamp
+```
+
+RMCCC no borra fisicamente registros importados por sync normal. Si desaparecen del Excel, se marcan como inactivos.
+
+## Fechas y zona horaria
+
+Las columnas internas `first_seen_at`, `last_seen_at` y `missing_since` pueden almacenarse en UTC/ISO.
+
+Para UI se deben usar campos de presentacion generados por API:
+
+- `first_seen_at_display`
+- `last_seen_at_display`
+- `missing_since_display`
+
+La zona usada para display actual es:
+
+```text
+America/Mexico_City
+```
+
+Los campos raw se conservan para depuracion:
+
+- `first_seen_at_raw`
+- `last_seen_at_raw`
+- `missing_since_raw`
+
+## Relacion con Nike
+
+Relacion inicial:
+
+```text
+rmc_print_sublimation_log.work_order = rmcop_nike_items.wo
+```
+
+Una fila del reporte de impresores puede representar varias piezas de `rmcop_nike_items`, porque el reporte agrupa piezas por Work Order / Style / Roster / Process y cantidad total.
+
+El endpoint de Nike tambien calcula:
+
+- `is_partial`
+- `style_match`
+- `roster_match`
+- `summary.matches`
+- `summary.activeCount`
+- `summary.inactiveCount`
+- `summary.totalReportedQuantity`
+- `summary.partialCount`
+- `summary.styleMatches`
+- `summary.rosterMatches`
+
+Nota: si `roster` del item Nike viene `null` y el registro de impresion trae `''`, se considera match por normalizacion vacia.
+
+## Archivos creados o modificados
+
+### Nuevos scripts manuales
+
+Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagnosticar.
+
+- `scripts/create-sync-tables.js`
+  - Crea/verifica `rmc_external_sources`, `rmc_sync_runs`, `rmc_print_sublimation_log` e indices.
+
+- `scripts/register-print-source.js`
+  - Registra la fuente externa del Excel real de impresores.
+  - Inserta o actualiza el registro en `rmc_external_sources`.
+
+- `scripts/preview-print-source.js`
+  - Lee el Excel y muestra encabezados, filas leidas y filas validas sin guardar en BD.
+
+- `scripts/sync-print-source.js`
+  - Ejecuta una sincronizacion real desde consola.
+
+- `scripts/check-print-duplicates.js`
+  - Diagnostico de llaves duplicadas, `row_hash`, duplicados exactos y grupos repetidos.
+  - Util para depuracion; no es parte obligatoria del flujo UI.
+
+### Nuevos servicios
+
+- `src/services/printSublimationSync.js`
+  - Lee el Excel con `xlsx`.
+  - Copia el archivo a temporal antes de leer.
+  - Lee solo rango `A1:L20000` para evitar recorrer hojas infladas hasta 1,048,576 filas.
+  - Valida hoja `Impresión - Sublimado 2026`.
+  - Lee encabezados desde fila 3.
+  - Lee datos desde fila 4.
+  - Ignora filas sin `Work Order`.
+  - Calcula `source_year`, `natural_key` y `row_hash`.
+  - Ejecuta upsert a `rmc_print_sublimation_log`.
+  - Marca registros desaparecidos como `is_active = 0`.
+  - Registra resumen en `rmc_sync_runs`.
+  - Actualiza metadata de fuente en `rmc_external_sources`.
+
+### Nuevas rutas
+
+- `src/routes/sync.routes.js`
+  - `GET /api/sync/sources`
+  - `POST /api/sync/sources/:id/run`
+  - `GET /api/sync/sources/:id/runs`
+
+### Archivos modificados
+
+- `src/server.js`
+  - Importa `syncRoutes`.
+  - Monta `app.use("/api/sync", syncRoutes)`.
+
+- `src/routes/nike.routes.js`
+  - Agrega endpoint:
+    `GET /api/nike/items/:id/print-sublimation`
+  - Consulta item Nike por `id`.
+  - Cruza por `rmcop_nike_items.wo = rmc_print_sublimation_log.work_order`.
+  - Devuelve `summary` y `matches`.
+  - Agrega campos `*_display` para mostrar fechas en hora local.
+
+- `package.json` / `package-lock.json`
+  - Se agrega dependencia `xlsx` para lectura de Excel.
+
+## Endpoints disponibles
+
+### Listar fuentes externas
+
+```http
+GET /api/sync/sources
+```
+
+Uso:
+
+```bash
+curl http://localhost:3000/api/sync/sources
+```
+
+### Ejecutar sync manual
+
+```http
+POST /api/sync/sources/:id/run
+```
+
+Uso:
+
+```bash
+curl -X POST http://localhost:3000/api/sync/sources/1/run
+```
+
+Respuesta esperada:
+
+```json
+{
+  "ok": true,
+  "sync_run_id": 3,
+  "summary": {
+    "status": "success",
+    "rows_read": 19997,
+    "rows_valid": 4990,
+    "rows_inserted": 1,
+    "rows_updated": 0,
+    "rows_unchanged": 4989,
+    "rows_missing": 0,
+    "rows_skipped": 0,
+    "error_message": null
+  }
+}
+```
+
+### Ver historial de sync
+
+```http
+GET /api/sync/sources/:id/runs
+```
+
+Uso:
+
+```bash
+curl http://localhost:3000/api/sync/sources/1/runs
+```
+
+### Consultar impresion/sublimado para item Nike
+
+```http
+GET /api/nike/items/:id/print-sublimation
+```
+
+Uso:
+
+```bash
+curl http://localhost:3000/api/nike/items/167/print-sublimation
+```
+
+Respuesta resumida:
+
+```json
+{
+  "item": {
+    "id": 167,
+    "wo": "173589",
+    "style": "A1000H",
+    "archivo": "173589 PLL-Boston Cannons A1000H 2X 8.pdf"
+  },
+  "hasWorkOrder": true,
+  "hasPrintSublimationLog": true,
+  "summary": {
+    "matches": 1,
+    "activeCount": 1,
+    "inactiveCount": 0,
+    "totalReportedQuantity": 1,
+    "partialCount": 0,
+    "styleMatches": 1,
+    "rosterMatches": 1
+  },
+  "matches": [
+    {
+      "plotter_number": "FD1",
+      "work_order": "173589",
+      "style": "A1000H",
+      "process": "CP",
+      "order_quantity": 1,
+      "fecha_impresion_papel": "6/15/26",
+      "num_impresion_papel": "1",
+      "disenador": "ALBERTO",
+      "impresor": "OSCAR",
+      "fecha_embarque": "6/19/26",
+      "is_partial": 0,
+      "style_match": 1,
+      "roster_match": 1,
+      "first_seen_at_display": "24/06/2026, 16:01:52",
+      "last_seen_at_display": "25/06/2026, 09:28:19"
+    }
+  ]
+}
+```
+
+## Pendiente UI/UX para Codex
+
+Objetivo inmediato:
+
+```text
+Mostrar un bloque "Impresion / Sublimado" dentro del detalle de item Nike.
+```
+
+Contexto que debe leer Codex para esta tarea:
+
+1. `CURRENT_STATE.md`
+2. `TASK_ROUTER.md`
+3. `docs/sqlite/database-sync.md`
+4. `docs/ui/UI_CONTRACT.md` si existe y la tarea toca estilos/componentes.
+
+Archivos probables a tocar:
+
+- `public/js/components/nikeView.js`
+- `public/js/app.js` si ahi se controla apertura/render del detalle.
+- `public/css/style.css` si hace falta estilo visual.
+
+Endpoint a consumir:
+
+```http
+GET /api/nike/items/:id/print-sublimation
+```
+
+Reglas de UI:
+
+- No modificar tablas SQLite para esta tarea.
+- No ejecutar sync automatico desde el detalle del item.
+- No reemplazar estados existentes de Nike todavia.
+- Mostrar el estado del cruce como informacion complementaria.
+- Usar `*_display` para fechas internas de sync.
+- Mostrar `fecha_impresion_papel` y `fecha_embarque` como vienen del Excel.
+- Si no hay coincidencias, mostrar algo como:
+  `No detectado todavia en reporte de impresion/sublimado.`
+- Si hay coincidencias, mostrar resumen:
+  - cantidad reportada
+  - numero de registros activos
+  - si hay parciales
+  - proceso
+  - plotter
+  - fecha impresion papel
+  - numero impresion papel
+  - disenador
+  - impresor
+- Si hay multiples coincidencias, mostrar lista compacta o tabla secundaria.
+
+Texto sugerido para el bloque:
+
+```text
+Impresion / Sublimado
+Detectado en reporte de impresores
+Cantidad reportada: X
+Proceso: CP
+Plotter: FD1
+Fecha impresion papel: 6/15/26
+# Impresion papel: 1
+Disenador: ALBERTO
+Impresor: OSCAR
+Ultima sync: 25/06/2026, 09:28:19
+```
+
+Para parciales:
+
+```text
+Parcial: si
+Este registro corresponde a una bajada parcial a Sublimado.
+```
+
+## Polling automatico pendiente
+
+No implementado todavia.
+
+Cuando se implemente, usar polling controlado por `mtime`/`size`, no `fs.watch` como mecanismo principal.
+
+Flujo sugerido:
+
+```text
+cada X minutos:
+  revisar fuentes activas
+  revisar mtime/size
+  si cambio:
+    esperar estabilizacion
+    copiar Excel a temporal
+    sincronizar
+```
+
+Mantener siempre boton/endpoint manual `POST /api/sync/sources/:id/run` para pruebas y recuperacion.
+
+## Checks utiles
+
+```bash
+node --check src/services/printSublimationSync.js
+node --check src/routes/sync.routes.js
+node --check src/routes/nike.routes.js
+node --check src/server.js
+```
+
+Pruebas manuales:
+
+```bash
+node scripts/preview-print-source.js 1
+node scripts/sync-print-source.js 1
+curl -X POST http://localhost:3000/api/sync/sources/1/run
+curl http://localhost:3000/api/nike/items/167/print-sublimation
+```

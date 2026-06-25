@@ -55,6 +55,7 @@ GET /health
 - `docs/architecture/ARCHITECTURE.md`: arquitectura y estructura del repo.
 - `docs/api/API_ROUTES.md`: rutas HTTP y contratos de respuesta.
 - `docs/sqlite/SQLITE_READ_MODEL.md`: tablas leidas por Control Center.
+- `docs/sqlite/database-sync.md`: sincronizacion de fuentes externas y tablas espejo RMCCC.
 - `docs/integrations/RMCOP_NIKE_CONTRACT.md`: contrato de lectura RMCOp-Nike.
 - `docs/integrations/RMC_MOCKUPTOOL_CONTRACT.md`: contrato de lectura RMC MockupTool.
 - `docs/processes/DASHBOARD_AND_REPORTS.md`: dashboard, agrupaciones y reportes.
