@@ -109,6 +109,58 @@ function extractNikeType(tool) {
   return String(tool).replace(/^RMCOp-Nike\s*/i, "").trim() || "Nike";
 }
 
+function normalizeDepartmentText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function getDepartmentKey(value) {
+  const normalized = normalizeDepartmentText(value);
+
+  if (normalized.includes("calidad") || normalized.includes("caidad")) {
+    return "calidad";
+  }
+
+  if (
+    normalized.includes("diseno") ||
+    normalized.includes("dise;o") ||
+    normalized.includes("disenador") ||
+    normalized.includes("impresion") ||
+    normalized.includes("impresor")
+  ) {
+    return "diseno";
+  }
+
+  if (normalized.includes("sublimado")) {
+    return "sublimado";
+  }
+
+  if (normalized.includes("almacen")) {
+    return "almacen";
+  }
+
+  if (normalized.includes("costura")) {
+    return "costura";
+  }
+
+  if (normalized.includes("embarque") || normalized.includes("emparque")) {
+    return "embarque";
+  }
+
+  return "default";
+}
+
+function makeDepartmentBadge(value, context = "") {
+  const badge = document.createElement("span");
+  badge.className = "department-badge";
+  badge.dataset.department = getDepartmentKey(`${value} ${context}`);
+  badge.textContent = value || "Sin estado";
+  return badge;
+}
+
 // Agrega una linea al log compacto. El log puede estar colapsado sin perder mensajes.
 function appendLog(message, type = "info") {
   const terminal = getElement("terminal");
@@ -150,15 +202,27 @@ function addOperationalStatusCell(row, item) {
   const state = getNikeOperationalState(item);
   const cell = document.createElement("td");
   const wrapper = document.createElement("div");
-  const status = document.createElement("strong");
   const detail = document.createElement("span");
+  const department = getDepartmentKey(`${state.stage || ""} ${state.status || ""} ${state.detail || ""}`);
 
   wrapper.className = "operational-status";
   wrapper.dataset.stage = state.stage || "impresion";
-  status.textContent = state.status;
+  wrapper.dataset.department = department;
   detail.textContent = state.detail || "";
-  wrapper.append(status, detail);
+  wrapper.append(makeDepartmentBadge(state.status, `${state.stage || ""} ${state.detail || ""}`), detail);
   cell.appendChild(wrapper);
+  row.appendChild(cell);
+  return cell;
+}
+
+function addDepartmentStatusCell(row, value, className = "") {
+  const cell = document.createElement("td");
+
+  if (className) {
+    cell.className = className;
+  }
+
+  cell.appendChild(makeDepartmentBadge(value));
   row.appendChild(cell);
   return cell;
 }
@@ -1104,7 +1168,7 @@ async function loadMockupDetail(id) {
     addCell(row, item.variante || "");
     addCell(row, item.talla || "");
     addCell(row, formatNumber(item.piezas));
-    addCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
+    addDepartmentStatusCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
     addButtonCell(row, "Ver mas", () => showMockupItemModal(item));
 
     row.dataset.itemId = item.id || "";
@@ -1239,6 +1303,8 @@ function renderNikePrintSublimationTracking(data, loading = false) {
 
   if (loading) {
     status.textContent = "Consultando";
+    status.className = "department-badge";
+    status.dataset.department = "default";
     summary.textContent = "Consultando reporte de impresores...";
     return;
   }
@@ -1250,6 +1316,8 @@ function renderNikePrintSublimationTracking(data, loading = false) {
   const info = data?.summary || {};
 
   status.textContent = state.status;
+  status.className = "department-badge";
+  status.dataset.department = getDepartmentKey(`${state.stage || ""} ${state.status || ""} ${state.detail || ""}`);
 
   if (!data?.hasWorkOrder) {
     summary.textContent = "Sin WO disponible para cruzar con el reporte de impresion/sublimado.";
@@ -1362,6 +1430,10 @@ function showNikeItemModal(item) {
   tool.textContent = item.herramienta || "Sin herramienta";
   runId.textContent = item.run_id || "Sin run";
   status.textContent = operationalState.status;
+  status.className = "department-badge";
+  status.dataset.department = getDepartmentKey(
+    `${operationalState.stage || ""} ${operationalState.status || ""} ${operationalState.detail || ""}`
+  );
 
   const paths = {
     maqueta: item.maqueta_path || "",
@@ -1729,6 +1801,8 @@ function showMockupItemModal(item) {
   tool.textContent = item.herramienta || "RMC MockupTool";
   runId.textContent = item.run_id || "Sin run";
   status.textContent = item.estado || "Sin estado";
+  status.className = "department-badge";
+  status.dataset.department = getDepartmentKey(item.estado);
   maqueta.href = hasMaqueta
     ? `/api/files/mockup/${encodeURIComponent(item.id)}/maqueta/view`
     : "#";

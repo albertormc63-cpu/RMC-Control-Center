@@ -33,6 +33,14 @@
   --rmc-log-success: #50fa7b;
   --rmc-log-error: #ff5555;
   --rmc-log-warning: #f1fa8c;
+
+  --dept-diseno: #38bdf8;
+  --dept-sublimado: #facc15;
+  --dept-almacen: #34d399;
+  --dept-costura: #fb7185;
+  --dept-calidad: #facc15;
+  --dept-embarque: #34d399;
+  --dept-default: #94a3b8;
 }
 
 /* =========================================================
@@ -354,6 +362,47 @@ input::placeholder {
 
 .status-warning {
   color: var(--rmc-log-warning);
+}
+
+.department-badge {
+  --department-color: var(--dept-default);
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--department-color) 74%, #ffffff 8%);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--department-color);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.department-badge[data-department="diseno"] {
+  --department-color: var(--dept-diseno);
+}
+
+.department-badge[data-department="sublimado"] {
+  --department-color: var(--dept-sublimado);
+}
+
+.department-badge[data-department="almacen"] {
+  --department-color: var(--dept-almacen);
+}
+
+.department-badge[data-department="costura"] {
+  --department-color: var(--dept-costura);
+}
+
+.department-badge[data-department="calidad"] {
+  --department-color: var(--dept-calidad);
+}
+
+.department-badge[data-department="embarque"] {
+  --department-color: var(--dept-embarque);
 }
 
 /* =========================================================
@@ -737,6 +786,10 @@ tbody tr:hover td {
   text-align: right;
 }
 
+.tracking-header .department-badge {
+  color: var(--department-color);
+}
+
 .tracking-summary {
   margin: 0;
   color: var(--rmc-muted);
@@ -765,8 +818,35 @@ tbody tr:hover td {
 }
 
 .operational-status {
+  --department-color: var(--dept-default);
   display: grid;
   gap: 2px;
+  padding-left: 8px;
+  border-left: 3px solid var(--department-color);
+}
+
+.operational-status[data-department="diseno"] {
+  --department-color: var(--dept-diseno);
+}
+
+.operational-status[data-department="sublimado"] {
+  --department-color: var(--dept-sublimado);
+}
+
+.operational-status[data-department="almacen"] {
+  --department-color: var(--dept-almacen);
+}
+
+.operational-status[data-department="costura"] {
+  --department-color: var(--dept-costura);
+}
+
+.operational-status[data-department="calidad"] {
+  --department-color: var(--dept-calidad);
+}
+
+.operational-status[data-department="embarque"] {
+  --department-color: var(--dept-embarque);
 }
 
 .operational-status strong {
@@ -775,7 +855,7 @@ tbody tr:hover td {
 }
 
 .operational-status span {
-  color: var(--rmc-muted-low);
+  color: var(--rmc-text-soft);
   font-size: 10px;
 }
 

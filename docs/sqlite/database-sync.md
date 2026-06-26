@@ -559,11 +559,14 @@ Este registro corresponde a una bajada parcial a Sublimado.
 
 ## Pendiente posterior: polling automatico
 
-No implementado todavia.
+Implementado para fuentes activas con:
 
-Cuando se implemente, usar polling controlado por `mtime`/`size`, no `fs.watch` como mecanismo principal.
+- `source_type = print_sublimation_excel`
+- `active = 1`
 
-Flujo sugerido:
+Usa polling controlado por `mtime`/`size`, no `fs.watch` como mecanismo principal.
+
+Flujo:
 
 ```text
 cada X minutos:
@@ -576,6 +579,21 @@ cada X minutos:
 ```
 
 Mantener siempre boton/endpoint manual `POST /api/sync/sources/:id/run` para pruebas y recuperacion.
+
+Variables de entorno:
+
+```env
+RMC_SYNC_POLL_ENABLED=true
+RMC_SYNC_POLL_INTERVAL_MS=300000
+RMC_SYNC_POLL_STABILIZE_MS=10000
+```
+
+Reglas:
+
+- Si `mtime/size` no cambian contra `rmc_external_sources.last_mtime_ms` y `last_size_bytes`, no ejecuta sync.
+- Si el archivo cambia durante la ventana de estabilizacion, espera otra ventana antes de sincronizar.
+- Si el volumen o archivo no esta disponible, registra advertencia en consola y espera el siguiente ciclo.
+- El endpoint manual se conserva sin cambios.
 
 ## Checks utiles
 

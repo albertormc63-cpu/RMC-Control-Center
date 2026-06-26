@@ -10,6 +10,7 @@ const nikeRoutes = require("./routes/nike.routes");
 const reportsRoutes = require("./routes/reports.routes");
 const filesRoutes = require("./routes/files.routes");
 const syncRoutes = require("./routes/sync.routes");
+const { startSyncPoller } = require("./services/syncPoller");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,4 +49,5 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log("RMC LAN Reporter activo");
   console.log(`Local: http://localhost:${PORT}`);
   console.log(`LAN: http://${lanHost}:${PORT}`);
+  startSyncPoller();
 });

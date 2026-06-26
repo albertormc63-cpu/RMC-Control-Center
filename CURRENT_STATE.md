@@ -17,6 +17,7 @@ Excepcion documentada: el modulo de sincronizacion externa escribe tablas auxili
 - `RMCOp-Nike`: pedidos, piezas, items, commits, archivos de produccion y reportes Excel.
 - `RMC MockupTool`: maquetas/mockups generados, faltantes, items y reportes Excel.
 - Sincronizacion externa inicial: reporte de impresores `Reporte de Impresion y Reposicioes.xlsx` hacia `rmc_print_sublimation_log`.
+- Polling automatico de fuentes externas activas por `mtime`/`size`.
 
 MockupTool es complemento visual de RMCOp-Nike: genera maquetas/mockups, no plantillas/archivos que entran a produccion.
 
@@ -57,6 +58,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/services/mockupGroups.js`: agrupacion MockupTool por fecha de embarque y ano.
 - `src/services/nikeFiles.js`: paths de maqueta/plantilla para items Nike.
 - `src/services/printSublimationSync.js`: lectura/sync del Excel de impresores.
+- `src/services/syncPoller.js`: polling automatico de fuentes externas activas.
 - `public/js/app.js`: carga de APIs, render, filtros, sort y graficas SVG.
 - `public/js/components/`: componentes HTML sin imports ni bundler.
 
@@ -110,7 +112,7 @@ No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop
 - Validar cualquier cambio de dashboard contra `docs/processes/DASHBOARD_AND_REPORTS.md`.
 - Revisar impacto de nuevas herramientas CEP en `TOOL_REGISTRY.md` antes de implementar.
 - Considerar autenticacion solo si se expone fuera de LAN confiable.
-- Implementar polling automatico despues de estabilizar UI y sync manual.
+- Validar cadencia real del polling automatico en operacion diaria.
 
 ## Checks utiles
 
