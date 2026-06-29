@@ -16,16 +16,18 @@ El area sigue usando su Excel. RMCCC solo consolida, audita y muestra datos rela
 
 ## Estado actual del modulo
 
-Implementado para el reporte de impresores:
+Implementado para el reporte de impresores y la salida de Sublimado:
 
 - Fuente externa registrada en `rmc_external_sources`.
 - Lectura manual del Excel funcionando.
 - Tabla espejo `rmc_print_sublimation_log` recibiendo registros completos.
+- Tabla espejo separada `rmc_sublimation_output_log` recibiendo registros de salida de Sublimado.
 - Regla especial para registros `*PARCIAL` implementada.
 - Endpoint manual de sincronizacion funcionando.
 - Endpoint de cruce Nike item -> impresion/sublimado funcionando.
 - Bloque visual `Impresion / Sublimado` en detalle de item Nike implementado.
 - Tabla detalle de items Nike muestra estado operativo por area usando resumen de sync.
+- Si el Work Order aparece activo en `rmc_sublimation_output_log`, el estado se interpreta como `En almacen`.
 - Pendiente posterior: polling automatico.
 
 Validacion observada:
@@ -57,6 +59,25 @@ rows_skipped: 0
   `rmc_print_sublimation_log`
 
 El archivo es un reporte anual. Actualmente contiene todos los registros del ano y al parecer se vacia/inicia nuevamente cada ano.
+
+### Produccion Sublimado - Liberado a Linea
+
+- Area: Sublimado
+- Tipo: `sublimation_output_excel`
+- Archivo real:
+  `/Volumes/Carpeta de sublimado/PRODUCCION SUBLIMADO3.xlsb`
+- Hoja:
+  `LIBERADO A LINEA`
+- Encabezados reales:
+  fila 1, columnas A:M
+- Datos reales:
+  desde fila 2
+- Limite de lectura:
+  `A1:M20000`
+- Tabla espejo:
+  `rmc_sublimation_output_log`
+
+Regla operativa: cuando una pieza aparece en este Excel, significa que ya salio del departamento de Sublimado. Este archivo no debe mezclarse en `rmc_print_sublimation_log`; usa tabla propia.
 
 ## Interpretacion operativa del Excel de impresores
 
@@ -107,6 +128,7 @@ Uso actual:
 
 ```text
 source_type = print_sublimation_excel
+source_type = sublimation_output_excel
 ```
 
 ### `rmc_sync_runs`
@@ -184,6 +206,47 @@ Indices importantes:
 - indice por `style`
 - indice por `roster`
 - indice por `fecha_embarque`
+- indice por `is_active`
+
+### `rmc_sublimation_output_log`
+
+Tabla espejo del Excel de Sublimado. Se mantiene separada del reporte de impresores para no mezclar semanticas ni columnas.
+
+Columnas importadas desde Excel:
+
+- `fecha`
+- `work_order`
+- `style`
+- `pcs`
+- `embarque`
+- `maquina`
+- `total_piezas`
+- `notas`
+- `hora_sale_almacen`
+
+Columnas internas de control:
+
+- `source_id`
+- `source_file`
+- `source_sheet`
+- `source_row`
+- `source_year`
+- `natural_key`
+- `row_hash`
+- `first_seen_at`
+- `last_seen_at`
+- `last_seen_sync_id`
+- `is_active`
+- `missing_since`
+- `created_at`
+- `updated_at`
+
+Indices importantes:
+
+- `UNIQUE(source_id, natural_key)`
+- indice por `work_order`
+- indice por `style`
+- indice por `fecha`
 - indice por `is_active`
 
 ## Regla de `natural_key`
@@ -289,6 +352,7 @@ Relacion inicial:
 
 ```text
 rmc_print_sublimation_log.work_order = rmcop_nike_items.wo
+rmc_sublimation_output_log.work_order = rmcop_nike_items.wo
 ```
 
 Una fila del reporte de impresores puede representar varias piezas de `rmcop_nike_items`, porque el reporte agrupa piezas por Work Order / Style / Roster / Process y cantidad total.
@@ -315,7 +379,7 @@ Nota: si `roster` del item Nike viene `null` y el registro de impresion trae `''
 Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagnosticar.
 
 - `scripts/create-sync-tables.js`
-  - Crea/verifica `rmc_external_sources`, `rmc_sync_runs`, `rmc_print_sublimation_log` e indices.
+  - Crea/verifica `rmc_external_sources`, `rmc_sync_runs`, `rmc_print_sublimation_log`, `rmc_sublimation_output_log` e indices.
 
 - `scripts/register-print-source.js`
   - Registra la fuente externa del Excel real de impresores.
@@ -327,6 +391,16 @@ Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagn
 - `scripts/sync-print-source.js`
   - Ejecuta una sincronizacion real desde consola.
 
+- `scripts/register-sublimation-source.js`
+  - Registra la fuente externa del Excel real de Sublimado.
+  - Inserta o actualiza el registro en `rmc_external_sources`.
+
+- `scripts/preview-sublimation-source.js`
+  - Lee el rango operativo `A1:M20000` del Excel de Sublimado sin guardar en BD.
+
+- `scripts/sync-sublimation-source.js`
+  - Ejecuta una sincronizacion real de Sublimado hacia `rmc_sublimation_output_log`.
+
 - `scripts/check-print-duplicates.js`
   - Diagnostico de llaves duplicadas, `row_hash`, duplicados exactos y grupos repetidos.
   - Util para depuracion; no es parte obligatoria del flujo UI.
@@ -337,12 +411,15 @@ Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagn
   - Lee el Excel con `xlsx`.
   - Copia el archivo a temporal antes de leer.
   - Lee solo rango `A1:L20000` para evitar recorrer hojas infladas hasta 1,048,576 filas.
+  - Para Sublimado lee solo rango `A1:M20000`.
   - Valida hoja `Impresión - Sublimado 2026`.
+  - Valida hoja `LIBERADO A LINEA`.
   - Lee encabezados desde fila 3.
   - Lee datos desde fila 4.
   - Ignora filas sin `Work Order`.
   - Calcula `source_year`, `natural_key` y `row_hash`.
   - Ejecuta upsert a `rmc_print_sublimation_log`.
+  - Ejecuta upsert de Sublimado a `rmc_sublimation_output_log`.
   - Marca registros desaparecidos como `is_active = 0`.
   - Registra resumen en `rmc_sync_runs`.
   - Actualiza metadata de fuente en `rmc_external_sources`.
@@ -497,8 +574,15 @@ La tabla `Detalle Nike` muestra en la columna `Estado` un estado operativo calcu
 - `En proceso de impresion`: no hay coincidencia activa en `rmc_print_sublimation_log`.
 - `Bajado a Sublimado`: hay coincidencia activa por `work_order = wo`.
 - `Parcial en Sublimado`: hay coincidencia activa y alguna fila contiene `PARCIAL` en `fecha_embarque`.
+- `En almacen`: hay coincidencia activa en `rmc_sublimation_output_log`.
 
-El modal `Ver mas` del item Nike muestra un bloque `Impresion / Sublimado` con resumen y hasta seis coincidencias del reporte de impresores.
+El modal `Ver mas` del item Nike muestra un bloque de tracking tipo historial por area:
+
+- `Impresion`: datos del reporte de impresores cuando existan.
+- `Sublimado`: bajada o parcial hacia Sublimado desde el reporte de impresores.
+- `Almacen`: salida registrada desde `rmc_sublimation_output_log`.
+
+Despues del historial, muestra coincidencias compactas del reporte de impresores como detalle secundario.
 
 Archivos relacionados:
 
@@ -557,11 +641,12 @@ Parcial: si
 Este registro corresponde a una bajada parcial a Sublimado.
 ```
 
-## Pendiente posterior: polling automatico
+## Polling automatico
 
 Implementado para fuentes activas con:
 
 - `source_type = print_sublimation_excel`
+- `source_type = sublimation_output_excel`
 - `active = 1`
 
 Usa polling controlado por `mtime`/`size`, no `fs.watch` como mecanismo principal.
@@ -599,6 +684,7 @@ Reglas:
 
 ```bash
 node --check src/services/printSublimationSync.js
+node --check src/services/syncPoller.js
 node --check src/routes/sync.routes.js
 node --check src/routes/nike.routes.js
 node --check src/server.js
@@ -609,6 +695,8 @@ Pruebas manuales:
 ```bash
 node scripts/preview-print-source.js 1
 node scripts/sync-print-source.js 1
+node scripts/preview-sublimation-source.js
+node scripts/sync-sublimation-source.js
 curl -X POST http://localhost:3000/api/sync/sources/1/run
 curl http://localhost:3000/api/nike/items/167/print-sublimation
 ```

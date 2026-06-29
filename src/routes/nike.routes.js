@@ -11,6 +11,17 @@ const { attachNikeFilePaths } = require("../services/nikeFiles");
 const router = express.Router();
 
 function buildPrintSublimationState(summary) {
+  if (Number(summary?.sublimationOutputCount || 0) > 0) {
+    const pieces = Number(summary.sublimationOutputPieces || 0);
+
+    return {
+      status: "En almacen",
+      detail: `${summary.sublimationOutputCount} registros en almacen | ${pieces} piezas`,
+      stage: "almacen",
+      hasPrintSublimationLog: true
+    };
+  }
+
   if (!summary || Number(summary.activeCount || 0) === 0) {
     return {
       status: "En proceso de impresion",
@@ -68,6 +79,39 @@ function getPrintSublimationSummariesByWorkOrder(workOrders) {
       activeCount: Number(row.activeCount || 0),
       totalReportedQuantity: Number(row.totalReportedQuantity || 0),
       partialCount: Number(row.partialCount || 0)
+    }]));
+  } catch (error) {
+    if (error && (error.code === "SQLITE_ERROR" || error.code === "SQLITE_SCHEMA")) {
+      return new Map();
+    }
+
+    throw error;
+  }
+}
+
+function getSublimationOutputSummariesByWorkOrder(workOrders) {
+  const uniqueWorkOrders = [...new Set(workOrders.filter(Boolean).map(String))];
+
+  if (!uniqueWorkOrders.length) {
+    return new Map();
+  }
+
+  try {
+    const rows = db.prepare(`
+      SELECT
+        work_order,
+        COUNT(*) AS matches,
+        SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS activeCount,
+        SUM(CASE WHEN is_active = 1 THEN COALESCE(pcs, 0) ELSE 0 END) AS totalPieces
+      FROM rmc_sublimation_output_log
+      WHERE work_order IN (${uniqueWorkOrders.map(() => "?").join(",")})
+      GROUP BY work_order
+    `).all(...uniqueWorkOrders);
+
+    return new Map(rows.map(row => [String(row.work_order), {
+      matches: Number(row.matches || 0),
+      activeCount: Number(row.activeCount || 0),
+      totalPieces: Number(row.totalPieces || 0)
     }]));
   } catch (error) {
     if (error && (error.code === "SQLITE_ERROR" || error.code === "SQLITE_SCHEMA")) {
@@ -140,6 +184,9 @@ router.get("/runs/:id", (req, res) => {
     const printSummaryByWorkOrder = getPrintSublimationSummariesByWorkOrder(
       rawItems.map(item => item.wo)
     );
+    const sublimationOutputByWorkOrder = getSublimationOutputSummariesByWorkOrder(
+      rawItems.map(item => item.wo)
+    );
     const items = rawItems.map(item => {
       const printSublimationSummary = printSummaryByWorkOrder.get(String(item.wo || "")) || {
         matches: 0,
@@ -147,12 +194,22 @@ router.get("/runs/:id", (req, res) => {
         totalReportedQuantity: 0,
         partialCount: 0
       };
+      const sublimationOutputSummary = sublimationOutputByWorkOrder.get(String(item.wo || "")) || {
+        matches: 0,
+        activeCount: 0,
+        totalPieces: 0
+      };
+      const operationalSummary = {
+        ...printSublimationSummary,
+        sublimationOutputCount: sublimationOutputSummary.activeCount,
+        sublimationOutputPieces: sublimationOutputSummary.totalPieces
+      };
 
       return {
         ...attachNikeFilePaths(db, item),
         print_sublimation: {
-          summary: printSublimationSummary,
-          state: buildPrintSublimationState(printSublimationSummary)
+          summary: operationalSummary,
+          state: buildPrintSublimationState(operationalSummary)
         }
       };
     });
@@ -234,9 +291,12 @@ router.get("/items/:id/print-sublimation", (req, res) => {
           activeCount: 0,
           inactiveCount: 0,
           styleMatches: 0,
-          rosterMatches: 0
+          rosterMatches: 0,
+          sublimationOutputCount: 0,
+          sublimationOutputPieces: 0
         },
         state: buildPrintSublimationState(null),
+        sublimation_outputs: [],
         matches: []
       });
       return;
@@ -295,8 +355,55 @@ router.get("/items/:id/print-sublimation", (req, res) => {
         source_row DESC
     `).all(item.style || "", item.roster || "", item.wo);
 
+    let sublimationOutputs = [];
+
+    try {
+      sublimationOutputs = db.prepare(`
+        SELECT
+          id,
+          source_id,
+          fecha,
+          work_order,
+          style,
+          pcs,
+          embarque,
+          maquina,
+          total_piezas,
+          notas,
+          hora_sale_almacen,
+          source_file,
+          source_sheet,
+          source_row,
+          source_year,
+          natural_key,
+          row_hash,
+          first_seen_at,
+          last_seen_at,
+          is_active,
+          missing_since,
+
+          CASE
+            WHEN TRIM(UPPER(COALESCE(style, ''))) = TRIM(UPPER(COALESCE(?, '')))
+            THEN 1
+            ELSE 0
+          END AS style_match
+
+        FROM rmc_sublimation_output_log
+        WHERE work_order = ?
+        ORDER BY
+          is_active DESC,
+          fecha DESC,
+          source_row DESC
+      `).all(item.style || "", item.wo);
+    } catch (error) {
+      if (!error || (error.code !== "SQLITE_ERROR" && error.code !== "SQLITE_SCHEMA")) {
+        throw error;
+      }
+    }
+
     
     const activeMatches = matches.filter(match => match.is_active === 1);
+    const activeSublimationOutputs = sublimationOutputs.filter(output => output.is_active === 1);
 
     const summary = {
       matches: matches.length,
@@ -307,7 +414,11 @@ router.get("/items/:id/print-sublimation", (req, res) => {
       }, 0),
       partialCount: activeMatches.filter(match => match.is_partial === 1).length,
       styleMatches: activeMatches.filter(match => match.style_match === 1).length,
-      rosterMatches: activeMatches.filter(match => match.roster_match === 1).length
+      rosterMatches: activeMatches.filter(match => match.roster_match === 1).length,
+      sublimationOutputCount: activeSublimationOutputs.length,
+      sublimationOutputPieces: activeSublimationOutputs.reduce((total, output) => {
+        return total + (Number(output.pcs) || 0);
+      }, 0)
     };
     
     function formatLocalDateTime(value) {
@@ -345,12 +456,25 @@ router.get("/items/:id/print-sublimation", (req, res) => {
       missing_since_display: formatLocalDateTime(match.missing_since)
     }));
 
+    const formattedSublimationOutputs = sublimationOutputs.map(output => ({
+      ...output,
+
+      first_seen_at_raw: output.first_seen_at,
+      last_seen_at_raw: output.last_seen_at,
+      missing_since_raw: output.missing_since,
+
+      first_seen_at_display: formatLocalDateTime(output.first_seen_at),
+      last_seen_at_display: formatLocalDateTime(output.last_seen_at),
+      missing_since_display: formatLocalDateTime(output.missing_since)
+    }));
+
     res.json({
       item,
       hasWorkOrder: true,
-      hasPrintSublimationLog: activeMatches.length > 0,
+      hasPrintSublimationLog: activeMatches.length > 0 || activeSublimationOutputs.length > 0,
       summary,
       state: buildPrintSublimationState(summary),
+      sublimation_outputs: formattedSublimationOutputs,
       matches: formattedMatches
     });
 

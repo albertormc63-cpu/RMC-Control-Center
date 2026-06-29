@@ -107,11 +107,11 @@ window.RMCComponents.nikeView = function nikeView() {
           <div class="tracking-header">
             <div>
               <span class="modal-eyebrow">Tracking por area</span>
-              <h4>Impresion / Sublimado</h4>
+              <h4>Tracking del producto</h4>
             </div>
             <strong id="nikeItemPrintStatus">Pendiente</strong>
           </div>
-          <p id="nikeItemPrintSummary" class="tracking-summary">Consultando reporte de impresores...</p>
+          <p id="nikeItemPrintSummary" class="tracking-summary">Consultando fuentes de produccion...</p>
           <div id="nikeItemPrintMatches" class="tracking-match-list"></div>
         </section>
 

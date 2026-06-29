@@ -10,13 +10,14 @@ Panel interno Node/Express para visualizar herramientas CEP de RMC en LAN. El fr
 
 El Control Center debe seguir siendo consumidor/visualizador de datos operativos. No registra produccion nueva, no corrige items y no escribe las tablas operativas de RMCOp-Nike ni RMC MockupTool.
 
-Excepcion documentada: el modulo de sincronizacion externa escribe tablas auxiliares propias de RMCCC para espejear Exceles compartidos, como `rmc_external_sources`, `rmc_sync_runs` y `rmc_print_sublimation_log`. Ver `docs/sqlite/database-sync.md`.
+Excepcion documentada: el modulo de sincronizacion externa escribe tablas auxiliares propias de RMCCC para espejear Exceles compartidos, como `rmc_external_sources`, `rmc_sync_runs`, `rmc_print_sublimation_log` y `rmc_sublimation_output_log`. Ver `docs/sqlite/database-sync.md`.
 
 ## Herramientas integradas
 
 - `RMCOp-Nike`: pedidos, piezas, items, commits, archivos de produccion y reportes Excel.
 - `RMC MockupTool`: maquetas/mockups generados, faltantes, items y reportes Excel.
 - Sincronizacion externa inicial: reporte de impresores `Reporte de Impresion y Reposicioes.xlsx` hacia `rmc_print_sublimation_log`.
+- Sincronizacion externa de Sublimado: `PRODUCCION SUBLIMADO3.xlsb` hacia `rmc_sublimation_output_log`, leyendo `A1:M20000`.
 - Polling automatico de fuentes externas activas por `mtime`/`size`.
 
 MockupTool es complemento visual de RMCOp-Nike: genera maquetas/mockups, no plantillas/archivos que entran a produccion.
@@ -81,12 +82,14 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_external_sources`
 - `rmc_sync_runs`
 - `rmc_print_sublimation_log`
+- `rmc_sublimation_output_log`
 
 ## Tablas auxiliares escritas por RMCCC
 
 - `rmc_external_sources`
 - `rmc_sync_runs`
 - `rmc_print_sublimation_log`
+- `rmc_sublimation_output_log`
 
 No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop_nike_runs`, `rmc_mockuptool_items` o `rmc_mockuptool_runs` salvo instruccion explicita y documentada.
 
@@ -104,7 +107,8 @@ No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop
 - Si `fecha_embarque` contiene `*PARCIAL`, el registro debe preservarse como bajada parcial independiente.
 - Fechas internas de sync pueden venir en UTC; UI debe usar campos `*_display` cuando existan.
 - La tabla `Detalle Nike` muestra estado operativo por area: `En proceso de impresion`, `Bajado a Sublimado` o `Parcial en Sublimado`.
-- El modal de item Nike muestra bloque `Impresion / Sublimado` consumiendo `GET /api/nike/items/:id/print-sublimation`.
+- Si una pieza aparece activa en `rmc_sublimation_output_log`, el estado operativo se presenta como `En almacen`.
+- El modal de item Nike muestra tracking tipo historial por area consumiendo `GET /api/nike/items/:id/print-sublimation`.
 
 ## Pendientes inmediatos conocidos
 
@@ -129,6 +133,7 @@ node --check src/routes/reports.routes.js
 node --check src/routes/files.routes.js
 node --check src/routes/sync.routes.js
 node --check src/services/printSublimationSync.js
+node --check src/services/syncPoller.js
 ```
 
 Pruebas manuales utiles:
@@ -136,6 +141,8 @@ Pruebas manuales utiles:
 ```bash
 node scripts/preview-print-source.js 1
 node scripts/sync-print-source.js 1
+node scripts/preview-sublimation-source.js
+node scripts/sync-sublimation-source.js
 curl -X POST http://localhost:3000/api/sync/sources/1/run
 curl http://localhost:3000/api/nike/items/167/print-sublimation
 ```

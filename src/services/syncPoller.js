@@ -2,6 +2,8 @@ const fs = require("fs");
 
 const db = require("../db");
 const {
+  PRINT_SOURCE_TYPE,
+  SUBLIMATION_OUTPUT_SOURCE_TYPE,
   syncPrintSublimationSource
 } = require("./printSublimationSync");
 
@@ -51,9 +53,9 @@ function getActivePrintSources() {
     SELECT *
     FROM rmc_external_sources
     WHERE active = 1
-    AND source_type = 'print_sublimation_excel'
+    AND source_type IN (?, ?)
     ORDER BY id ASC
-  `).all();
+  `).all(PRINT_SOURCE_TYPE, SUBLIMATION_OUTPUT_SOURCE_TYPE);
 }
 
 function getSourceById(sourceId) {
@@ -117,7 +119,11 @@ function scheduleStableSync(source, initialSnapshot, config) {
 function runStableSync(sourceId, initialSnapshot, config) {
   const source = getSourceById(sourceId);
 
-  if (!source || !source.active || source.source_type !== "print_sublimation_excel") {
+  if (
+    !source ||
+    !source.active ||
+    ![PRINT_SOURCE_TYPE, SUBLIMATION_OUTPUT_SOURCE_TYPE].includes(source.source_type)
+  ) {
     return;
   }
 

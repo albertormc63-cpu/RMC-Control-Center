@@ -105,6 +105,48 @@ CREATE TABLE IF NOT EXISTS rmc_print_sublimation_log (
         ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS rmc_sublimation_output_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    source_id INTEGER NOT NULL,
+
+    fecha TEXT,
+    work_order TEXT,
+    style TEXT,
+    pcs INTEGER,
+    embarque TEXT,
+    maquina TEXT,
+    total_piezas TEXT,
+    notas TEXT,
+    hora_sale_almacen TEXT,
+
+    source_file TEXT,
+    source_sheet TEXT,
+    source_row INTEGER,
+    source_year TEXT,
+
+    natural_key TEXT NOT NULL,
+    row_hash TEXT NOT NULL,
+
+    first_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen_sync_id INTEGER,
+
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    missing_since TEXT,
+
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (source_id)
+        REFERENCES rmc_external_sources (id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (last_seen_sync_id)
+        REFERENCES rmc_sync_runs (id)
+        ON DELETE SET NULL
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_print_sublimation_natural_key
 ON rmc_print_sublimation_log (source_id, natural_key);
 
@@ -123,12 +165,38 @@ ON rmc_print_sublimation_log (fecha_embarque);
 CREATE INDEX IF NOT EXISTS idx_print_sublimation_active
 ON rmc_print_sublimation_log (is_active);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sublimation_output_natural_key
+ON rmc_sublimation_output_log (source_id, natural_key);
+
+CREATE INDEX IF NOT EXISTS idx_sublimation_output_work_order
+ON rmc_sublimation_output_log (work_order);
+
+CREATE INDEX IF NOT EXISTS idx_sublimation_output_style
+ON rmc_sublimation_output_log (style);
+
+CREATE INDEX IF NOT EXISTS idx_sublimation_output_fecha
+ON rmc_sublimation_output_log (fecha);
+
+CREATE INDEX IF NOT EXISTS idx_sublimation_output_active
+ON rmc_sublimation_output_log (is_active);
+
 CREATE INDEX IF NOT EXISTS idx_sync_runs_source
 ON rmc_sync_runs (source_id);
 
 CREATE INDEX IF NOT EXISTS idx_external_sources_type
 ON rmc_external_sources (source_type);
 `);
+
+function ensureColumn(tableName, columnName, columnDefinition) {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
+  const exists = columns.some((column) => column.name === columnName);
+
+  if (!exists) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
+  }
+}
+
+ensureColumn("rmc_sublimation_output_log", "hora_sale_almacen", "TEXT");
 
 const tables = db.prepare(`
   SELECT name
@@ -137,7 +205,8 @@ const tables = db.prepare(`
   AND name IN (
     'rmc_external_sources',
     'rmc_sync_runs',
-    'rmc_print_sublimation_log'
+    'rmc_print_sublimation_log',
+    'rmc_sublimation_output_log'
   )
   ORDER BY name
 `).all();

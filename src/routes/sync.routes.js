@@ -2,6 +2,7 @@ const express = require("express");
 const db = require("../db");
 
 const {
+  SUPPORTED_SOURCE_TYPES,
   syncPrintSublimationSource
 } = require("../services/printSublimationSync");
 
@@ -69,7 +70,7 @@ router.post("/sources/:id/run", (req, res, next) => {
       });
     }
 
-    if (source.source_type !== "print_sublimation_excel") {
+    if (!SUPPORTED_SOURCE_TYPES.has(source.source_type)) {
       return res.status(400).json({
         ok: false,
         error: `Tipo de fuente no soportado todavía: ${source.source_type}`

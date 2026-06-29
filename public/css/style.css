@@ -817,6 +817,39 @@ tbody tr:hover td {
   color: var(--rmc-text);
 }
 
+.tracking-step {
+  --department-color: var(--dept-default);
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--rmc-border);
+  border-left: 3px solid var(--department-color);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+  color: var(--rmc-muted);
+  font-size: 11px;
+}
+
+.tracking-step[data-active="true"] {
+  color: var(--rmc-text-soft);
+}
+
+.tracking-step[data-department="diseno"] {
+  --department-color: var(--dept-diseno);
+}
+
+.tracking-step[data-department="sublimado"] {
+  --department-color: var(--dept-sublimado);
+}
+
+.tracking-step[data-department="almacen"] {
+  --department-color: var(--dept-almacen);
+}
+
+.tracking-step strong {
+  color: var(--department-color);
+}
+
 .operational-status {
   --department-color: var(--dept-default);
   display: grid;

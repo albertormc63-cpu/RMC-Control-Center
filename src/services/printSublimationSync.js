@@ -6,6 +6,13 @@ const XLSX = require("xlsx");
 
 const db = require("../db");
 
+const PRINT_SOURCE_TYPE = "print_sublimation_excel";
+const SUBLIMATION_OUTPUT_SOURCE_TYPE = "sublimation_output_excel";
+const SUPPORTED_SOURCE_TYPES = new Set([
+  PRINT_SOURCE_TYPE,
+  SUBLIMATION_OUTPUT_SOURCE_TYPE
+]);
+
 function cleanValue(value) {
   if (value === null || value === undefined) return "";
 
@@ -22,6 +29,21 @@ function normalizeKeyPart(value) {
     .replace(/\s+/g, " ");
 }
 
+function normalizeHeader(value) {
+  return normalizeKeyPart(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function findHeaderIndex(headers, candidates, fallbackIndex) {
+  const normalizedCandidates = candidates.map(normalizeHeader);
+  const index = headers.findIndex((header) => {
+    return normalizedCandidates.includes(normalizeHeader(header));
+  });
+
+  return index >= 0 ? index : fallbackIndex;
+}
+
 function makeHash(payload) {
   return crypto
     .createHash("sha256")
@@ -33,8 +55,12 @@ function extractSourceYear(sheetName, fechaEmbarque) {
   const fromSheet = String(sheetName || "").match(/20\d{2}/);
   if (fromSheet) return fromSheet[0];
 
-  const fromDate = String(fechaEmbarque || "").match(/20\d{2}/);
+  const dateText = String(fechaEmbarque || "");
+  const fromDate = dateText.match(/20\d{2}/);
   if (fromDate) return fromDate[0];
+
+  const fromShortDate = dateText.match(/\b\d{1,2}\/\d{1,2}\/(\d{2})\b/);
+  if (fromShortDate) return `20${fromShortDate[1]}`;
 
   return String(new Date().getFullYear());
 }
@@ -75,7 +101,7 @@ function copyExcelToTemp(filePath) {
   return tempFile;
 }
 
-function readPrintSublimationExcel(source) {
+function openWorkbookFromSource(source, readOptions = {}) {
   if (!fs.existsSync(source.file_path)) {
     throw new Error(`No existe el archivo o el volumen no está montado: ${source.file_path}`);
   }
@@ -85,9 +111,37 @@ function readPrintSublimationExcel(source) {
 
   try {
     const workbook = XLSX.readFile(tempFile, {
-      cellDates: true
+      cellDates: true,
+      ...readOptions
     });
 
+    return {
+      workbook,
+      stat,
+      dispose() {
+        try {
+          fs.unlinkSync(tempFile);
+        } catch (error) {
+          console.warn("No se pudo eliminar archivo temporal:", tempFile);
+        }
+      }
+    };
+  } catch (error) {
+    try {
+      fs.unlinkSync(tempFile);
+    } catch (unlinkError) {
+      console.warn("No se pudo eliminar archivo temporal:", tempFile);
+    }
+
+    throw error;
+  }
+}
+
+function readPrintSublimationExcel(source) {
+  const excel = openWorkbookFromSource(source);
+
+  try {
+    const { workbook, stat } = excel;
     const sheetName = source.sheet_name;
 
     if (!workbook.SheetNames.includes(sheetName)) {
@@ -197,12 +251,146 @@ function readPrintSublimationExcel(source) {
       rows
     };
   } finally {
-    try {
-      fs.unlinkSync(tempFile);
-    } catch (error) {
-      // No detenemos el proceso si no se pudo borrar el temporal.
-      console.warn("No se pudo eliminar archivo temporal:", tempFile);
+    excel.dispose();
+  }
+}
+
+function buildSublimationOutputNaturalKey(row, sourceYear) {
+  return [
+    sourceYear,
+    row.work_order,
+    row.style,
+    row.fecha,
+    row.maquina,
+    `ROW:${row.source_row}`
+  ].map(normalizeKeyPart).join("|");
+}
+
+function readSublimationOutputExcel(source) {
+  const excel = openWorkbookFromSource(source);
+
+  try {
+    const { workbook, stat } = excel;
+    const sheetName = source.sheet_name || "LIBERADO A LINEA";
+
+    if (!workbook.SheetNames.includes(sheetName)) {
+      throw new Error(
+        `No existe la hoja "${sheetName}". Hojas disponibles: ${workbook.SheetNames.join(", ")}`
+      );
     }
+
+    const sheet = workbook.Sheets[sheetName];
+    const MAX_ROWS_TO_SCAN = 20000;
+
+    const matrix = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      defval: "",
+      raw: false,
+      range: `A1:M${MAX_ROWS_TO_SCAN}`
+    });
+
+    const headerRowIndex = 0;
+    const dataStartIndex = 1;
+    const headers = (matrix[headerRowIndex] || [])
+      .slice(0, 13)
+      .map(cleanValue);
+
+    const indexByField = {
+      fecha: findHeaderIndex(headers, ["FECHA"], 0),
+      workOrder: findHeaderIndex(headers, ["WORK ORDER", "WO"], 1),
+      style: findHeaderIndex(headers, ["STYLE"], 2),
+      pcs: findHeaderIndex(headers, ["PCS", "PIEZAS"], 3),
+      embarque: findHeaderIndex(headers, ["EMBARQUE"], 4),
+      maquina: findHeaderIndex(headers, ["MAQUINA", "MÁQUINA"], 7),
+      totalPiezas: findHeaderIndex(headers, ["TOTAL DE PIEZAS"], 9),
+      notas: findHeaderIndex(headers, ["NOTAS"], 11),
+      horaSaleAlmacen: findHeaderIndex(headers, [
+        "HORA QUE SALE A ALMACEN",
+        "HORA QUE SALE A ALMACÉN",
+        "HORA SALE ALMACEN",
+        "HORA SALE ALMACÉN"
+      ], 12)
+    };
+
+    const expectedHeaders = [
+      "FECHA",
+      "WORK ORDER",
+      "STYLE",
+      "PCS",
+      "MAQUINA",
+      "TOTAL DE PIEZAS",
+      "NOTAS",
+      "HORA QUE SALE A ALMACEN"
+    ];
+
+    const rows = [];
+
+    for (let index = dataStartIndex; index < matrix.length; index++) {
+      const excelRowNumber = index + 1;
+      const cells = matrix[index] || [];
+      const fecha = cleanValue(cells[indexByField.fecha]);
+      const workOrder = cleanValue(cells[indexByField.workOrder]);
+      const style = cleanValue(cells[indexByField.style]);
+      const pcs = Number(cleanValue(cells[indexByField.pcs])) || 0;
+      const maquina = cleanValue(cells[indexByField.maquina]);
+      const embarque = cleanValue(cells[indexByField.embarque]);
+      const totalPiezas = cleanValue(cells[indexByField.totalPiezas]);
+      const notas = cleanValue(cells[indexByField.notas]);
+      const horaSaleAlmacen = cleanValue(cells[indexByField.horaSaleAlmacen]);
+
+      const row = {
+        fecha,
+        work_order: workOrder,
+        style,
+        pcs,
+        embarque,
+        maquina,
+        total_piezas: totalPiezas,
+        notas,
+        hora_sale_almacen: horaSaleAlmacen,
+        source_file: source.file_path,
+        source_sheet: sheetName,
+        source_row: excelRowNumber
+      };
+
+      if (!row.work_order) {
+        continue;
+      }
+
+      const sourceYear = extractSourceYear(sheetName, row.fecha);
+      row.source_year = sourceYear;
+      row.natural_key = buildSublimationOutputNaturalKey(row, sourceYear);
+      row.row_hash = makeHash({
+        work_order: row.work_order,
+        style: row.style,
+        pcs: row.pcs,
+        fecha: row.fecha,
+        embarque: row.embarque,
+        maquina: row.maquina,
+        total_piezas: row.total_piezas,
+        notas: row.notas,
+        hora_sale_almacen: row.hora_sale_almacen
+      });
+
+      rows.push(row);
+    }
+
+    return {
+      source,
+      file: {
+        path: source.file_path,
+        size_bytes: stat.size,
+        mtime_ms: Math.round(stat.mtimeMs)
+      },
+      headers,
+      expectedHeaders,
+      rows_read: Math.max(matrix.length - dataStartIndex, 0),
+      rows_valid: rows.length,
+      sample_rows: rows.slice(0, 5),
+      rows
+    };
+  } finally {
+    excel.dispose();
   }
 }
 
@@ -222,6 +410,15 @@ function getSourceById(sourceId) {
 
 function previewPrintSublimationSource(sourceId) {
   const source = getSourceById(sourceId);
+
+  if (!SUPPORTED_SOURCE_TYPES.has(source.source_type)) {
+    throw new Error(`Tipo de fuente no soportado todavía: ${source.source_type}`);
+  }
+
+  if (source.source_type === SUBLIMATION_OUTPUT_SOURCE_TYPE) {
+    return readSublimationOutputExcel(source);
+  }
+
   return readPrintSublimationExcel(source);
 }
 function createSyncRun(sourceId) {
@@ -485,6 +682,196 @@ function upsertPrintSublimationRows(sourceId, syncRunId, rows) {
   return transaction();
 }
 
+function upsertSublimationOutputRows(sourceId, syncRunId, rows) {
+  const now = new Date().toISOString();
+
+  const existingStmt = db.prepare(`
+    SELECT id, row_hash, is_active
+    FROM rmc_sublimation_output_log
+    WHERE source_id = ?
+    AND natural_key = ?
+  `);
+
+  const insertStmt = db.prepare(`
+    INSERT INTO rmc_sublimation_output_log (
+      source_id,
+
+      fecha,
+      work_order,
+      style,
+      pcs,
+      embarque,
+      maquina,
+      total_piezas,
+      notas,
+      hora_sale_almacen,
+
+      source_file,
+      source_sheet,
+      source_row,
+      source_year,
+
+      natural_key,
+      row_hash,
+
+      first_seen_at,
+      last_seen_at,
+      last_seen_sync_id,
+
+      is_active,
+      missing_since,
+
+      created_at,
+      updated_at
+    )
+    VALUES (
+      @source_id,
+
+      @fecha,
+      @work_order,
+      @style,
+      @pcs,
+      @embarque,
+      @maquina,
+      @total_piezas,
+      @notas,
+      @hora_sale_almacen,
+
+      @source_file,
+      @source_sheet,
+      @source_row,
+      @source_year,
+
+      @natural_key,
+      @row_hash,
+
+      @now,
+      @now,
+      @sync_run_id,
+
+      1,
+      NULL,
+
+      @now,
+      @now
+    )
+  `);
+
+  const updateStmt = db.prepare(`
+    UPDATE rmc_sublimation_output_log
+    SET
+      fecha = @fecha,
+      work_order = @work_order,
+      style = @style,
+      pcs = @pcs,
+      embarque = @embarque,
+      maquina = @maquina,
+      total_piezas = @total_piezas,
+      notas = @notas,
+      hora_sale_almacen = @hora_sale_almacen,
+
+      source_file = @source_file,
+      source_sheet = @source_sheet,
+      source_row = @source_row,
+      source_year = @source_year,
+
+      row_hash = @row_hash,
+      last_seen_at = @now,
+      last_seen_sync_id = @sync_run_id,
+
+      is_active = 1,
+      missing_since = NULL,
+
+      updated_at = @now
+    WHERE source_id = @source_id
+    AND natural_key = @natural_key
+  `);
+
+  const touchStmt = db.prepare(`
+    UPDATE rmc_sublimation_output_log
+    SET
+      last_seen_at = @now,
+      last_seen_sync_id = @sync_run_id,
+      is_active = 1,
+      missing_since = NULL
+    WHERE source_id = @source_id
+    AND natural_key = @natural_key
+  `);
+
+  const markMissingStmt = db.prepare(`
+    UPDATE rmc_sublimation_output_log
+    SET
+      is_active = 0,
+      missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
+      updated_at = CURRENT_TIMESTAMP
+    WHERE source_id = ?
+    AND is_active = 1
+    AND (
+      last_seen_sync_id IS NULL
+      OR last_seen_sync_id != ?
+    )
+  `);
+
+  let rows_inserted = 0;
+  let rows_updated = 0;
+  let rows_unchanged = 0;
+  let rows_skipped = 0;
+
+  const seenKeys = new Set();
+
+  const transaction = db.transaction(() => {
+    for (const row of rows) {
+      if (!row.work_order || !row.natural_key) {
+        rows_skipped++;
+        continue;
+      }
+
+      if (seenKeys.has(row.natural_key)) {
+        rows_skipped++;
+        continue;
+      }
+
+      seenKeys.add(row.natural_key);
+
+      const payload = {
+        ...row,
+        source_id: sourceId,
+        sync_run_id: syncRunId,
+        now
+      };
+
+      const existing = existingStmt.get(sourceId, row.natural_key);
+
+      if (!existing) {
+        insertStmt.run(payload);
+        rows_inserted++;
+        continue;
+      }
+
+      if (existing.row_hash !== row.row_hash || existing.is_active === 0) {
+        updateStmt.run(payload);
+        rows_updated++;
+        continue;
+      }
+
+      touchStmt.run(payload);
+      rows_unchanged++;
+    }
+
+    const missingResult = markMissingStmt.run(sourceId, syncRunId);
+
+    return {
+      rows_inserted,
+      rows_updated,
+      rows_unchanged,
+      rows_missing: missingResult.changes,
+      rows_skipped
+    };
+  });
+
+  return transaction();
+}
+
 function syncPrintSublimationSource(sourceId) {
   const syncRunId = createSyncRun(sourceId);
 
@@ -493,11 +880,9 @@ function syncPrintSublimationSource(sourceId) {
   try {
     result = previewPrintSublimationSource(sourceId);
 
-    const upsertSummary = upsertPrintSublimationRows(
-      sourceId,
-      syncRunId,
-      result.rows
-    );
+    const upsertSummary = result.source.source_type === SUBLIMATION_OUTPUT_SOURCE_TYPE
+      ? upsertSublimationOutputRows(sourceId, syncRunId, result.rows)
+      : upsertPrintSublimationRows(sourceId, syncRunId, result.rows);
 
     const summary = {
       status: "success",
@@ -541,7 +926,11 @@ function syncPrintSublimationSource(sourceId) {
 }
 
 module.exports = {
+  PRINT_SOURCE_TYPE,
+  SUBLIMATION_OUTPUT_SOURCE_TYPE,
+  SUPPORTED_SOURCE_TYPES,
   previewPrintSublimationSource,
   readPrintSublimationExcel,
+  readSublimationOutputExcel,
   syncPrintSublimationSource
 };

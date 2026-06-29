@@ -1305,7 +1305,7 @@ function renderNikePrintSublimationTracking(data, loading = false) {
     status.textContent = "Consultando";
     status.className = "department-badge";
     status.dataset.department = "default";
-    summary.textContent = "Consultando reporte de impresores...";
+    summary.textContent = "Consultando fuentes de produccion...";
     return;
   }
 
@@ -1320,12 +1320,12 @@ function renderNikePrintSublimationTracking(data, loading = false) {
   status.dataset.department = getDepartmentKey(`${state.stage || ""} ${state.status || ""} ${state.detail || ""}`);
 
   if (!data?.hasWorkOrder) {
-    summary.textContent = "Sin WO disponible para cruzar con el reporte de impresion/sublimado.";
+    summary.textContent = "Sin WO disponible para cruzar con fuentes de produccion.";
     return;
   }
 
   if (!data?.hasPrintSublimationLog) {
-    summary.textContent = "En proceso de impresion. No detectado todavia en reporte de impresion/sublimado.";
+    summary.textContent = "En proceso de impresion. No detectado todavia en fuentes de produccion.";
     return;
   }
 
@@ -1333,8 +1333,78 @@ function renderNikePrintSublimationTracking(data, loading = false) {
     `WO: ${data.item?.wo || ""}`,
     `Cantidad reportada: ${formatNumber(info.totalReportedQuantity)}`,
     `Registros activos: ${formatNumber(info.activeCount)}`,
+    `Almacen: ${formatNumber(info.sublimationOutputCount || 0)}`,
     `Parciales: ${formatNumber(info.partialCount)}`
   ].join(" | ");
+
+  const activePrintMatches = (data.matches || []).filter(match => Number(match.is_active) === 1);
+  const activeSublimationOutputs = (data.sublimation_outputs || []).filter(output => Number(output.is_active) === 1);
+  const firstPrint = activePrintMatches[0] || (data.matches || [])[0];
+  const firstOutput = activeSublimationOutputs[0] || (data.sublimation_outputs || [])[0];
+
+  function appendTrackingStep(department, label, stateLabel, lines, active = false) {
+    const item = document.createElement("div");
+    const title = document.createElement("strong");
+    const detail = document.createElement("span");
+
+    item.className = "tracking-step";
+    item.dataset.department = department;
+    item.dataset.active = String(active);
+    title.textContent = `${label}: ${stateLabel}`;
+    detail.textContent = lines.filter(Boolean).join(" | ");
+    item.append(title, detail);
+    matches.appendChild(item);
+  }
+
+  appendTrackingStep(
+    "diseno",
+    "Impresion",
+    firstPrint ? "Detectado" : "Pendiente",
+    firstPrint
+      ? [
+          `Fecha papel: ${firstPrint.fecha_impresion_papel || "N/D"}`,
+          `Impresor: ${firstPrint.impresor || "N/D"}`,
+          `Plotter: ${firstPrint.plotter_number || "N/D"}`
+        ]
+      : ["Sin registro activo en reporte de impresores"],
+    Boolean(firstPrint)
+  );
+
+  appendTrackingStep(
+    "sublimado",
+    "Sublimado",
+    firstPrint ? (Number(firstPrint.is_partial) === 1 ? "Parcial" : "Bajado") : "Pendiente",
+    firstPrint
+      ? [
+          `Embarque: ${firstPrint.fecha_embarque || "N/D"}`,
+          `Proceso: ${firstPrint.process || "N/D"}`,
+          `Cantidad: ${formatNumber(firstPrint.order_quantity)}`
+        ]
+      : ["Sin bajada detectada desde impresion"],
+    Boolean(firstPrint)
+  );
+
+  appendTrackingStep(
+    "almacen",
+    "Almacen",
+    firstOutput ? "En almacen" : "Pendiente",
+    firstOutput
+      ? [
+          `Fecha: ${firstOutput.fecha || "N/D"}`,
+          `Hora: ${firstOutput.hora_sale_almacen || "N/D"}`,
+          `Maquina: ${firstOutput.maquina || "N/D"}`,
+          `PCS: ${formatNumber(firstOutput.pcs)}`
+        ]
+      : ["Sin salida registrada desde Sublimado"],
+    Boolean(firstOutput)
+  );
+
+  if ((data.sublimation_outputs || []).length > 1) {
+    const extra = document.createElement("div");
+    extra.className = "tracking-match";
+    extra.textContent = `Hay ${formatNumber(data.sublimation_outputs.length - 1)} registros adicionales de almacen.`;
+    matches.appendChild(extra);
+  }
 
   (data.matches || []).slice(0, 6).forEach(match => {
     const item = document.createElement("div");
