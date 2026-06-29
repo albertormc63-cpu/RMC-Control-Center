@@ -15,6 +15,7 @@ cep_registry
 rmcop_nike_runs
 rmcop_nike_items
 rmcop_nike_git_commits
+rmc_nike_style_variants
 rmc_mockuptool_runs
 rmc_mockuptool_items
 ```
@@ -84,6 +85,8 @@ Columnas usadas:
 - `error`
 - `tiempo`
 - `clave`
+- `catalog_variant_id`
+- `variant_code`
 
 Uso:
 
@@ -91,6 +94,23 @@ Uso:
 - Filtros y sort en UI.
 - Export Excel Nike.
 - Resolucion de archivos de maqueta/plantilla mediante servicios.
+- Presentacion de equipo para versiones All Star mediante catalogo de variantes.
+
+## rmc_nike_style_variants
+
+Catalogo de variantes Nike.
+
+Columnas usadas:
+
+- `id`
+- `variant_code`
+- `variant_name`
+- `team_market`
+- `team_mascot`
+
+Uso:
+
+- Mostrar `team_market team_mascot` en la columna Equipo del detalle Nike cuando el item es All Star (`AS`) y `equipo` viene vacio.
 
 ## rmcop_nike_git_commits
 

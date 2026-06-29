@@ -99,6 +99,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Filtro por texto/columna.
 - Panel de detalle.
 - Tabla de items Nike.
+- Filtros por columna tipo Excel en la tabla de detalle.
 - Herramienta por item.
 - Boton ocultar detalle.
 
@@ -108,6 +109,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Filtro por texto/columna.
 - Panel de detalle.
 - Tabla de items MockupTool.
+- Filtros por columna tipo Excel en la tabla de detalle.
 - Boton ocultar detalle.
 
 `registryView.js`:

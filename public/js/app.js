@@ -9,6 +9,11 @@ const filterTargets = [
   "mockupItemsTable"
 ];
 
+const excelFilterTargets = [
+  "itemsTable",
+  "mockupItemsTable"
+];
+
 // Tablas que deben permitir ordenar al dar click en sus encabezados.
 const sortableTargets = [
   "runsTable",
@@ -21,6 +26,9 @@ const sortableTargets = [
 
 // Estado de ordenamiento por tabla. Permite alternar ascendente/descendente.
 const sortState = {};
+
+// Estado de filtros por valores de columna en tablas de detalle.
+const excelFilterState = {};
 
 // Conserva la ultima respuesta del dashboard para filtrar meses sin pedirla otra vez.
 let dashboardData = null;
@@ -196,6 +204,10 @@ function getNikeOperationalState(item) {
     stage: "impresion",
     hasPrintSublimationLog: false
   };
+}
+
+function getNikeTeamDisplay(item) {
+  return item?.equipo_display || item?.equipo || "";
 }
 
 function addOperationalStatusCell(row, item) {
@@ -443,6 +455,205 @@ function updateTableCount(tableId, visibleRows, totalRows) {
   }
 }
 
+function getExcelFilterValue(row, columnIndex) {
+  const text = String(row.cells[columnIndex]?.textContent || "").trim();
+  return text || "(Vacios)";
+}
+
+function getExcelColumnValues(tableId, columnIndex) {
+  const rows = Array.from(getElement(tableId)?.querySelectorAll("tr") || []);
+  return [...new Set(rows.map(row => getExcelFilterValue(row, columnIndex)))]
+    .sort((a, b) => a.localeCompare(b, "es", { numeric: true, sensitivity: "base" }));
+}
+
+function getActiveExcelFilters(tableId) {
+  return excelFilterState[tableId] || {};
+}
+
+function passesExcelFilters(tableId, row) {
+  const filters = getActiveExcelFilters(tableId);
+
+  return Object.entries(filters).every(([columnIndex, selectedValues]) => {
+    if (!selectedValues) {
+      return true;
+    }
+
+    return selectedValues.has(getExcelFilterValue(row, Number(columnIndex)));
+  });
+}
+
+function updateExcelFilterButtons(tableId) {
+  const table = getElement(tableId)?.closest("table");
+  const filters = getActiveExcelFilters(tableId);
+
+  if (!table) {
+    return;
+  }
+
+  table.querySelectorAll(".excel-filter-button").forEach(button => {
+    const columnIndex = button.dataset.columnIndex;
+    const isActive = Boolean(filters[columnIndex]);
+    button.classList.toggle("active", isActive);
+    button.title = isActive ? "Filtro de columna activo" : "Filtrar columna";
+  });
+}
+
+function closeExcelFilterMenu() {
+  document.querySelector(".excel-filter-menu")?.remove();
+}
+
+function setExcelColumnFilter(tableId, columnIndex, selectedValues, totalValues) {
+  excelFilterState[tableId] = excelFilterState[tableId] || {};
+
+  if (selectedValues.size === totalValues) {
+    delete excelFilterState[tableId][columnIndex];
+  } else {
+    excelFilterState[tableId][columnIndex] = selectedValues;
+  }
+
+  closeExcelFilterMenu();
+  updateExcelFilterButtons(tableId);
+  applyTableFilter(tableId);
+}
+
+function openExcelFilterMenu(tableId, columnIndex, anchor) {
+  closeExcelFilterMenu();
+
+  const values = getExcelColumnValues(tableId, columnIndex);
+  const activeValues = getActiveExcelFilters(tableId)[columnIndex];
+  const selectedValues = new Set(activeValues || values);
+  const menu = document.createElement("div");
+  const title = document.createElement("strong");
+  const search = document.createElement("input");
+  const actions = document.createElement("div");
+  const selectAll = document.createElement("button");
+  const clearAll = document.createElement("button");
+  const list = document.createElement("div");
+  const footer = document.createElement("div");
+  const apply = document.createElement("button");
+  const clear = document.createElement("button");
+  const header = anchor.closest("th");
+
+  menu.className = "excel-filter-menu";
+  menu.dataset.tableId = tableId;
+  menu.dataset.columnIndex = String(columnIndex);
+  title.textContent = header?.dataset.label || "Columna";
+  search.type = "search";
+  search.placeholder = "Buscar valores";
+  search.className = "excel-filter-search";
+  actions.className = "excel-filter-actions";
+  selectAll.type = "button";
+  selectAll.className = "secondary-button";
+  selectAll.textContent = "Todos";
+  clearAll.type = "button";
+  clearAll.className = "secondary-button";
+  clearAll.textContent = "Ninguno";
+  list.className = "excel-filter-list";
+  footer.className = "excel-filter-footer";
+  apply.type = "button";
+  apply.textContent = "Aplicar";
+  clear.type = "button";
+  clear.className = "secondary-button";
+  clear.textContent = "Limpiar";
+
+  values.forEach(value => {
+    const label = document.createElement("label");
+    const checkbox = document.createElement("input");
+    const text = document.createElement("span");
+
+    checkbox.type = "checkbox";
+    checkbox.value = value;
+    checkbox.checked = selectedValues.has(value);
+    text.textContent = value;
+    label.append(checkbox, text);
+    list.appendChild(label);
+  });
+
+  search.addEventListener("input", () => {
+    const needle = search.value.trim().toLowerCase();
+
+    list.querySelectorAll("label").forEach(label => {
+      label.hidden = needle && !label.textContent.toLowerCase().includes(needle);
+    });
+  });
+
+  selectAll.addEventListener("click", () => {
+    list.querySelectorAll("input[type='checkbox']").forEach(checkbox => {
+      checkbox.checked = true;
+    });
+  });
+
+  clearAll.addEventListener("click", () => {
+    list.querySelectorAll("input[type='checkbox']").forEach(checkbox => {
+      checkbox.checked = false;
+    });
+  });
+
+  apply.addEventListener("click", () => {
+    const selected = new Set(Array.from(list.querySelectorAll("input[type='checkbox']:checked"))
+      .map(checkbox => checkbox.value));
+    setExcelColumnFilter(tableId, columnIndex, selected, values.length);
+  });
+
+  clear.addEventListener("click", () => {
+    setExcelColumnFilter(tableId, columnIndex, new Set(values), values.length);
+  });
+
+  menu.addEventListener("click", event => {
+    event.stopPropagation();
+  });
+
+  actions.append(selectAll, clearAll);
+  footer.append(clear, apply);
+  menu.append(title, search, actions, list, footer);
+  document.body.appendChild(menu);
+
+  const rect = anchor.getBoundingClientRect();
+  menu.style.top = `${rect.bottom + 6}px`;
+  menu.style.left = `${Math.min(rect.left, window.innerWidth - menu.offsetWidth - 12)}px`;
+  search.focus();
+}
+
+function setupExcelColumnFilters(tableId) {
+  if (!excelFilterTargets.includes(tableId)) {
+    return;
+  }
+
+  const table = getElement(tableId)?.closest("table");
+
+  if (!table || table.dataset.excelFiltersReady === "true") {
+    return;
+  }
+
+  table.querySelectorAll("thead th").forEach((header, index) => {
+    const button = document.createElement("button");
+
+    button.type = "button";
+    button.className = "excel-filter-button";
+    button.dataset.columnIndex = String(index);
+    button.textContent = "v";
+    button.title = "Filtrar columna";
+    button.setAttribute("aria-label", `Filtrar ${header.dataset.label || header.textContent.trim()}`);
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      openExcelFilterMenu(tableId, index, button);
+    });
+
+    header.classList.add("excel-filter-header");
+    header.appendChild(button);
+  });
+
+  table.dataset.excelFiltersReady = "true";
+  updateExcelFilterButtons(tableId);
+}
+
+function clearExcelColumnFilters(tableId) {
+  delete excelFilterState[tableId];
+  closeExcelFilterMenu();
+  updateExcelFilterButtons(tableId);
+}
+
 // Filtra filas por texto. Puede buscar en todas las columnas o en una sola.
 function applyTableFilter(tableId) {
   const tools = document.querySelector(`.table-tools[data-filter-target="${tableId}"]`);
@@ -462,7 +673,8 @@ function applyTableFilter(tableId) {
     const haystack = column === "all"
       ? cells.map(cell => cell.textContent).join(" ")
       : cells[Number(column)]?.textContent || "";
-    const isVisible = !search || haystack.toLowerCase().includes(search);
+    const matchesText = !search || haystack.toLowerCase().includes(search);
+    const isVisible = matchesText && passesExcelFilters(tableId, row);
 
     row.classList.toggle("filtered-out", !isVisible);
 
@@ -477,6 +689,8 @@ function applyTableFilter(tableId) {
 // Recalcula opciones de filtro y contador despues de repintar una tabla.
 function refreshTableFilter(tableId) {
   setupFilterOptions(tableId);
+  setupExcelColumnFilters(tableId);
+  updateExcelFilterButtons(tableId);
   applyTableFilter(tableId);
 }
 
@@ -889,6 +1103,65 @@ function filterDashboardPeriod(rows, monthKey) {
   return rows.filter(row => String(row.key || "").startsWith(monthKey));
 }
 
+function getDashboardMonthKeys(monthlyRows) {
+  return [...new Set((monthlyRows || [])
+    .map(row => row.key)
+    .filter(Boolean))]
+    .sort();
+}
+
+function setDashboardMonth(tool, monthKey) {
+  const input = getElement(`${tool}MonthFilter`);
+
+  if (input) {
+    input.value = monthKey;
+  }
+
+  if (tool === "nike") {
+    renderNikeDashboardPeriod(monthKey);
+    return;
+  }
+
+  renderMockupDashboardPeriod(monthKey);
+}
+
+function updateDashboardMonthNav(tool, monthKey) {
+  if (!dashboardData) return;
+
+  const monthlyRows = tool === "nike" ? dashboardData.nike.monthly : dashboardData.mockup.monthly;
+  const monthKeys = getDashboardMonthKeys(monthlyRows);
+  const prevButton = getElement(`${tool}MonthPrev`);
+  const nextButton = getElement(`${tool}MonthNext`);
+  const previousMonth = [...monthKeys].reverse().find(key => key < monthKey);
+  const nextMonth = monthKeys.find(key => key > monthKey);
+
+  if (prevButton) {
+    prevButton.disabled = !monthKey || !previousMonth;
+    prevButton.title = previousMonth ? `Ir a ${previousMonth.slice(5, 7)}/${previousMonth.slice(0, 4)}` : "Sin mes anterior";
+  }
+
+  if (nextButton) {
+    nextButton.disabled = !monthKey || !nextMonth;
+    nextButton.title = nextMonth ? `Ir a ${nextMonth.slice(5, 7)}/${nextMonth.slice(0, 4)}` : "Sin mes siguiente";
+  }
+}
+
+function moveDashboardMonth(tool, direction) {
+  if (!dashboardData) return;
+
+  const input = getElement(`${tool}MonthFilter`);
+  const monthlyRows = tool === "nike" ? dashboardData.nike.monthly : dashboardData.mockup.monthly;
+  const monthKeys = getDashboardMonthKeys(monthlyRows);
+  const currentMonth = input?.value || "";
+  const targetMonth = direction < 0
+    ? [...monthKeys].reverse().find(key => !currentMonth || key < currentMonth)
+    : monthKeys.find(key => !currentMonth || key > currentMonth);
+
+  if (targetMonth) {
+    setDashboardMonth(tool, targetMonth);
+  }
+}
+
 function renderNikeDashboardPeriod(monthKey) {
   if (!dashboardData) return;
 
@@ -919,6 +1192,8 @@ function renderNikeDashboardPeriod(monthKey) {
       { value: item => formatNumber(item.errores) }
     ]
   );
+
+  updateDashboardMonthNav("nike", monthKey);
 }
 
 function renderMockupDashboardPeriod(monthKey) {
@@ -949,6 +1224,8 @@ function renderMockupDashboardPeriod(monthKey) {
       { value: item => formatNumber(item.faltantes) }
     ]
   );
+
+  updateDashboardMonthNav("mockup", monthKey);
 }
 
 function getInitialDashboardMonth(monthlyRows) {
@@ -966,17 +1243,20 @@ function bindDashboardMonthFilters() {
   const nikeInput = getElement("nikeMonthFilter");
   const mockupInput = getElement("mockupMonthFilter");
 
-  nikeInput?.addEventListener("change", () => renderNikeDashboardPeriod(nikeInput.value));
-  mockupInput?.addEventListener("change", () => renderMockupDashboardPeriod(mockupInput.value));
+  nikeInput?.addEventListener("change", () => setDashboardMonth("nike", nikeInput.value));
+  mockupInput?.addEventListener("change", () => setDashboardMonth("mockup", mockupInput.value));
+
+  getElement("nikeMonthPrev")?.addEventListener("click", () => moveDashboardMonth("nike", -1));
+  getElement("nikeMonthNext")?.addEventListener("click", () => moveDashboardMonth("nike", 1));
+  getElement("mockupMonthPrev")?.addEventListener("click", () => moveDashboardMonth("mockup", -1));
+  getElement("mockupMonthNext")?.addEventListener("click", () => moveDashboardMonth("mockup", 1));
 
   getElement("nikeMonthAll")?.addEventListener("click", () => {
-    nikeInput.value = "";
-    renderNikeDashboardPeriod("");
+    setDashboardMonth("nike", "");
   });
 
   getElement("mockupMonthAll")?.addEventListener("click", () => {
-    mockupInput.value = "";
-    renderMockupDashboardPeriod("");
+    setDashboardMonth("mockup", "");
   });
 }
 
@@ -1088,7 +1368,7 @@ async function loadRunDetail(id) {
 
     addCell(row, item.wo || "");
     addCell(row, item.style || "");
-    addCell(row, item.equipo || "");
+    addCell(row, getNikeTeamDisplay(item));
     addCell(row, item.variante || "");
     addCell(row, item.talla || "");
     addCell(row, formatNumber(item.piezas));
@@ -2004,6 +2284,7 @@ function bindTableFilters() {
         column.value = "all";
       }
 
+      clearExcelColumnFilters(tableId);
       applyTableFilter(tableId);
     });
 
@@ -2014,6 +2295,16 @@ function bindTableFilters() {
 // Activa sort por encabezado en todas las tablas registradas.
 function bindTableSorting() {
   sortableTargets.forEach(setupSortableTable);
+  excelFilterTargets.forEach(setupExcelColumnFilters);
+}
+
+function bindExcelFilterMenuClose() {
+  document.addEventListener("click", closeExcelFilterMenu);
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      closeExcelFilterMenu();
+    }
+  });
 }
 
 // Arranque de la aplicacion: primero conecta eventos, luego carga datos iniciales.
@@ -2031,6 +2322,7 @@ async function init() {
   bindDashboardMonthFilters();
   bindTableFilters();
   bindTableSorting();
+  bindExcelFilterMenuClose();
 
   try {
     await Promise.all([

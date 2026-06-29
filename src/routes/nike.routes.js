@@ -122,6 +122,61 @@ function getSublimationOutputSummariesByWorkOrder(workOrders) {
   }
 }
 
+function isAllStarItem(item) {
+  return [
+    item.variant_code,
+    item.catalog_variant_code,
+    item.variante,
+    item.catalog_variant_name
+  ].some(value => /(^|\b)AS($|\b)|ALL\s*STARS?/i.test(String(value || "")));
+}
+
+function buildTeamDisplay(item) {
+  const equipo = String(item.equipo || "").trim();
+
+  if (equipo) {
+    return equipo;
+  }
+
+  const teamDisplay = [item.team_market, item.team_mascot]
+    .map(value => String(value || "").trim())
+    .filter(Boolean)
+    .join(" ");
+
+  return isAllStarItem(item) ? teamDisplay : "";
+}
+
+function getCatalogVariantsById(items) {
+  const ids = [...new Set(items
+    .map(item => Number(item.catalog_variant_id))
+    .filter(Number.isInteger))];
+
+  if (!ids.length) {
+    return new Map();
+  }
+
+  try {
+    const rows = db.prepare(`
+      SELECT
+        id,
+        variant_code,
+        variant_name,
+        team_market,
+        team_mascot
+      FROM rmc_nike_style_variants
+      WHERE id IN (${ids.map(() => "?").join(",")})
+    `).all(...ids);
+
+    return new Map(rows.map(row => [Number(row.id), row]));
+  } catch (error) {
+    if (error && (error.code === "SQLITE_ERROR" || error.code === "SQLITE_SCHEMA")) {
+      return new Map();
+    }
+
+    throw error;
+  }
+}
+
 // Lista las ejecuciones Nike agrupadas por fecha de embarque.
 router.get("/runs", (req, res) => {
   try {
@@ -187,7 +242,16 @@ router.get("/runs/:id", (req, res) => {
     const sublimationOutputByWorkOrder = getSublimationOutputSummariesByWorkOrder(
       rawItems.map(item => item.wo)
     );
+    const catalogVariantsById = getCatalogVariantsById(rawItems);
     const items = rawItems.map(item => {
+      const catalogVariant = catalogVariantsById.get(Number(item.catalog_variant_id)) || {};
+      const enrichedItem = {
+        ...item,
+        catalog_variant_code: catalogVariant.variant_code || "",
+        catalog_variant_name: catalogVariant.variant_name || "",
+        team_market: catalogVariant.team_market || "",
+        team_mascot: catalogVariant.team_mascot || ""
+      };
       const printSublimationSummary = printSummaryByWorkOrder.get(String(item.wo || "")) || {
         matches: 0,
         activeCount: 0,
@@ -206,7 +270,8 @@ router.get("/runs/:id", (req, res) => {
       };
 
       return {
-        ...attachNikeFilePaths(db, item),
+        ...attachNikeFilePaths(db, enrichedItem),
+        equipo_display: buildTeamDisplay(enrichedItem),
         print_sublimation: {
           summary: operationalSummary,
           state: buildPrintSublimationState(operationalSummary)

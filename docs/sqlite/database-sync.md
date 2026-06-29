@@ -678,6 +678,9 @@ Reglas:
 - Si `mtime/size` no cambian contra `rmc_external_sources.last_mtime_ms` y `last_size_bytes`, no ejecuta sync.
 - Si el archivo cambia durante la ventana de estabilizacion, espera otra ventana antes de sincronizar.
 - Si el volumen o archivo no esta disponible, registra advertencia en consola y espera el siguiente ciclo.
+- Los mensajes de terminal identifican la fuente como `Impresores Excel` o `Sublimado Excel`.
+- Si no cambio `mtime/size`, tambien imprime `sin cambios de archivo; no se ejecuta sync` con ultima sync/status.
+- Si ejecuta sync, imprime conteos de nuevos, actualizados, sin cambios, faltantes, omitidos, leidas y validas.
 - El endpoint manual se conserva sin cambios.
 
 ## Checks utiles

@@ -66,6 +66,18 @@ function getSourceById(sourceId) {
   `).get(sourceId);
 }
 
+function getSourceLabel(source) {
+  if (source.source_type === PRINT_SOURCE_TYPE) {
+    return "Impresores Excel";
+  }
+
+  if (source.source_type === SUBLIMATION_OUTPUT_SOURCE_TYPE) {
+    return "Sublimado Excel";
+  }
+
+  return source.name || `Fuente ${source.id}`;
+}
+
 function readFileSnapshot(filePath) {
   try {
     const stat = fs.statSync(filePath);
@@ -92,6 +104,13 @@ function hasSourceChanged(source, snapshot) {
     Number(source.last_mtime_ms || 0) !== snapshot.mtime_ms ||
     Number(source.last_size_bytes || 0) !== snapshot.size_bytes
   );
+}
+
+function formatSourceLastSync(source) {
+  const status = source.last_status || "sin status";
+  const lastSync = source.last_sync_at || "sin sync previa";
+
+  return `ultima sync: ${lastSync}, status: ${status}`;
 }
 
 function sameSnapshot(left, right) {
@@ -131,7 +150,7 @@ function runStableSync(sourceId, initialSnapshot, config) {
 
   if (!latestSnapshot.exists) {
     console.warn(
-      `[sync-poller] Fuente ${source.id} no disponible durante estabilizacion: ${source.file_path}`
+      `[sync-poller] ${getSourceLabel(source)} (ID ${source.id}) no disponible durante estabilizacion: ${source.file_path}`
     );
     return;
   }
@@ -149,14 +168,22 @@ function runStableSync(sourceId, initialSnapshot, config) {
 
   try {
     const result = syncPrintSublimationSource(source.id);
+    const summary = result.summary;
+
     console.log(
-      `[sync-poller] Fuente ${source.id} sincronizada: ` +
-      `${result.summary.rows_inserted} nuevas, ` +
-      `${result.summary.rows_updated} actualizadas, ` +
-      `${result.summary.rows_unchanged} sin cambios.`
+      `[sync-poller] ${getSourceLabel(source)} (ID ${source.id}) sincronizado: ` +
+      `${summary.rows_inserted} nuevos, ` +
+      `${summary.rows_updated} actualizados, ` +
+      `${summary.rows_unchanged} sin cambios, ` +
+      `${summary.rows_missing} faltantes, ` +
+      `${summary.rows_skipped} omitidos ` +
+      `(leidas ${summary.rows_read}, validas ${summary.rows_valid}).`
     );
   } catch (error) {
-    console.error(`[sync-poller] Error sincronizando fuente ${source.id}:`, error.message);
+    console.error(
+      `[sync-poller] Error sincronizando ${getSourceLabel(source)} (ID ${source.id}):`,
+      error.message
+    );
   } finally {
     runningSyncs.delete(source.id);
   }
@@ -170,13 +197,22 @@ function runPollCycle(config = getPollConfig()) {
 
     if (!snapshot.exists) {
       console.warn(
-        `[sync-poller] Fuente ${source.id} no disponible: ${source.file_path}`
+        `[sync-poller] ${getSourceLabel(source)} (ID ${source.id}) no disponible: ${source.file_path}`
       );
       continue;
     }
 
     if (hasSourceChanged(source, snapshot)) {
+      console.log(
+        `[sync-poller] ${getSourceLabel(source)} (ID ${source.id}) cambio detectado; ` +
+        `esperando estabilizacion ${Math.round(config.stabilizeMs / 1000)}s.`
+      );
       scheduleStableSync(source, snapshot, config);
+    } else {
+      console.log(
+        `[sync-poller] ${getSourceLabel(source)} (ID ${source.id}) sin cambios de archivo; ` +
+        `no se ejecuta sync (${formatSourceLastSync(source)}).`
+      );
     }
   }
 }

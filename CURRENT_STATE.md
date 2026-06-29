@@ -18,7 +18,7 @@ Excepcion documentada: el modulo de sincronizacion externa escribe tablas auxili
 - `RMC MockupTool`: maquetas/mockups generados, faltantes, items y reportes Excel.
 - Sincronizacion externa inicial: reporte de impresores `Reporte de Impresion y Reposicioes.xlsx` hacia `rmc_print_sublimation_log`.
 - Sincronizacion externa de Sublimado: `PRODUCCION SUBLIMADO3.xlsb` hacia `rmc_sublimation_output_log`, leyendo `A1:M20000`.
-- Polling automatico de fuentes externas activas por `mtime`/`size`.
+- Polling automatico de fuentes externas activas por `mtime`/`size`, con mensajes separados para `Impresores Excel` y `Sublimado Excel`, incluso cuando no hay cambios de archivo.
 
 MockupTool es complemento visual de RMCOp-Nike: genera maquetas/mockups, no plantillas/archivos que entran a produccion.
 

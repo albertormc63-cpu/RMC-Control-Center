@@ -9,6 +9,7 @@ Tablas:
 - `rmcop_nike_runs`
 - `rmcop_nike_items`
 - `rmcop_nike_git_commits`
+- `rmc_nike_style_variants`
 
 ## Agrupacion operativa
 
@@ -53,6 +54,18 @@ Si `herramienta` esta vacio, Control Center muestra `RMCOp-Nike`. Si el grupo me
 - `error`
 - `tiempo`
 - `clave`
+- `catalog_variant_id`
+- `variant_code`
+
+Para items All Star (`AS`) con `equipo` vacio, el detalle puede usar el catalogo `rmc_nike_style_variants` para mostrar `team_market team_mascot` como valor de presentacion en la columna Equipo.
+
+## Campos de catalogo de variantes consumidos
+
+- `id`
+- `variant_code`
+- `variant_name`
+- `team_market`
+- `team_mascot`
 
 ## Archivos Nike
 

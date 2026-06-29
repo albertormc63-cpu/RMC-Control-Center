@@ -93,6 +93,7 @@ Funciones comunes:
 
 - Filtro por texto.
 - Filtro por columna.
+- Filtros por valores de columna tipo Excel en tablas de detalle.
 - Boton limpiar.
 - Contador visible.
 - Sort por encabezado.

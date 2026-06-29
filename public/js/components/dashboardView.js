@@ -73,7 +73,11 @@ window.RMCComponents.dashboardView = function dashboardView() {
 
         <div class="chart-panel">
           <h4>Piezas por fecha de embarque</h4>
-          <div id="nikeTimeChart" class="chart-canvas"></div>
+          <div class="chart-month-nav" aria-label="Navegacion mensual Nike">
+            <button id="nikeMonthPrev" class="chart-nav-button" type="button" aria-label="Mes anterior Nike">&lt;</button>
+            <div id="nikeTimeChart" class="chart-canvas"></div>
+            <button id="nikeMonthNext" class="chart-nav-button" type="button" aria-label="Mes siguiente Nike">&gt;</button>
+          </div>
         </div>
 
         <div class="dashboard-table-panel">
@@ -140,7 +144,11 @@ window.RMCComponents.dashboardView = function dashboardView() {
 
         <div class="chart-panel">
           <h4>Maquetas por fecha de embarque</h4>
-          <div id="mockupTemplateChart" class="chart-canvas"></div>
+          <div class="chart-month-nav" aria-label="Navegacion mensual MockupTool">
+            <button id="mockupMonthPrev" class="chart-nav-button" type="button" aria-label="Mes anterior MockupTool">&lt;</button>
+            <div id="mockupTemplateChart" class="chart-canvas"></div>
+            <button id="mockupMonthNext" class="chart-nav-button" type="button" aria-label="Mes siguiente MockupTool">&gt;</button>
+          </div>
         </div>
 
         <div class="dashboard-table-panel">
