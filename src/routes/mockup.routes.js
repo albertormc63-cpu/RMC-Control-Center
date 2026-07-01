@@ -63,10 +63,14 @@ router.get("/runs/:id", (req, res) => {
 
     // Conserva el run_id para identificar de que ejecucion proviene cada maqueta.
     const items = db.prepare(`
-      SELECT *
-      FROM rmc_mockuptool_items
-      WHERE run_id IN (${group.runIds.map(() => "?").join(",")})
-      ORDER BY run_id, equipo, style, talla
+      SELECT
+        i.*,
+        r.disenador AS disenador
+      FROM rmc_mockuptool_items i
+      LEFT JOIN rmc_mockuptool_runs r
+        ON r.id = i.run_id
+      WHERE i.run_id IN (${group.runIds.map(() => "?").join(",")})
+      ORDER BY i.run_id, i.equipo, i.style, i.talla
     `).all(...group.runIds);
 
     res.json({

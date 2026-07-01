@@ -15,6 +15,7 @@ cep_registry
 rmcop_nike_runs
 rmcop_nike_items
 rmcop_nike_git_commits
+rmc_git_commits
 rmc_nike_style_variants
 rmc_mockuptool_runs
 rmc_mockuptool_items
@@ -130,6 +131,38 @@ Columnas usadas:
 Uso:
 
 - Conteo en dashboard como `Commits Nike`.
+
+## rmc_git_commits
+
+Historial tecnico centralizado de commits del RMC Control System.
+
+Columnas usadas:
+
+- `tool_key`
+- `tool_name`
+- `repo_name`
+- `repo_path`
+- `branch_name`
+- `commit_hash`
+- `short_hash`
+- `author_name`
+- `author_email`
+- `commit_date`
+- `commit_subject`
+- `commit_body`
+- `files_changed`
+- `insertions`
+- `deletions`
+- `is_merge`
+- `created_at`
+- `updated_at`
+
+Uso:
+
+- Conteo general de commits en dashboard.
+- API `/api/git-commits`.
+- Vista `Historial de desarrollo`.
+- Base para changelog interno del RMC Control System.
 
 ## rmc_mockuptool_runs
 

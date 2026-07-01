@@ -41,6 +41,9 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `GET /api/files/nike/:itemId/:fileType/download`
 - `GET /api/files/mockup/:itemId/maqueta/view`
 - `GET /api/files/mockup/:itemId/maqueta/download`
+- `GET /api/git-commits`
+- `GET /api/git-commits/:tool_key`
+- `GET /api/git-commits/summary`
 - `GET /api/sync/sources`
 - `POST /api/sync/sources/:id/run`
 - `GET /api/sync/sources/:id/runs`
@@ -54,10 +57,12 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/routes/mockup.routes.js`: listado y detalle agrupado de MockupTool.
 - `src/routes/reports.routes.js`: Excel Nike y MockupTool.
 - `src/routes/files.routes.js`: view/download con validacion bajo `RMC_FILE_ROOT`.
+- `src/routes/gitCommits.routes.js`: historial tecnico centralizado de commits del RMC Control System.
 - `src/routes/sync.routes.js`: fuentes externas y sincronizacion manual.
 - `src/services/nikeGroups.js`: agrupacion Nike por fecha de embarque y ano.
 - `src/services/mockupGroups.js`: agrupacion MockupTool por fecha de embarque y ano.
 - `src/services/nikeFiles.js`: paths de maqueta/plantilla para items Nike.
+- `src/services/gitCommits.js`: consultas de `rmc_git_commits`.
 - `src/services/printSublimationSync.js`: lectura/sync del Excel de impresores.
 - `src/services/syncPoller.js`: polling automatico de fuentes externas activas.
 - `public/js/app.js`: carga de APIs, render, filtros, sort y graficas SVG.
@@ -66,6 +71,9 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 ## Scripts auxiliares
 
 - `scripts/create-sync-tables.js`: crea/verifica tablas auxiliares de sync.
+- `scripts/create-git-commits-table.js`: crea/verifica `rmc_git_commits` y migra commits legacy Nike.
+- `scripts/import_git_commits.py`: importa commits Git locales hacia `rmc_git_commits`.
+- `scripts/git_commit_sources.json`: fuentes configuradas para importar commits por herramienta.
 - `scripts/register-print-source.js`: registra la fuente del Excel de impresores.
 - `scripts/preview-print-source.js`: lee Excel sin guardar, para diagnostico.
 - `scripts/sync-print-source.js`: ejecuta sync real por consola.
@@ -77,6 +85,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmcop_nike_runs`
 - `rmcop_nike_items`
 - `rmcop_nike_git_commits`
+- `rmc_git_commits`
 - `rmc_mockuptool_runs`
 - `rmc_mockuptool_items`
 - `rmc_external_sources`

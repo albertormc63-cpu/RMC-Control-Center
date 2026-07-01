@@ -333,8 +333,11 @@ router.get("/", (req, res) => {
 
     const gitCommits = safeGet(() => db.prepare(`
       SELECT COUNT(*) AS total
+      FROM rmc_git_commits
+    `).get(), safeGet(() => db.prepare(`
+      SELECT COUNT(*) AS total
       FROM rmcop_nike_git_commits
-    `).get(), { total: 0 });
+    `).get(), { total: 0 }));
 
     const registry = safeAll(() => db.prepare(`
       SELECT source_app, runs_table, app_version, updated_at
@@ -426,6 +429,10 @@ router.get("/tables", (req, res) => {
       {
         name: "rmcop_nike_git_commits",
         rows: safeGet(() => db.prepare("SELECT COUNT(*) AS total FROM rmcop_nike_git_commits").get().total, 0)
+      },
+      {
+        name: "rmc_git_commits",
+        rows: safeGet(() => db.prepare("SELECT COUNT(*) AS total FROM rmc_git_commits").get().total, 0)
       },
       {
         name: "rmc_mockuptool_runs",

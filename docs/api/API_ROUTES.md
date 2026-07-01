@@ -78,6 +78,34 @@ Devuelve conteos de tablas conocidas para diagnostico.
 
 Nota vigente: Control Center no expone alta manual activa de Registry desde la UI.
 
+## Historial de desarrollo
+
+```http
+GET /api/git-commits
+```
+
+Lee commits centralizados desde `rmc_git_commits`.
+
+Query params:
+
+- `tool_key`
+- `date_from`
+- `date_to`
+- `limit`
+- `offset`
+
+```http
+GET /api/git-commits/:tool_key
+```
+
+Filtra commits por herramienta del RMC Control System.
+
+```http
+GET /api/git-commits/summary
+```
+
+Devuelve conteo y ultimo commit por herramienta.
+
 ## RMCOp-Nike
 
 ```http

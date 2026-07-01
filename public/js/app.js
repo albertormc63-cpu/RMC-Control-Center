@@ -6,7 +6,8 @@ const filterTargets = [
   "runsTable",
   "itemsTable",
   "mockupTable",
-  "mockupItemsTable"
+  "mockupItemsTable",
+  "gitCommitsTable"
 ];
 
 const excelFilterTargets = [
@@ -21,7 +22,8 @@ const sortableTargets = [
   "mockupTable",
   "mockupItemsTable",
   "registryTable",
-  "tablesTable"
+  "tablesTable",
+  "gitCommitsTable"
 ];
 
 // Estado de ordenamiento por tabla. Permite alternar ascendente/descendente.
@@ -1528,7 +1530,7 @@ async function loadMockupDetail(id) {
     addEmptyTableRow(
       tbody,
       `No hay items registrados para el embarque ${formatDDMM(data.groupDate || data.run.fecha_embarque)}.`,
-      9
+      10
     );
   }
 
@@ -1542,6 +1544,7 @@ async function loadMockupDetail(id) {
     addCell(row, getItemTypeDisplay(item));
     addCell(row, item.talla || "");
     addCell(row, formatNumber(item.piezas));
+    addCell(row, item.disenador || "");
     addDepartmentStatusCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
     addButtonCell(row, "Ver mas", () => showMockupItemModal(item));
 
@@ -1587,6 +1590,51 @@ async function loadRegistry() {
   updateSortIndicators("registryTable");
   updateSortIndicators("tablesTable");
   appendLog(`BD verificada: ${tables.length} tablas del sistema RMC`, "success");
+}
+
+async function loadGitCommits() {
+  const toolFilter = getElement("gitCommitToolFilter");
+  const tbody = getElement("gitCommitsTable");
+  const count = getElement("gitCommitsCount");
+
+  if (!tbody) {
+    return;
+  }
+
+  const params = new URLSearchParams({ limit: "100" });
+
+  if (toolFilter?.value) {
+    params.set("tool_key", toolFilter.value);
+  }
+
+  const data = await getJSON(`/api/git-commits?${params.toString()}`);
+  tbody.innerHTML = "";
+
+  if (!data.commits?.length) {
+    addEmptyTableRow(tbody, "No hay commits importados en rmc_git_commits.", 9);
+  }
+
+  (data.commits || []).forEach(commit => {
+    const row = document.createElement("tr");
+    addCell(row, commit.tool_name || commit.tool_key || "");
+    addCell(row, commit.commit_date || "");
+    addCell(row, commit.short_hash || "");
+    addCell(row, commit.commit_subject || "");
+    addCell(row, commit.author_name || "");
+    addCell(row, commit.branch_name || "");
+    addCell(row, formatNumber(commit.files_changed));
+    addCell(row, formatNumber(commit.insertions));
+    addCell(row, formatNumber(commit.deletions));
+    tbody.appendChild(row);
+  });
+
+  if (count) {
+    count.textContent = `${formatNumber(data.total || 0)} registros`;
+  }
+
+  refreshTableFilter("gitCommitsTable");
+  updateSortIndicators("gitCommitsTable");
+  appendLog(`Historial de desarrollo: ${formatNumber(data.commits?.length || 0)} commits cargados`, "success");
 }
 
 // Conecta los botones del sidebar con las vistas internas.
@@ -1660,6 +1708,19 @@ function bindDetailControls() {
     hideMockupDetail.addEventListener("click", () => {
       getElement("mockupDetailSection").classList.add("hidden");
       appendLog("Detalle MockupTool oculto", "info");
+    });
+  }
+}
+
+function bindGitCommitControls() {
+  const toolFilter = getElement("gitCommitToolFilter");
+
+  if (toolFilter) {
+    toolFilter.addEventListener("change", () => {
+      loadGitCommits().catch(error => {
+        console.error(error);
+        appendLog(error.message || "No se pudo cargar historial de desarrollo", "error");
+      });
     });
   }
 }
@@ -2426,6 +2487,7 @@ async function init() {
   bindSidebarControls();
   bindLogControls();
   bindDetailControls();
+  bindGitCommitControls();
   bindNikeItemModal();
   bindMockupItemModal();
   bindDashboardMonthFilters();
@@ -2438,7 +2500,8 @@ async function init() {
       loadDashboard(),
       loadRuns(),
       loadMockupRuns(),
-      loadRegistry()
+      loadRegistry(),
+      loadGitCommits()
     ]);
   } catch (error) {
     console.error(error);

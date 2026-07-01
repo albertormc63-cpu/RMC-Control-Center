@@ -10,6 +10,7 @@ const nikeRoutes = require("./routes/nike.routes");
 const reportsRoutes = require("./routes/reports.routes");
 const filesRoutes = require("./routes/files.routes");
 const syncRoutes = require("./routes/sync.routes");
+const gitCommitsRoutes = require("./routes/gitCommits.routes");
 const { startSyncPoller } = require("./services/syncPoller");
 
 const app = express();
@@ -33,6 +34,7 @@ app.use("/api/nike", nikeRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/files", filesRoutes);
 app.use("/api/sync", syncRoutes);
+app.use("/api/git-commits", gitCommitsRoutes);
 
 // Manejador final para errores no capturados por rutas especificas.
 app.use((error, req, res, next) => {
