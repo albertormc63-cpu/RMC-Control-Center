@@ -99,6 +99,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Filtro por texto/columna.
 - Panel de detalle.
 - Tabla de items Nike.
+- Columna `Tipo` entre `Variante` y `Talla` para filtrar `Generica`, `Personalizada` o `Manual`.
 - Filtros por columna tipo Excel en la tabla de detalle.
 - Herramienta por item.
 - Boton ocultar detalle.
@@ -109,6 +110,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Filtro por texto/columna.
 - Panel de detalle.
 - Tabla de items MockupTool.
+- Columna `Tipo` entre `Variante` y `Talla` para filtrar `Generica` o `Personalizada`.
 - Filtros por columna tipo Excel en la tabla de detalle.
 - Boton ocultar detalle.
 

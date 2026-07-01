@@ -65,6 +65,7 @@ window.RMCComponents.mockupView = function mockupView() {
                 <th>Style</th>
                 <th>Equipo</th>
                 <th>Variante</th>
+                <th>Tipo</th>
                 <th>Talla</th>
                 <th>Piezas</th>
                 <th>Estado</th>

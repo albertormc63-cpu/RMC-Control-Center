@@ -4,25 +4,22 @@ const path = require("path");
 const ExcelJS = require("exceljs");
 const db = require("../db");
 const { getNikeItemWithFilePaths } = require("../services/nikeFiles");
+const { FILE_ROOT, resolveRmcFilePath } = require("../services/rmcFileResolver");
 
 const router = express.Router();
 const EXCEL_PREVIEW_MAX_ROWS = 300;
 
 // Limita cualquier lectura de archivos al volumen autorizado para RMC.
-const fileRoot = path.resolve(process.env.RMC_FILE_ROOT || "/Volumes/Fullsize");
+const fileRoot = FILE_ROOT;
 
-function validateFilePath(item, selectedPath) {
-  const requestedPath = path.resolve(selectedPath);
-  const relativePath = path.relative(fileRoot, requestedPath);
-
-  // Rechaza recorridos como ../ y rutas de otros discos antes de tocar el sistema.
-  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+function getValidatedResolvedFile(item, resolution) {
+  if (!resolution || resolution.status === "invalid_path") {
     const error = new Error("La ruta solicitada esta fuera del volumen autorizado");
     error.status = 403;
     throw error;
   }
 
-  if (!fs.existsSync(requestedPath) || !fs.statSync(requestedPath).isFile()) {
+  if (!resolution.exists || !resolution.resolvedPath) {
     const error = new Error("El archivo registrado ya no existe en el volumen");
     error.status = 404;
     throw error;
@@ -30,7 +27,7 @@ function validateFilePath(item, selectedPath) {
 
   // realpath evita que un enlace simbolico dentro del volumen apunte hacia afuera.
   const realRoot = fs.realpathSync(fileRoot);
-  const realFile = fs.realpathSync(requestedPath);
+  const realFile = fs.realpathSync(resolution.resolvedPath);
   const realRelativePath = path.relative(realRoot, realFile);
 
   if (realRelativePath.startsWith("..") || path.isAbsolute(realRelativePath)) {
@@ -42,8 +39,21 @@ function validateFilePath(item, selectedPath) {
   return {
     item,
     filePath: realFile,
-    fileName: path.basename(realFile)
+    fileName: path.basename(realFile),
+    resolution
   };
+}
+
+function validateFilePath(item, selectedPath, options = {}) {
+  const resolution = resolveRmcFilePath(selectedPath, options);
+
+  if (resolution.status === "invalid_path") {
+    const error = new Error("La ruta solicitada esta fuera del volumen autorizado");
+    error.status = 403;
+    throw error;
+  }
+
+  return getValidatedResolvedFile(item, resolution);
 }
 
 function getNikeFile(itemId, fileType) {
@@ -61,6 +71,13 @@ function getNikeFile(itemId, fileType) {
     throw error;
   }
 
+  if (fileType === "maqueta" && item.mockupFile?.status === "multiple_mockups") {
+    const error = new Error("Hay multiples maquetas relacionadas; selecciona una maqueta especifica");
+    error.status = 409;
+    throw error;
+  }
+
+  const selectedFile = fileType === "maqueta" ? item.mockupFile : item.pdfFile;
   const selectedPath = fileType === "maqueta" ? item.maqueta_path : item.plantilla_path;
 
   if (!selectedPath || !path.isAbsolute(selectedPath)) {
@@ -69,7 +86,7 @@ function getNikeFile(itemId, fileType) {
     throw error;
   }
 
-  return validateFilePath(item, selectedPath);
+  return getValidatedResolvedFile(item, selectedFile);
 }
 
 function getNikeExcelFile(itemId) {
@@ -100,7 +117,7 @@ function getNikeExcelFile(itemId) {
 
 function getMockupFile(itemId) {
   const item = db.prepare(`
-    SELECT id, path
+    SELECT id, archivo, path
     FROM rmc_mockuptool_items
     WHERE id = ?
   `).get(itemId);
@@ -117,7 +134,10 @@ function getMockupFile(itemId) {
     throw error;
   }
 
-  return validateFilePath(item, item.path);
+  return validateFilePath(item, item.path, {
+    enableGenericasFallback: true,
+    fileName: item.archivo || item.path
+  });
 }
 
 function getMockupExcelFile(itemId) {

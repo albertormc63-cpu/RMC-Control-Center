@@ -1102,6 +1102,32 @@ tbody tr:hover td {
   background: var(--rmc-surface-deep);
 }
 
+.resource-options {
+  display: grid;
+  gap: 6px;
+  padding: 0 8px 4px 18px;
+}
+
+.resource-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  color: var(--rmc-text-soft);
+  font-size: 11px;
+}
+
+.resource-option span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-option a {
+  flex: 0 0 auto;
+}
+
 .resource-copy {
   min-width: 0;
 }

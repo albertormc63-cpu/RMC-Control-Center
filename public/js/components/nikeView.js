@@ -65,6 +65,7 @@ window.RMCComponents.nikeView = function nikeView() {
                 <th>Style</th>
                 <th>Equipo</th>
                 <th>Variante</th>
+                <th>Tipo</th>
                 <th>Talla</th>
                 <th>Piezas</th>
                 <th>Nombre</th>
@@ -125,10 +126,11 @@ window.RMCComponents.nikeView = function nikeView() {
               Descargar
             </a>
           </div>
+          <div id="nikeItemMaquetaOptions" class="resource-options hidden"></div>
 
           <div class="resource-link">
             <a id="nikeItemPlantilla" class="resource-main-action" href="#" aria-disabled="true">
-              <strong>Ver Plantilla</strong>
+              <strong>Ver PDF</strong>
               <small id="nikeItemPlantillaPath">Ruta pendiente de definir</small>
             </a>
             <a id="nikeItemPlantillaDownload" class="resource-state resource-download" href="#" aria-disabled="true">

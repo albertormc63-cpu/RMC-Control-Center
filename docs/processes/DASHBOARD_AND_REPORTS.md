@@ -124,6 +124,7 @@ Al abrir `Ver`:
 - Se cargan items de todos los runs agrupados.
 - Se muestra herramienta por item.
 - Hay filtros, sort y boton de ocultar.
+- La tabla detalle muestra `Tipo` para separar genericas, personalizadas o manuales.
 - Los archivos se abren con endpoints `/api/files/nike/...`.
 
 ## Detalle MockupTool
@@ -133,6 +134,7 @@ Al abrir `Ver`:
 - Se muestra el grupo de embarque.
 - Se cargan items de todos los runs agrupados.
 - Hay filtros, sort y boton de ocultar.
+- La tabla detalle muestra `Tipo` para separar genericas o personalizadas.
 - Las maquetas se abren con endpoints `/api/files/mockup/...`.
 
 ## Reportes Excel

@@ -210,6 +210,98 @@ function getNikeTeamDisplay(item) {
   return item?.equipo_display || item?.equipo || "";
 }
 
+function getItemTypeDisplay(item) {
+  const tool = String(item?.herramienta || "").toLowerCase();
+
+  if (tool.includes("personaliz")) {
+    return "Personalizada";
+  }
+
+  if (tool.includes("generic") || tool.includes("generica")) {
+    return "Generica";
+  }
+
+  if (tool.includes("manual")) {
+    return "Manual";
+  }
+
+  return "";
+}
+
+function getFileStatusText(file, type) {
+  const status = file?.status || "missing";
+
+  if (type === "pdf") {
+    if (status === "found_original") return "PDF encontrado en ruta original";
+    if (status === "found_moved_to_to_print") return "PDF encontrado en TO PRINT";
+    if (status === "invalid_path") return "Ruta PDF fuera del volumen autorizado";
+    if (status === "no_path") return "Sin ruta PDF vinculada";
+    return "PDF no encontrado";
+  }
+
+  if (status === "found_original") return "Maqueta encontrada";
+  if (status === "found_genericas") return "Maqueta encontrada en Genericas";
+  if (status === "multiple_mockups") return "Multiples maquetas relacionadas";
+  if (status === "no_mockup_record") return "Sin maqueta vinculada";
+  if (status === "invalid_path") return "Ruta de maqueta fuera del volumen autorizado";
+  if (status === "no_path") return "Sin ruta de maqueta vinculada";
+  return "Path de maqueta no encontrado";
+}
+
+function formatFileStatusLine(file, type) {
+  const statusText = getFileStatusText(file, type);
+  const displayPath = file?.resolvedPath || file?.originalPath || "";
+
+  return displayPath ? `${statusText} | ${displayPath}` : statusText;
+}
+
+function renderNikeMockupOptions(item) {
+  const options = getElement("nikeItemMaquetaOptions");
+
+  if (!options) {
+    return;
+  }
+
+  options.textContent = "";
+  const mockupFiles = Array.isArray(item.mockupFiles) ? item.mockupFiles : [];
+
+  if (mockupFiles.length <= 1) {
+    options.classList.add("hidden");
+    return;
+  }
+
+  options.classList.remove("hidden");
+
+  mockupFiles.forEach(file => {
+    const row = document.createElement("div");
+    const label = document.createElement("span");
+    const action = document.createElement("a");
+    const parts = [
+      file.talla,
+      file.archivo,
+      getFileStatusText(file, "mockup")
+    ].filter(Boolean);
+
+    row.className = "resource-option";
+    label.textContent = parts.join(" | ") || `Maqueta ${file.mockupItemId || ""}`;
+    action.className = "resource-state resource-download";
+    action.textContent = file.exists ? "Ver maqueta" : "No disponible";
+    action.href = file.exists ? file.resolvedUrl : "#";
+    action.target = file.exists ? "_blank" : "";
+    action.setAttribute("aria-disabled", String(!file.exists));
+
+    if (!file.exists) {
+      action.addEventListener("click", event => {
+        event.preventDefault();
+        appendLog(getFileStatusText(file, "mockup"), "info");
+      });
+    }
+
+    row.append(label, action);
+    options.appendChild(row);
+  });
+}
+
 function addOperationalStatusCell(row, item) {
   const state = getNikeOperationalState(item);
   const cell = document.createElement("td");
@@ -1356,7 +1448,7 @@ async function loadRunDetail(id) {
     addEmptyTableRow(
       tbody,
       `No hay items registrados para el embarque ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)}.`,
-      10
+      11
     );
   }
 
@@ -1370,6 +1462,7 @@ async function loadRunDetail(id) {
     addCell(row, item.style || "");
     addCell(row, getNikeTeamDisplay(item));
     addCell(row, item.variante || "");
+    addCell(row, getItemTypeDisplay(item));
     addCell(row, item.talla || "");
     addCell(row, formatNumber(item.piezas));
     addCell(row, item.nombre || "");
@@ -1435,7 +1528,7 @@ async function loadMockupDetail(id) {
     addEmptyTableRow(
       tbody,
       `No hay items registrados para el embarque ${formatDDMM(data.groupDate || data.run.fecha_embarque)}.`,
-      8
+      9
     );
   }
 
@@ -1446,6 +1539,7 @@ async function loadMockupDetail(id) {
     addCell(row, item.style || "");
     addCell(row, item.equipo || "");
     addCell(row, item.variante || "");
+    addCell(row, getItemTypeDisplay(item));
     addCell(row, item.talla || "");
     addCell(row, formatNumber(item.piezas));
     addDepartmentStatusCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
@@ -1776,6 +1870,18 @@ function showNikeItemModal(item) {
   }
 
   const operationalState = getNikeOperationalState(item);
+  const pdfFile = item.pdfFile || {
+    originalPath: item.plantilla_path || item.path || "",
+    resolvedPath: item.plantilla_resolved_path || "",
+    exists: Boolean(item.plantilla_resolved_path || item.plantilla_path || item.path),
+    status: item.plantilla_file_status || "found_original"
+  };
+  const mockupFile = item.mockupFile || {
+    originalPath: item.maqueta_path || "",
+    resolvedPath: item.maqueta_resolved_path || "",
+    exists: Boolean(item.maqueta_resolved_path || item.maqueta_path),
+    status: item.maqueta_file_status || "found_original"
+  };
   title.textContent = [item.wo, item.style, item.talla].filter(Boolean).join(" | ") || "Item Nike";
   tool.textContent = item.herramienta || "Sin herramienta";
   runId.textContent = item.run_id || "Sin run";
@@ -1786,12 +1892,13 @@ function showNikeItemModal(item) {
   );
 
   const paths = {
-    maqueta: item.maqueta_path || "",
-    plantilla: item.plantilla_path || item.path || "",
+    maqueta: mockupFile.resolvedPath || mockupFile.originalPath || item.maqueta_path || "",
+    plantilla: pdfFile.resolvedPath || pdfFile.originalPath || item.plantilla_path || item.path || "",
     excel: item.excel_path || item.roster_path || ""
   };
 
-  const hasMaqueta = Boolean(item.id && paths.maqueta);
+  const hasMultipleMockups = mockupFile.status === "multiple_mockups";
+  const hasMaqueta = Boolean(item.id && mockupFile.exists && !hasMultipleMockups);
   maqueta.href = hasMaqueta
     ? `/api/files/nike/${encodeURIComponent(item.id)}/maqueta/view`
     : "#";
@@ -1799,7 +1906,7 @@ function showNikeItemModal(item) {
   maquetaDownload.href = hasMaqueta
     ? `/api/files/nike/${encodeURIComponent(item.id)}/maqueta/download`
     : "#";
-  const hasPlantilla = Boolean(item.id && paths.plantilla);
+  const hasPlantilla = Boolean(item.id && pdfFile.exists);
   plantilla.href = hasPlantilla
     ? `/api/files/nike/${encodeURIComponent(item.id)}/plantilla/view`
     : "#";
@@ -1825,18 +1932,20 @@ function showNikeItemModal(item) {
 
   maqueta.setAttribute("aria-disabled", String(!hasMaqueta));
   maquetaDownload.setAttribute("aria-disabled", String(!hasMaqueta));
-  maquetaDownload.textContent = hasMaqueta ? "Descargar" : "Pendiente";
+  maquetaDownload.textContent = hasMaqueta ? "Descargar" : "No disponible";
   plantilla.setAttribute("aria-disabled", String(!hasPlantilla));
   plantillaDownload.setAttribute("aria-disabled", String(!hasPlantilla));
-  plantillaDownload.textContent = hasPlantilla ? "Descargar" : "Pendiente";
+  plantillaDownload.textContent = hasPlantilla ? "Descargar" : "No disponible";
   excel.setAttribute("aria-disabled", String(!hasExcelDownload));
   excelPreview.setAttribute("aria-disabled", String(!hasExcelDownload));
   excelCopy.setAttribute("aria-disabled", String(!hasExcelPath));
   excelCopy.textContent = hasExcelPath ? "Copiar ruta" : "Sin ruta";
 
-  if (maquetaPath) maquetaPath.textContent = paths.maqueta || "Ruta pendiente de definir";
-  if (plantillaPath) plantillaPath.textContent = paths.plantilla || "Ruta pendiente de definir";
+  if (maquetaPath) maquetaPath.textContent = formatFileStatusLine(mockupFile, "mockup");
+  if (plantillaPath) plantillaPath.textContent = formatFileStatusLine(pdfFile, "pdf");
   if (excelPath) excelPath.textContent = paths.excel || "Excel disponible por backend";
+
+  renderNikeMockupOptions(item);
 
   renderNikePrintSublimationTracking({
     item,
