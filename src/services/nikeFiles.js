@@ -1,5 +1,5 @@
 const path = require("path");
-const { GENERICAS_ROOT, resolveRmcFilePath } = require("./rmcFileResolver");
+const { GENERICAS_ROOTS, resolveRmcFilePath } = require("./rmcFileResolver");
 
 // Equivalencias entre las tallas guardadas por RMCOp-Nike y RMC MockupTool.
 const MOCKUP_SIZE_BY_NIKE_SIZE = {
@@ -37,10 +37,13 @@ function getNikeOrderPrefix(nikeItem) {
 
 function isInsideGenericas(filePath) {
   const normalizedPath = path.resolve(filePath || "");
-  const normalizedRoot = path.resolve(GENERICAS_ROOT);
-  const relativePath = path.relative(normalizedRoot, normalizedPath);
 
-  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+  return GENERICAS_ROOTS.some(root => {
+    const normalizedRoot = path.resolve(root);
+    const relativePath = path.relative(normalizedRoot, normalizedPath);
+
+    return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+  });
 }
 
 function getGenericMockupCandidates(db, nikeItem) {
@@ -55,7 +58,7 @@ function getGenericMockupCandidates(db, nikeItem) {
     FROM rmc_mockuptool_items
     WHERE TRIM(style) = TRIM(?)
       AND COALESCE(path, '') <> ''
-      AND path LIKE ?
+      AND (${GENERICAS_ROOTS.map(() => "path LIKE ?").join(" OR ")})
       AND (
         archivo LIKE ?
         OR path LIKE ?
@@ -63,7 +66,7 @@ function getGenericMockupCandidates(db, nikeItem) {
     ORDER BY id DESC
   `).all(
     nikeItem.style,
-    `${GENERICAS_ROOT}/%`,
+    ...GENERICAS_ROOTS.map(root => `${root}/%`),
     `${orderPrefix}%`,
     `%/${orderPrefix}%`
   );

@@ -4,6 +4,11 @@ const path = require("path");
 const NEW_ART_ROOT = "/Volumes/Fullsize/New Art";
 const TO_PRINT_ROOT = "/Volumes/Fullsize/TO PRINT";
 const GENERICAS_ROOT = "/Volumes/Fullsize/TO PRINT/NIKE ORDERS/LISTAS ON DEMAND/Genericas";
+const LISTAS_NIKE_GENERICAS_ROOT = "/Volumes/Fullsize/TO PRINT/NIKE ORDERS/LISTAS NIKE/Genericas";
+const GENERICAS_ROOTS = [
+  GENERICAS_ROOT,
+  LISTAS_NIKE_GENERICAS_ROOT
+];
 const FILE_ROOT = path.resolve(process.env.RMC_FILE_ROOT || "/Volumes/Fullsize");
 
 const DEFAULT_ALLOWED_ROOTS = [
@@ -179,11 +184,11 @@ function buildGenericasCandidate(originalPath, fileName) {
     return null;
   }
 
-  return {
-    path: path.join(GENERICAS_ROOT, safeFileName),
+  return GENERICAS_ROOTS.map(root => ({
+    path: path.join(root, safeFileName),
     reason: "genericas",
     status: "found_genericas"
-  };
+  }));
 }
 
 function resolveRmcFilePath(originalPath, options = {}) {
@@ -244,10 +249,8 @@ function resolveRmcFilePath(originalPath, options = {}) {
   }
 
   if (options.enableGenericasFallback) {
-    addUniqueCandidate(
-      candidates,
-      buildGenericasCandidate(normalizedOriginal, options.fileName)
-    );
+    buildGenericasCandidate(normalizedOriginal, options.fileName)
+      ?.forEach(candidate => addUniqueCandidate(candidates, candidate));
   }
 
   const resolvedCandidates = candidates.map(candidate => ({
@@ -274,6 +277,8 @@ module.exports = {
   NEW_ART_ROOT,
   TO_PRINT_ROOT,
   GENERICAS_ROOT,
+  LISTAS_NIKE_GENERICAS_ROOT,
+  GENERICAS_ROOTS,
   DEFAULT_ALLOWED_ROOTS,
   resolveRmcFilePath,
   validateExistingFile
