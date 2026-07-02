@@ -84,12 +84,43 @@ window.RMCComponents.nikeView = function nikeView() {
         <div class="modal-header">
           <div>
             <span class="modal-eyebrow">Detalle de item</span>
-            <h3 id="nikeItemTitle">Item Nike</h3>
           </div>
           <button id="closeNikeItemModal" class="secondary-button" type="button">Cerrar</button>
         </div>
 
         <div class="nike-item-summary">
+          <div>
+            <span>Roster</span>
+            <strong id="nikeItemRoster"></strong>
+          </div>
+          <div>
+            <span>WO</span>
+            <strong id="nikeItemWo"></strong>
+          </div>
+          <div>
+            <span>Equipo</span>
+            <strong id="nikeItemEquipo"></strong>
+          </div>
+          <div>
+            <span>Variante</span>
+            <strong id="nikeItemVariante"></strong>
+          </div>
+          <div>
+            <span>Style</span>
+            <strong id="nikeItemStyle"></strong>
+          </div>
+          <div>
+            <span>Size</span>
+            <strong id="nikeItemSize"></strong>
+          </div>
+          <div>
+            <span>Numero</span>
+            <strong id="nikeItemNumero"></strong>
+          </div>
+          <div>
+            <span>Estado</span>
+            <strong id="nikeItemStatus"></strong>
+          </div>
           <div>
             <span>Herramienta</span>
             <strong id="nikeItemTool"></strong>
@@ -97,10 +128,6 @@ window.RMCComponents.nikeView = function nikeView() {
           <div>
             <span>Run ID</span>
             <strong id="nikeItemRunId"></strong>
-          </div>
-          <div>
-            <span>Estado</span>
-            <strong id="nikeItemStatus"></strong>
           </div>
         </div>
 

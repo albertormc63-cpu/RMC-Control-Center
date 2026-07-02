@@ -60,6 +60,19 @@ Tabla mensual:
 - Plantillas
 - Faltantes
 
+## Panel provisional 27 Sports / Rapid
+
+La UI incluye una vista provisional `27 Sports / Rapid` separada de Nike.
+
+Estado actual:
+
+- Cards de pedidos, registros, piezas, estilos, impresion y sublimado en cero.
+- Tabla preparada para futuros embarques/pedidos.
+- Sin endpoint propio ni lectura de tablas operativas.
+- No registra produccion ni modifica datos CEP.
+
+La integracion real debe esperar contrato de lectura, tablas producidas fuera de RMCCC y rutas de consulta documentadas.
+
 ## Agrupacion por embarque
 
 Nike:

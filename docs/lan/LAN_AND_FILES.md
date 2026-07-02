@@ -43,6 +43,7 @@ Antes de servir un archivo, Control Center resuelve candidatos seguros sin modif
 
 - Primero valida la ruta original registrada.
 - Para PDFs Nike bajo `/Volumes/Fullsize/New Art`, si el original ya no existe, prueba candidatos equivalentes bajo `/Volumes/Fullsize/TO PRINT`.
+- Para PDFs Nike ya registrados bajo `/Volumes/Fullsize/TO PRINT/NIKE ORDERS`, si la carpeta del pedido fue movida a una carpeta mensual como `NIKE JULIO`, prueba ese candidato usando `fecha_embarque`.
 - Para maquetas MockupTool, usa `rmc_mockuptool_items.path` como fuente principal y puede probar candidatos seguros bajo `/Volumes/Fullsize/TO PRINT/NIKE ORDERS/LISTAS ON DEMAND/Genericas` y `/Volumes/Fullsize/TO PRINT/NIKE ORDERS/LISTAS NIKE/Genericas` usando el nombre de archivo registrado.
 - Si no hay archivo resuelto, la API responde error controlado y la UI muestra estado textual.
 

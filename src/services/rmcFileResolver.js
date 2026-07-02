@@ -156,13 +156,24 @@ function buildNikeToPrintMonthCandidate(originalPath, fechaEmbarque) {
 
   const normalizedOriginal = path.resolve(originalPath);
   const normalizedNewArt = path.resolve(NEW_ART_ROOT);
+  const normalizedToPrintNikeOrders = path.resolve(TO_PRINT_ROOT, "NIKE ORDERS");
+  let relativePath = "";
 
-  if (!isInsideRoot(normalizedOriginal, normalizedNewArt)) {
+  if (isInsideRoot(normalizedOriginal, normalizedNewArt)) {
+    relativePath = path.relative(normalizedNewArt, normalizedOriginal);
+  } else if (isInsideRoot(normalizedOriginal, normalizedToPrintNikeOrders)) {
+    relativePath = path.relative(normalizedToPrintNikeOrders, normalizedOriginal);
+  } else {
     return null;
   }
 
-  const relativePath = path.relative(normalizedNewArt, normalizedOriginal);
   const relativeParts = relativePath.split(path.sep);
+  const monthFolder = MONTH_FOLDER_BY_NUMBER[monthNumber];
+
+  if (normalizePathPart(relativeParts[0]) === normalizePathPart(monthFolder)) {
+    return null;
+  }
+
   const trimmedRelativeParts = normalizePathPart(relativeParts[0]) === "nike orders"
     ? relativeParts.slice(1)
     : relativeParts;
@@ -171,7 +182,7 @@ function buildNikeToPrintMonthCandidate(originalPath, fechaEmbarque) {
     : relativePath;
 
   return {
-    path: path.join(TO_PRINT_ROOT, "NIKE ORDERS", MONTH_FOLDER_BY_NUMBER[monthNumber], safeRelativePath),
+    path: path.join(TO_PRINT_ROOT, "NIKE ORDERS", monthFolder, safeRelativePath),
     reason: "to_print_nike_month",
     status: "found_moved_to_to_print"
   };

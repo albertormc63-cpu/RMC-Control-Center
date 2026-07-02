@@ -56,7 +56,9 @@ Desktop:
 
 - Sidebar fijo en layout grid.
 - Logo centrado arriba.
-- Botones por grupos: Dashboard, Herramientas, Reportes, Sistema.
+- Botones por grupos: Dashboard, Herramientas Nike, Herramienta 27 Sports / Rapid, Reportes, Sistema.
+- `Herramientas Nike` contiene `Pedidos RMC Nike` y `Maquetas RMC Nike`.
+- `Herramienta 27 Sports / Rapid` muestra un panel provisional sin integracion operativa real todavia.
 
 Mobile:
 
@@ -113,6 +115,13 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Columna `Tipo` entre `Variante` y `Talla` para filtrar `Generica` o `Personalizada`.
 - Filtros por columna tipo Excel en la tabla de detalle.
 - Boton ocultar detalle.
+
+`rapid27View.js`:
+
+- Panel provisional 27 Sports / Rapid.
+- Cards de pedidos, registros, piezas, estilos, impresion y sublimado.
+- Tabla preparada para embarques/pedidos futuros.
+- No consulta ni escribe tablas operativas de 27 Sports / Rapid mientras no exista contrato de lectura.
 
 `registryView.js`:
 

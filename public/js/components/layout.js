@@ -17,7 +17,7 @@ window.RMCComponents.sidebar = function sidebar() {
       </section>
 
       <section class="menu-group">
-        <h3>HERRAMIENTAS</h3>
+        <h3>HERRAMIENTAS NIKE</h3>
         <button class="menu-item" type="button" data-view="nike-view">
           <span>Pedidos RMC Nike</span>
           <img class="menu-icon menu-icon-img" src="/assets/logo%20nike.svg" alt="">
@@ -26,6 +26,14 @@ window.RMCComponents.sidebar = function sidebar() {
         <button class="menu-item" type="button" data-view="mockup-view">
           <span>Maquetas RMC Nike</span>
           <i class="fi fi-rs-file-pdf menu-icon" aria-hidden="true"></i>
+        </button>
+      </section>
+
+      <section class="menu-group">
+        <h3>HERRAMIENTA 27 SPORTS / RAPID</h3>
+        <button class="menu-item" type="button" data-view="rapid27-view">
+          <span>Panel 27 / Rapid</span>
+          <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
         </button>
       </section>
 
@@ -136,6 +144,7 @@ window.RMCComponents.renderApp = function renderApp(root) {
         ${window.RMCComponents.dashboardView()}
         ${window.RMCComponents.nikeView()}
         ${window.RMCComponents.mockupView()}
+        ${window.RMCComponents.rapid27View()}
         ${window.RMCComponents.exportsView()}
         ${window.RMCComponents.registryView()}
         ${window.RMCComponents.gitHistoryView()}

@@ -323,7 +323,8 @@ input::placeholder {
 }
 
 .summary-grid-nike,
-.summary-grid-mockup {
+.summary-grid-mockup,
+.summary-grid-rapid27 {
   grid-template-columns: repeat(6, minmax(120px, 1fr));
 }
 
@@ -537,6 +538,11 @@ input::placeholder {
 .chart-empty {
   color: var(--rmc-muted-low);
   font-size: 11px;
+}
+
+.rapid27-flow-panel {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 10px;
 }
 
 /* =========================================================
@@ -866,7 +872,7 @@ tbody tr:hover td {
 
 .nike-item-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: 8px;
   margin: 16px 0;
 }
@@ -1292,7 +1298,9 @@ tbody tr:hover td {
    ========================================================= */
 @media (max-width: 1180px) {
   .summary-grid-nike,
-  .summary-grid-mockup {
+  .summary-grid-mockup,
+  .summary-grid-rapid27,
+  .rapid27-flow-panel {
     grid-template-columns: repeat(3, minmax(120px, 1fr));
   }
 }
@@ -1377,7 +1385,9 @@ tbody tr:hover td {
 
   .summary-grid,
   .summary-grid-nike,
-  .summary-grid-mockup {
+  .summary-grid-mockup,
+  .summary-grid-rapid27,
+  .rapid27-flow-panel {
     grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
 }
@@ -1407,7 +1417,9 @@ tbody tr:hover td {
 
   .summary-grid,
   .summary-grid-nike,
-  .summary-grid-mockup {
+  .summary-grid-mockup,
+  .summary-grid-rapid27,
+  .rapid27-flow-panel {
     grid-template-columns: 1fr;
   }
 

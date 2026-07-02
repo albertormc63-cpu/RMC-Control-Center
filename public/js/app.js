@@ -7,6 +7,7 @@ const filterTargets = [
   "itemsTable",
   "mockupTable",
   "mockupItemsTable",
+  "rapid27Table",
   "gitCommitsTable"
 ];
 
@@ -21,6 +22,7 @@ const sortableTargets = [
   "itemsTable",
   "mockupTable",
   "mockupItemsTable",
+  "rapid27Table",
   "registryTable",
   "tablesTable",
   "gitCommitsTable"
@@ -189,6 +191,7 @@ function appendLog(message, type = "info") {
 function addEmptyTableRow(tbody, message, colSpan) {
   const row = document.createElement("tr");
   const cell = addCell(row, message);
+  row.dataset.emptyRow = "true";
   cell.colSpan = colSpan;
   tbody.appendChild(row);
 }
@@ -760,9 +763,15 @@ function applyTableFilter(tableId) {
   const search = tools.querySelector(".table-search")?.value.trim().toLowerCase() || "";
   const column = tools.querySelector(".table-column")?.value || "all";
   const rows = Array.from(tbody.querySelectorAll("tr"));
+  const dataRows = rows.filter(row => row.dataset.emptyRow !== "true");
   let visibleRows = 0;
 
   rows.forEach(row => {
+    if (row.dataset.emptyRow === "true") {
+      row.classList.remove("filtered-out");
+      return;
+    }
+
     const cells = Array.from(row.cells);
     const haystack = column === "all"
       ? cells.map(cell => cell.textContent).join(" ")
@@ -777,7 +786,7 @@ function applyTableFilter(tableId) {
     }
   });
 
-  updateTableCount(tableId, visibleRows, rows.length);
+  updateTableCount(tableId, visibleRows, dataRows.length);
 }
 
 // Recalcula opciones de filtro y contador despues de repintar una tabla.
@@ -1561,6 +1570,31 @@ async function loadMockupDetail(id) {
   appendLog(`Detalle de maquetas ${id}: ${data.items.length} items`, "success");
 }
 
+function loadRapid27ProvisionalPanel() {
+  const tbody = getElement("rapid27Table");
+
+  setText("rapid27Pedidos", "0");
+  setText("rapid27Registros", "0");
+  setText("rapid27Piezas", "0");
+  setText("rapid27Estilos", "0");
+  setText("rapid27Impresion", "0");
+  setText("rapid27Sublimado", "0");
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML = "";
+  addEmptyTableRow(
+    tbody,
+    "Pendiente de conectar registros 27 Sports / Rapid.",
+    8
+  );
+  refreshTableFilter("rapid27Table");
+  updateSortIndicators("rapid27Table");
+  appendLog("27 Sports / Rapid: panel provisional listo", "info");
+}
+
 // Carga CEP Registry y el conteo de tablas SQLite conocidas.
 async function loadRegistry() {
   const registry = await getJSON("/api/dashboard/registry");
@@ -1911,7 +1945,13 @@ async function loadNikePrintSublimationTracking(itemId) {
 
 function showNikeItemModal(item) {
   const modal = getElement("nikeItemModal");
-  const title = getElement("nikeItemTitle");
+  const roster = getElement("nikeItemRoster");
+  const wo = getElement("nikeItemWo");
+  const equipo = getElement("nikeItemEquipo");
+  const variante = getElement("nikeItemVariante");
+  const style = getElement("nikeItemStyle");
+  const size = getElement("nikeItemSize");
+  const numero = getElement("nikeItemNumero");
   const tool = getElement("nikeItemTool");
   const runId = getElement("nikeItemRunId");
   const status = getElement("nikeItemStatus");
@@ -1926,7 +1966,7 @@ function showNikeItemModal(item) {
   const excelCopy = getElement("nikeItemExcelCopy");
   const excelPath = getElement("nikeItemExcelPath");
 
-  if (!modal || !title || !tool || !runId || !status || !maqueta || !maquetaDownload || !plantilla || !plantillaDownload || !excel || !excelPreview || !excelCopy) {
+  if (!modal || !roster || !wo || !equipo || !variante || !style || !size || !numero || !tool || !runId || !status || !maqueta || !maquetaDownload || !plantilla || !plantillaDownload || !excel || !excelPreview || !excelCopy) {
     return;
   }
 
@@ -1943,7 +1983,13 @@ function showNikeItemModal(item) {
     exists: Boolean(item.maqueta_resolved_path || item.maqueta_path),
     status: item.maqueta_file_status || "found_original"
   };
-  title.textContent = [item.wo, item.style, item.talla].filter(Boolean).join(" | ") || "Item Nike";
+  roster.textContent = item.roster || "N/D";
+  wo.textContent = item.wo || "N/D";
+  equipo.textContent = item.equipo || "N/D";
+  variante.textContent = item.variante || "N/D";
+  style.textContent = item.style || "N/D";
+  size.textContent = item.talla || "N/D";
+  numero.textContent = item.numero || "N/D";
   tool.textContent = item.herramienta || "Sin herramienta";
   runId.textContent = item.run_id || "Sin run";
   status.textContent = operationalState.status;
@@ -2494,6 +2540,7 @@ async function init() {
   bindTableFilters();
   bindTableSorting();
   bindExcelFilterMenuClose();
+  loadRapid27ProvisionalPanel();
 
   try {
     await Promise.all([
