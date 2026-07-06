@@ -13,6 +13,13 @@ window.RMCComponents.mockupView = function mockupView() {
           <option value="all">Todas las columnas</option>
         </select>
 
+        <label class="table-month-filter" for="mockupRunsMonthFilter">
+          <span>Mes</span>
+          <input class="MonthFilter run-month-filter" id="mockupRunsMonthFilter" type="month" data-month-tool="mockup">
+        </label>
+
+        <button id="mockupRunsMonthAll" class="secondary-button run-month-all" type="button" data-month-tool="mockup">Todos</button>
+
         <button class="secondary-button table-clear" type="button">Limpiar</button>
 
         <span class="table-count">0 registros</span>

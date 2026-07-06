@@ -77,6 +77,10 @@ function formatDDMM(value) {
     return `${parts[0].padStart(2, "0")}/${parts[1].padStart(2, "0")}`;
   }
 
+  if (parts.length === 2) {
+    return `${parts[0].padStart(2, "0")}/${parts[1].padStart(2, "0")}`;
+  }
+
   const isoMatch = String(value).match(/^(\d{4})(\d{2})(\d{2})/);
 
   if (isoMatch) {
@@ -103,6 +107,61 @@ function getRunShipmentDate(run) {
 
 function getRunActionId(run) {
   return run?.sample_run_id || run?.id || "";
+}
+
+function getRunMonthKey(run) {
+  const year = String(run?.run_year || getShipmentYearFromKey(getRunActionId(run)) || "").trim();
+  const rawDate = String(run?.fecha_embarque || run?.created_at || run?.fecha || "").trim();
+  const fullDateMatch = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const shortDateMatch = rawDate.match(/^(\d{1,2})\/(\d{1,2})$/);
+  const isoMatch = rawDate.match(/^(\d{4})-(\d{2})-\d{2}/);
+  const idMatch = String(getRunActionId(run) || "").match(/^(\d{4})(\d{2})\d{2}/);
+
+  if (fullDateMatch) {
+    return `${fullDateMatch[3]}-${fullDateMatch[2].padStart(2, "0")}`;
+  }
+
+  if (shortDateMatch && year) {
+    return `${year}-${shortDateMatch[2].padStart(2, "0")}`;
+  }
+
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}`;
+  }
+
+  if (idMatch) {
+    return `${idMatch[1]}-${idMatch[2]}`;
+  }
+
+  return "";
+}
+
+function filterRunsByMonth(runs, monthKey) {
+  if (!monthKey) {
+    return runs;
+  }
+
+  return runs.filter(run => getRunMonthKey(run) === monthKey);
+}
+
+function getToolMonthInput(tool, scope = "dashboard") {
+  if (scope === "runs") {
+    return getElement(tool === "nike" ? "nikeRunsMonthFilter" : "mockupRunsMonthFilter");
+  }
+
+  return getElement(`${tool}MonthFilter`);
+}
+
+function syncToolMonthInputs(tool, monthKey) {
+  [getToolMonthInput(tool, "dashboard"), getToolMonthInput(tool, "runs")].forEach(input => {
+    if (input) {
+      input.value = monthKey;
+    }
+  });
+}
+
+function getSelectedToolMonth(tool) {
+  return getToolMonthInput(tool, "dashboard")?.value || getToolMonthInput(tool, "runs")?.value || "";
 }
 
 function extractNikeType(tool) {
@@ -1221,18 +1280,16 @@ function getDashboardMonthKeys(monthlyRows) {
 }
 
 function setDashboardMonth(tool, monthKey) {
-  const input = getElement(`${tool}MonthFilter`);
-
-  if (input) {
-    input.value = monthKey;
-  }
+  syncToolMonthInputs(tool, monthKey);
 
   if (tool === "nike") {
     renderNikeDashboardPeriod(monthKey);
+    renderNikeRunsTable();
     return;
   }
 
   renderMockupDashboardPeriod(monthKey);
+  renderMockupRunsTable();
 }
 
 function updateDashboardMonthNav(tool, monthKey) {
@@ -1352,9 +1409,13 @@ function getInitialDashboardMonth(monthlyRows) {
 function bindDashboardMonthFilters() {
   const nikeInput = getElement("nikeMonthFilter");
   const mockupInput = getElement("mockupMonthFilter");
+  const nikeRunsInput = getElement("nikeRunsMonthFilter");
+  const mockupRunsInput = getElement("mockupRunsMonthFilter");
 
   nikeInput?.addEventListener("change", () => setDashboardMonth("nike", nikeInput.value));
   mockupInput?.addEventListener("change", () => setDashboardMonth("mockup", mockupInput.value));
+  nikeRunsInput?.addEventListener("change", () => setDashboardMonth("nike", nikeRunsInput.value));
+  mockupRunsInput?.addEventListener("change", () => setDashboardMonth("mockup", mockupRunsInput.value));
 
   getElement("nikeMonthPrev")?.addEventListener("click", () => moveDashboardMonth("nike", -1));
   getElement("nikeMonthNext")?.addEventListener("click", () => moveDashboardMonth("nike", 1));
@@ -1366,6 +1427,14 @@ function bindDashboardMonthFilters() {
   });
 
   getElement("mockupMonthAll")?.addEventListener("click", () => {
+    setDashboardMonth("mockup", "");
+  });
+
+  getElement("nikeRunsMonthAll")?.addEventListener("click", () => {
+    setDashboardMonth("nike", "");
+  });
+
+  getElement("mockupRunsMonthAll")?.addEventListener("click", () => {
     setDashboardMonth("mockup", "");
   });
 }
@@ -1404,20 +1473,32 @@ async function loadDashboard() {
     mockupMonthInput.value = getInitialDashboardMonth(data.mockup.monthly);
   }
 
-  renderNikeDashboardPeriod(nikeMonthInput?.value || "");
-  renderMockupDashboardPeriod(mockupMonthInput?.value || "");
+  setDashboardMonth("nike", nikeMonthInput?.value || "");
+  setDashboardMonth("mockup", mockupMonthInput?.value || "");
 
   appendLog("Dashboard actualizado", "success");
 }
 
-// Carga la tabla de ejecuciones Nike.
-async function loadRuns() {
-  const data = await getJSON("/api/nike/runs");
-  const runs = Array.isArray(data) ? data : data.runs || [];
+function renderNikeRunsTable() {
   const tbody = getElement("runsTable");
+  const monthKey = getSelectedToolMonth("nike");
+  const runs = filterRunsByMonth(nikeRunsCache, monthKey);
 
-  nikeRunsCache = runs;
+  if (!tbody) {
+    return;
+  }
+
   tbody.innerHTML = "";
+
+  if (!runs.length) {
+    addEmptyTableRow(
+      tbody,
+      monthKey
+        ? `Sin ejecuciones Nike para ${monthKey.slice(5, 7)}/${monthKey.slice(0, 4)}.`
+        : "Sin ejecuciones Nike registradas.",
+      7
+    );
+  }
 
   runs.forEach(run => {
     const row = document.createElement("tr");
@@ -1445,7 +1526,16 @@ async function loadRuns() {
 
   refreshTableFilter("runsTable");
   updateSortIndicators("runsTable");
-  appendLog(`RMCOp-Nike: ${runs.length} ejecuciones cargadas (página ${data.page || 1})`, "success");
+}
+
+// Carga la tabla de ejecuciones Nike.
+async function loadRuns() {
+  const data = await getJSON("/api/nike/runs");
+  const runs = Array.isArray(data) ? data : data.runs || [];
+
+  nikeRunsCache = runs;
+  renderNikeRunsTable();
+  appendLog(`Pedidos Nike Lacrosse: ${runs.length} embarques cargados (página ${data.page || 1})`, "success");
 }
 
 // Carga el detalle de una ejecucion Nike y muestra el panel bajo la tabla.
@@ -1498,14 +1588,26 @@ async function loadRunDetail(id) {
   appendLog(`Detalle Nike ${id}: ${data.items.length} items`, "success");
 }
 
-// Carga la tabla de ejecuciones MockupTool.
-async function loadMockupRuns() {
-  const data = await getJSON("/api/mockup/runs");
-  const runs = Array.isArray(data) ? data : data.runs || [];
+function renderMockupRunsTable() {
   const tbody = getElement("mockupTable");
+  const monthKey = getSelectedToolMonth("mockup");
+  const runs = filterRunsByMonth(mockupRunsCache, monthKey);
 
-  mockupRunsCache = runs;
+  if (!tbody) {
+    return;
+  }
+
   tbody.innerHTML = "";
+
+  if (!runs.length) {
+    addEmptyTableRow(
+      tbody,
+      monthKey
+        ? `Sin embarques MockupTool para ${monthKey.slice(5, 7)}/${monthKey.slice(0, 4)}.`
+        : "Sin embarques MockupTool registrados.",
+      7
+    );
+  }
 
   runs.forEach(run => {
     const row = document.createElement("tr");
@@ -1527,6 +1629,15 @@ async function loadMockupRuns() {
 
   refreshTableFilter("mockupTable");
   updateSortIndicators("mockupTable");
+}
+
+// Carga la tabla de ejecuciones MockupTool.
+async function loadMockupRuns() {
+  const data = await getJSON("/api/mockup/runs");
+  const runs = Array.isArray(data) ? data : data.runs || [];
+
+  mockupRunsCache = runs;
+  renderMockupRunsTable();
   appendLog(`Maquetas RMC Nike: ${runs.length} embarques cargados`, "success");
 }
 
@@ -2518,6 +2629,7 @@ function bindTableFilters() {
     tools.querySelector(".table-clear")?.addEventListener("click", () => {
       const search = tools.querySelector(".table-search");
       const column = tools.querySelector(".table-column");
+      const monthInput = tools.querySelector(".run-month-filter");
 
       if (search) {
         search.value = "";
@@ -2528,6 +2640,12 @@ function bindTableFilters() {
       }
 
       clearExcelColumnFilters(tableId);
+
+      if (monthInput?.dataset.monthTool) {
+        setDashboardMonth(monthInput.dataset.monthTool, "");
+        return;
+      }
+
       applyTableFilter(tableId);
     });
 

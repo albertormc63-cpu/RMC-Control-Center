@@ -4,7 +4,7 @@ window.RMCComponents = window.RMCComponents || {};
 window.RMCComponents.nikeView = function nikeView() {
   return `
     <section id="nike-view" class="view">
-      <h2>RMCOp-Nike</h2>
+      <h2>Pedidos Nike Lacrosse</h2>
 
       <div class="table-tools" data-filter-target="runsTable">
         <input class="table-search" type="search" placeholder="Filtrar ejecuciones Nike">
@@ -12,6 +12,13 @@ window.RMCComponents.nikeView = function nikeView() {
         <select class="table-column">
           <option value="all">Todas las columnas</option>
         </select>
+
+        <label class="table-month-filter" for="nikeRunsMonthFilter">
+          <span>Mes</span>
+          <input class="MonthFilter run-month-filter" id="nikeRunsMonthFilter" type="month" data-month-tool="nike">
+        </label>
+
+        <button id="nikeRunsMonthAll" class="secondary-button run-month-all" type="button" data-month-tool="nike">Todos</button>
 
         <button class="secondary-button table-clear" type="button">Limpiar</button>
 

@@ -99,6 +99,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 
 - Tabla de ejecuciones Nike.
 - Filtro por texto/columna.
+- Filtro por mes sincronizado con el mes del Dashboard y selector local en la tabla.
 - Panel de detalle.
 - Tabla de items Nike.
 - Columna `Tipo` entre `Variante` y `Talla` para filtrar `Generica`, `Personalizada` o `Manual`.
@@ -110,6 +111,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 
 - Tabla de ejecuciones MockupTool.
 - Filtro por texto/columna.
+- Filtro por mes sincronizado con el mes del Dashboard y selector local en la tabla.
 - Panel de detalle.
 - Tabla de items MockupTool.
 - Columna `Tipo` entre `Variante` y `Talla` para filtrar `Generica` o `Personalizada`.

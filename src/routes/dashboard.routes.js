@@ -33,7 +33,7 @@ function secondsToDuration(totalSeconds) {
 // Obtiene el ano de ejecucion para completar embarques guardados como DD/MM.
 function getRowYear(row) {
   const executionDate = row.created_at || row.fecha || "";
-  const dateMatch = String(executionDate).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const dateMatch = String(executionDate).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   const idMatch = String(row.id || "").match(/^(\d{4})(\d{2})(\d{2})/);
 
   return dateMatch?.[3] || idMatch?.[1] || "";
@@ -42,22 +42,28 @@ function getRowYear(row) {
 // Prioriza fecha_embarque y usa la fecha de ejecucion solo como respaldo.
 function normalizeDay(row) {
   const rawDate = row.fecha_embarque || row.created_at || row.fecha || "";
-  const dateMatch = String(rawDate).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  const embarkMatch = String(rawDate).match(/^(\d{2})\/(\d{2})$/);
+  const dateMatch = String(rawDate).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const embarkMatch = String(rawDate).match(/^(\d{1,2})\/(\d{1,2})$/);
   const idMatch = String(row.id || "").match(/^(\d{4})(\d{2})(\d{2})/);
 
   if (dateMatch) {
+    const day = dateMatch[1].padStart(2, "0");
+    const month = dateMatch[2].padStart(2, "0");
+
     return {
-      key: `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`,
-      label: `${dateMatch[1]}/${dateMatch[2]}`
+      key: `${dateMatch[3]}-${month}-${day}`,
+      label: `${day}/${month}`
     };
   }
 
   if (embarkMatch) {
     const year = getRowYear(row);
+    const day = embarkMatch[1].padStart(2, "0");
+    const month = embarkMatch[2].padStart(2, "0");
+
     return {
-      key: `${year}-${embarkMatch[2]}-${embarkMatch[1]}`,
-      label: `${embarkMatch[1]}/${embarkMatch[2]}`
+      key: `${year}-${month}-${day}`,
+      label: `${day}/${month}`
     };
   }
 
@@ -77,22 +83,26 @@ function normalizeDay(row) {
 // Normaliza una fecha a mes YYYY-MM para tablas historicas mensuales.
 function normalizeMonth(row) {
   const rawDate = row.fecha_embarque || row.created_at || row.fecha || "";
-  const dateMatch = String(rawDate).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  const embarkMatch = String(rawDate).match(/^(\d{2})\/(\d{2})$/);
+  const dateMatch = String(rawDate).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const embarkMatch = String(rawDate).match(/^(\d{1,2})\/(\d{1,2})$/);
   const idMatch = String(row.id || "").match(/^(\d{4})(\d{2})(\d{2})/);
 
   if (dateMatch) {
+    const month = dateMatch[2].padStart(2, "0");
+
     return {
-      key: `${dateMatch[3]}-${dateMatch[2]}`,
-      label: `${dateMatch[2]}/${dateMatch[3]}`
+      key: `${dateMatch[3]}-${month}`,
+      label: `${month}/${dateMatch[3]}`
     };
   }
 
   if (embarkMatch) {
     const year = getRowYear(row);
+    const month = embarkMatch[2].padStart(2, "0");
+
     return {
-      key: `${year}-${embarkMatch[2]}`,
-      label: `${embarkMatch[2]}/${year}`
+      key: `${year}-${month}`,
+      label: `${month}/${year}`
     };
   }
 

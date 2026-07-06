@@ -118,6 +118,8 @@ Tablas con filtro:
 - `mockupTable`
 - `mockupItemsTable`
 
+`runsTable` y `mockupTable` tambien se filtran por mes de embarque. El selector mensual del Dashboard y el selector mensual local de cada tabla comparten el mismo estado por herramienta.
+
 Tablas con sort:
 
 - `runsTable`
