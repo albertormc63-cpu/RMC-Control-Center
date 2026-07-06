@@ -18,7 +18,7 @@ Excepcion documentada: el modulo de sincronizacion externa escribe tablas auxili
 - `RMC MockupTool`: maquetas/mockups generados, faltantes, items y reportes Excel.
 - Sincronizacion externa inicial: reporte de impresores `Reporte de Impresion y Reposicioes.xlsx` hacia `rmc_print_sublimation_log`.
 - Sincronizacion externa de Sublimado: `PRODUCCION SUBLIMADO3.xlsb` hacia `rmc_sublimation_output_log`, leyendo `A1:M20000`.
-- Polling automatico de fuentes externas activas por `mtime`/`size`, con mensajes separados para `Impresores Excel` y `Sublimado Excel`, incluso cuando no hay cambios de archivo.
+- Polling automatico de fuentes externas activas por `mtime`/`size`, ejecutado en worker hijo levantado por el server, con mensajes separados para `Impresores Excel` y `Sublimado Excel`, incluso cuando no hay cambios de archivo.
 
 MockupTool es complemento visual de RMCOp-Nike: genera maquetas/mockups, no plantillas/archivos que entran a produccion.
 
@@ -50,7 +50,8 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 
 ## Codigo principal
 
-- `src/server.js`: Express, static files, rutas API y LAN. Monta tambien `/api/sync`.
+- `src/server.js`: Express, static files, rutas API y LAN. Monta tambien `/api/sync` y levanta el worker interno de polling.
+- `src/syncWorker.js`: proceso hijo de polling/sync externo iniciado automaticamente por el server.
 - `src/db.js`: conexion SQLite por `RMC_DB_PATH`.
 - `src/routes/dashboard.routes.js`: metricas generales, Registry y conteo de tablas.
 - `src/routes/nike.routes.js`: listado y detalle agrupado de Nike; tambien endpoint item -> impresion/sublimado.
@@ -64,7 +65,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/services/nikeFiles.js`: paths de maqueta/plantilla para items Nike.
 - `src/services/gitCommits.js`: consultas de `rmc_git_commits`.
 - `src/services/printSublimationSync.js`: lectura/sync del Excel de impresores.
-- `src/services/syncPoller.js`: polling automatico de fuentes externas activas.
+- `src/services/syncPoller.js`: polling automatico de fuentes externas activas, con timers apagables para correr en worker.
 - `public/js/app.js`: carga de APIs, render, filtros, sort y graficas SVG.
 - `public/js/components/`: componentes HTML sin imports ni bundler.
 
@@ -126,6 +127,7 @@ No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop
 - Revisar impacto de nuevas herramientas CEP en `TOOL_REGISTRY.md` antes de implementar.
 - Considerar autenticacion solo si se expone fuera de LAN confiable.
 - Validar cadencia real del polling automatico en operacion diaria.
+- Observar locks SQLite durante sync externo; `busy_timeout` del panel evita fallos por locks cortos.
 
 ## Checks utiles
 

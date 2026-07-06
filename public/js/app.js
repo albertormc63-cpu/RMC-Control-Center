@@ -41,6 +41,12 @@ let dashboardData = null;
 let nikeRunsCache = [];
 let mockupRunsCache = [];
 
+// Cargas diferidas por vista para que el arranque pinte primero lo operativo.
+const lazyViewLoads = {
+  registry: false,
+  gitHistory: false
+};
+
 // Acceso corto a elementos por id para evitar repetir document.getElementById.
 function getElement(id) {
   return document.getElementById(id);
@@ -414,6 +420,7 @@ function switchView(viewId) {
 
   closeSidebar();
   window.scrollTo({ top: 0, behavior: "smooth" });
+  loadViewData(viewId);
 }
 
 function findRunByShipment(tool, fechaEmbarque, shipmentKey) {
@@ -1671,6 +1678,26 @@ async function loadGitCommits() {
   appendLog(`Historial de desarrollo: ${formatNumber(data.commits?.length || 0)} commits cargados`, "success");
 }
 
+function loadViewData(viewId) {
+  if (viewId === "registry-view" && !lazyViewLoads.registry) {
+    lazyViewLoads.registry = true;
+    loadRegistry().catch(error => {
+      lazyViewLoads.registry = false;
+      console.error(error);
+      appendLog(error.message || "No se pudo cargar CEP Registry", "error");
+    });
+  }
+
+  if (viewId === "git-history-view" && !lazyViewLoads.gitHistory) {
+    lazyViewLoads.gitHistory = true;
+    loadGitCommits().catch(error => {
+      lazyViewLoads.gitHistory = false;
+      console.error(error);
+      appendLog(error.message || "No se pudo cargar historial de desarrollo", "error");
+    });
+  }
+}
+
 // Conecta los botones del sidebar con las vistas internas.
 function bindNavigation() {
   document.querySelectorAll(".menu-item").forEach(button => {
@@ -2546,9 +2573,7 @@ async function init() {
     await Promise.all([
       loadDashboard(),
       loadRuns(),
-      loadMockupRuns(),
-      loadRegistry(),
-      loadGitCommits()
+      loadMockupRuns()
     ]);
   } catch (error) {
     console.error(error);

@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
+const { fork } = require("child_process");
 const cors = require("cors");
 
 const dashboardRoutes = require("./routes/dashboard.routes");
@@ -11,10 +12,68 @@ const reportsRoutes = require("./routes/reports.routes");
 const filesRoutes = require("./routes/files.routes");
 const syncRoutes = require("./routes/sync.routes");
 const gitCommitsRoutes = require("./routes/gitCommits.routes");
-const { startSyncPoller } = require("./services/syncPoller");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+let syncWorker = null;
+let shuttingDown = false;
+
+function isEnabled(value, fallback = true) {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return fallback;
+  }
+
+  return !["0", "false", "no", "off"].includes(String(value).trim().toLowerCase());
+}
+
+function startSyncWorker() {
+  if (!isEnabled(process.env.RMC_SYNC_WORKER_ENABLED, true)) {
+    console.log("[sync-worker] Worker automatico desactivado.");
+    return null;
+  }
+
+  if (syncWorker) {
+    return syncWorker;
+  }
+
+  const workerPath = path.join(__dirname, "syncWorker.js");
+
+  syncWorker = fork(workerPath, [], {
+    stdio: ["ignore", "inherit", "inherit", "ipc"],
+    env: {
+      ...process.env,
+      RMC_SYNC_WORKER: "1"
+    }
+  });
+
+  console.log(`[sync-worker] Worker de polling levantado (pid ${syncWorker.pid}).`);
+
+  syncWorker.on("exit", (code, signal) => {
+    const suffix = signal ? `signal ${signal}` : `code ${code}`;
+    console.log(`[sync-worker] Worker de polling finalizo (${suffix}).`);
+    syncWorker = null;
+  });
+
+  return syncWorker;
+}
+
+function stopSyncWorker() {
+  if (!syncWorker || syncWorker.killed) {
+    return;
+  }
+
+  syncWorker.kill("SIGTERM");
+}
+
+function shutdown(signal) {
+  if (shuttingDown) {
+    return;
+  }
+
+  shuttingDown = true;
+  stopSyncWorker();
+  process.exit(signal === "SIGINT" ? 0 : 0);
+}
 
 // Middlewares base: JSON para APIs, CORS para LAN y archivos estaticos del frontend.
 app.use(cors());
@@ -51,5 +110,9 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log("RMC LAN Reporter activo");
   console.log(`Local: http://localhost:${PORT}`);
   console.log(`LAN: http://${lanHost}:${PORT}`);
-  startSyncPoller();
+  startSyncWorker();
 });
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("exit", stopSyncWorker);

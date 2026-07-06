@@ -16,6 +16,7 @@ const pendingSyncs = new Map();
 const runningSyncs = new Set();
 
 let pollTimer = null;
+let firstPollTimer = null;
 
 function parseDuration(value, fallback, minimum) {
   const parsed = Number(value);
@@ -167,8 +168,10 @@ function runStableSync(sourceId, initialSnapshot, config) {
   runningSyncs.add(source.id);
 
   try {
+    const startedAt = Date.now();
     const result = syncPrintSublimationSource(source.id);
     const summary = result.summary;
+    const durationSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
 
     console.log(
       `[sync-poller] ${getSourceLabel(source)} (ID ${source.id}) sincronizado: ` +
@@ -177,7 +180,7 @@ function runStableSync(sourceId, initialSnapshot, config) {
       `${summary.rows_unchanged} sin cambios, ` +
       `${summary.rows_missing} faltantes, ` +
       `${summary.rows_skipped} omitidos ` +
-      `(leidas ${summary.rows_read}, validas ${summary.rows_valid}).`
+      `(leidas ${summary.rows_read}, validas ${summary.rows_valid}, ${durationSeconds}s).`
     );
   } catch (error) {
     console.error(
@@ -234,13 +237,35 @@ function startSyncPoller() {
     `estabilizacion ${Math.round(config.stabilizeMs / 1000)}s.`
   );
 
-  setTimeout(() => runPollCycle(config), Math.min(config.stabilizeMs, 10 * 1000));
+  firstPollTimer = setTimeout(() => {
+    firstPollTimer = null;
+    runPollCycle(config);
+  }, Math.min(config.stabilizeMs, 10 * 1000));
   pollTimer = setInterval(() => runPollCycle(config), config.intervalMs);
 
   return pollTimer;
 }
 
+function stopSyncPoller() {
+  if (firstPollTimer) {
+    clearTimeout(firstPollTimer);
+    firstPollTimer = null;
+  }
+
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+
+  for (const timer of pendingSyncs.values()) {
+    clearTimeout(timer);
+  }
+
+  pendingSyncs.clear();
+}
+
 module.exports = {
   runPollCycle,
-  startSyncPoller
+  startSyncPoller,
+  stopSyncPoller
 };

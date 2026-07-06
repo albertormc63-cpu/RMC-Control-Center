@@ -11,6 +11,9 @@ logs/
 # Environment
 .env
 
+# Documentation
+docs/presentacion
+
 # SQLite
 *.sqlite-shm
 *.sqlite-wal

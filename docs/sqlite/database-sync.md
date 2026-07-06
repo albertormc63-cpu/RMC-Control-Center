@@ -28,7 +28,7 @@ Implementado para el reporte de impresores y la salida de Sublimado:
 - Bloque visual `Impresion / Sublimado` en detalle de item Nike implementado.
 - Tabla detalle de items Nike muestra estado operativo por area usando resumen de sync.
 - Si el Work Order aparece activo en `rmc_sublimation_output_log`, el estado se interpreta como `En almacen`.
-- Pendiente posterior: polling automatico.
+- Polling automatico funcionando en un worker hijo que levanta el servidor para evitar bloquear la UI/API durante lectura de Exceles grandes.
 
 Validacion observada:
 

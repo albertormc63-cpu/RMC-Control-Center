@@ -15,4 +15,8 @@ const db = new Database(dbPath, {
   fileMustExist: true
 });
 
+// Cuando el worker de sync esta escribiendo, las lecturas del panel esperan
+// brevemente en vez de fallar por un lock corto de SQLite.
+db.pragma(`busy_timeout = ${Number(process.env.RMC_DB_BUSY_TIMEOUT_MS) || 5000}`);
+
 module.exports = db;
