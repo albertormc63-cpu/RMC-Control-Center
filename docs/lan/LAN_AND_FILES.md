@@ -33,6 +33,38 @@ Notas:
 PORT=3000
 RMC_LAN_HOST=RMLART2.local
 RMC_FILE_ROOT=/Volumes/Fullsize
+RMC_ACCESS_LOG_ENABLED=true
+RMC_ACCESS_LOG_PATH=logs/access.log
+```
+
+## Registro de accesos
+
+El servidor registra cada request HTTP en `logs/access.log` usando formato JSON Lines. El archivo queda fuera de git por `.gitignore`.
+
+Cada linea incluye:
+
+- `ts`: fecha/hora ISO del request.
+- `client_ip`: IP detectada del cliente.
+- `is_local`: `true` para `localhost`/`127.0.0.1`, `false` para otra PC de la LAN.
+- `method`, `path`, `status` y `duration_ms`.
+- `user_agent` y `referer`.
+
+Al iniciar el server se imprime la ruta activa del log. Cuando aparece una IP no-local por primera vez durante esa ejecucion, tambien se imprime en consola:
+
+```text
+[access-log] Cliente LAN detectado: 192.168.1.50 (GET /)
+```
+
+Para revisar accesos recientes:
+
+```bash
+tail -n 50 logs/access.log
+```
+
+Para desactivar el registro:
+
+```env
+RMC_ACCESS_LOG_ENABLED=false
 ```
 
 ## Archivos servidos

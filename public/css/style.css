@@ -1010,6 +1010,40 @@ tbody tr:hover td {
   color: var(--department-color);
 }
 
+.compact-flow-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 7px;
+}
+
+.compact-flow-label {
+  flex: 0 0 auto;
+  color: var(--rmc-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.compact-tracking-step {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+
+.compact-tracking-step span {
+  overflow: hidden;
+  color: var(--rmc-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .operational-status {
   --department-color: var(--dept-default);
   display: grid;

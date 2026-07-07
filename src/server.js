@@ -12,9 +12,11 @@ const reportsRoutes = require("./routes/reports.routes");
 const filesRoutes = require("./routes/files.routes");
 const syncRoutes = require("./routes/sync.routes");
 const gitCommitsRoutes = require("./routes/gitCommits.routes");
+const { createAccessLogger } = require("./services/accessLogger");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const accessLogger = createAccessLogger();
 let syncWorker = null;
 let shuttingDown = false;
 
@@ -76,6 +78,7 @@ function shutdown(signal) {
 }
 
 // Middlewares base: JSON para APIs, CORS para LAN y archivos estaticos del frontend.
+app.use(accessLogger);
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "..", "public")));
@@ -110,6 +113,11 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log("RMC LAN Reporter activo");
   console.log(`Local: http://localhost:${PORT}`);
   console.log(`LAN: http://${lanHost}:${PORT}`);
+  if (accessLogger.enabled) {
+    console.log(`[access-log] Guardando accesos en ${accessLogger.logPath}`);
+  } else {
+    console.log("[access-log] Registro de accesos desactivado.");
+  }
   startSyncWorker();
 });
 

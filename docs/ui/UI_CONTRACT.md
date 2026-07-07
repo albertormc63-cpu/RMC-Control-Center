@@ -101,6 +101,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Filtro por texto/columna.
 - Filtro por mes sincronizado con el mes del Dashboard y selector local en la tabla.
 - Panel de detalle.
+- Resumen compacto de circulacion activa por etapa dentro del detalle Nike.
 - Tabla de items Nike.
 - Columna `Tipo` entre `Variante` y `Talla` para filtrar `Generica`, `Personalizada` o `Manual`.
 - Filtros por columna tipo Excel en la tabla de detalle.

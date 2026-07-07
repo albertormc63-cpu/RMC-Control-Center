@@ -382,11 +382,83 @@ function addOperationalStatusCell(row, item) {
   wrapper.className = "operational-status";
   wrapper.dataset.stage = state.stage || "impresion";
   wrapper.dataset.department = department;
+  cell.dataset.filterValue = state.status || "Sin estado";
   detail.textContent = state.detail || "";
   wrapper.append(makeDepartmentBadge(state.status, `${state.stage || ""} ${state.detail || ""}`), detail);
   cell.appendChild(wrapper);
   row.appendChild(cell);
   return cell;
+}
+
+function renderNikeActiveFlowSummary(items) {
+  const container = getElement("nikeActiveFlowSummary");
+
+  if (!container) {
+    return;
+  }
+
+  const stages = {
+    diseno: {
+      department: "diseno",
+      label: "Impresion",
+      detail: "En proceso",
+      count: 0,
+      pieces: 0
+    },
+    sublimado: {
+      department: "sublimado",
+      label: "Sublimado",
+      detail: "Bajado / parcial",
+      count: 0,
+      pieces: 0
+    },
+    almacen: {
+      department: "almacen",
+      label: "Almacen",
+      detail: "Liberado a linea",
+      count: 0,
+      pieces: 0
+    }
+  };
+
+  (items || []).forEach(item => {
+    const state = getNikeOperationalState(item);
+    const key = state.stage === "almacen"
+      ? "almacen"
+      : state.stage === "sublimado"
+        ? "sublimado"
+        : "diseno";
+
+    stages[key].count += 1;
+    stages[key].pieces += Number(item.piezas || 0);
+  });
+
+  const activeStages = Object.values(stages).filter(stage => stage.count > 0);
+  container.textContent = "";
+  container.classList.toggle("hidden", activeStages.length === 0);
+
+  if (!activeStages.length) {
+    return;
+  }
+
+  const label = document.createElement("span");
+  label.className = "compact-flow-label";
+  label.textContent = "Circulacion activa";
+  container.appendChild(label);
+
+  activeStages.forEach(stage => {
+    const item = document.createElement("div");
+    const title = document.createElement("strong");
+    const detail = document.createElement("span");
+
+    item.className = "tracking-step compact-tracking-step";
+    item.dataset.department = stage.department;
+    item.dataset.active = "true";
+    title.textContent = `${stage.label}: ${formatNumber(stage.count)}`;
+    detail.textContent = `${formatNumber(stage.pieces)} piezas | ${stage.detail}`;
+    item.append(title, detail);
+    container.appendChild(item);
+  });
 }
 
 function addDepartmentStatusCell(row, value, className = "") {
@@ -396,6 +468,7 @@ function addDepartmentStatusCell(row, value, className = "") {
     cell.className = className;
   }
 
+  cell.dataset.filterValue = value || "Sin estado";
   cell.appendChild(makeDepartmentBadge(value));
   row.appendChild(cell);
   return cell;
@@ -619,7 +692,8 @@ function updateTableCount(tableId, visibleRows, totalRows) {
 }
 
 function getExcelFilterValue(row, columnIndex) {
-  const text = String(row.cells[columnIndex]?.textContent || "").trim();
+  const cell = row.cells[columnIndex];
+  const text = String(cell?.dataset.filterValue || cell?.textContent || "").trim();
   return text || "(Vacios)";
 }
 
@@ -1550,6 +1624,7 @@ async function loadRunDetail(id) {
   const executionLabel = runCount === 1 ? "ejecución" : "ejecuciones";
 
   runInfo.textContent = `${runCount} ${executionLabel} | ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)} | ${data.herramienta || data.run?.herramienta || "RMCOp-Nike"} | ${formatNumber(data.totalPieces || data.run?.piezas)} piezas | ${data.year || ""}`;
+  renderNikeActiveFlowSummary(data.items);
   tbody.innerHTML = "";
 
   if (!data.items.length) {

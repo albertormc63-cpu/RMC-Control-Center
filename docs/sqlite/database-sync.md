@@ -48,7 +48,7 @@ rows_skipped: 0
 - Area: Diseno / Impresion
 - Tipo: `print_sublimation_excel`
 - Archivo real:
-  `/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposicioes.xlsx`
+  `/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposiciones.xlsx`
 - Hoja:
   `Impresión - Sublimado 2026`
 - Encabezados reales:

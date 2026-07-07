@@ -52,6 +52,8 @@ window.RMCComponents.nikeView = function nikeView() {
           </div>
         </div>
 
+        <div id="nikeActiveFlowSummary" class="tracking-panel compact-flow-panel hidden" aria-live="polite"></div>
+
         <div class="table-tools" data-filter-target="itemsTable">
           <input class="table-search" type="search" placeholder="Filtrar detalle Nike">
 

@@ -17,7 +17,7 @@ const source = {
   name: "Reporte de Impresión y Reposiciones",
   area: "Diseño / Impresión",
   source_type: "print_sublimation_excel",
-  file_path: "/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposicioes.xlsx",
+  file_path: "/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposiciones.xlsx",
   sheet_name: "Impresión - Sublimado 2026"
 };
 
@@ -40,8 +40,9 @@ const existing = db.prepare(`
   SELECT *
   FROM rmc_external_sources
   WHERE source_type = ?
-  AND file_path = ?
-`).get(source.source_type, source.file_path);
+  ORDER BY id
+  LIMIT 1
+`).get(source.source_type);
 
 if (existing) {
   db.prepare(`
@@ -49,6 +50,7 @@ if (existing) {
     SET
       name = ?,
       area = ?,
+      file_path = ?,
       sheet_name = ?,
       active = 1,
       updated_at = CURRENT_TIMESTAMP
@@ -56,6 +58,7 @@ if (existing) {
   `).run(
     source.name,
     source.area,
+    source.file_path,
     source.sheet_name,
     existing.id
   );
