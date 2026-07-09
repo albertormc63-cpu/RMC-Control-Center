@@ -5,7 +5,13 @@ window.RMCComponents.sidebar = function sidebar() {
   return `
     <aside id="sidebar" class="sidebar">
       <div class="logo">
-        <img src="/assets/logo%20rmccc.svg" alt="RMC Control Center">
+        <img
+          id="rmcSidebarLogo"
+          src="/assets/logo%20rmccc.svg"
+          data-dark-logo="/assets/logo%20rmccc.svg"
+          data-light-logo="/assets/logo%20rmc%20mt%20light.svg"
+          alt="RMC Control Center"
+        >
       </div>
 
       <section class="menu-group">
@@ -53,6 +59,20 @@ window.RMCComponents.sidebar = function sidebar() {
         </button>
         <button class="menu-item" type="button" data-view="git-history-view">
           <span>Historial de desarrollo</span>
+          <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
+        </button>
+
+        <div class="theme-control" aria-label="Tema de interfaz">
+          <span id="themeDarkLabel">Dark</span>
+          <label class="theme-switch">
+            <input id="themeToggle" type="checkbox" role="switch" aria-labelledby="themeDarkLabel themeLightLabel">
+            <span class="theme-slider" aria-hidden="true"></span>
+          </label>
+          <span id="themeLightLabel">Light</span>
+        </div>
+
+        <button id="btnOpenAccessModal" class="menu-item access-menu-item" type="button">
+          <span>Acceder</span>
           <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
         </button>
       </section>
@@ -125,6 +145,42 @@ window.RMCComponents.logPanel = function logPanel() {
   `;
 };
 
+window.RMCComponents.accessModal = function accessModal() {
+  return `
+    <dialog id="accessModal" class="modal access-modal">
+      <form method="dialog">
+        <div class="modal-header">
+          <div>
+            <span class="modal-eyebrow">Acceso provisional</span>
+            <h3>RMC Control Center</h3>
+          </div>
+
+          <button id="btnCloseAccessModal" class="secondary-button" type="button">Cerrar</button>
+        </div>
+
+        <p class="access-note">
+          Pantalla preparada para integrar usuarios y permisos en una fase posterior.
+        </p>
+
+        <label>
+          Usuario
+          <input type="text" name="username" autocomplete="username" placeholder="Usuario RMC" disabled>
+        </label>
+
+        <label>
+          Password
+          <input type="password" name="password" autocomplete="current-password" placeholder="Pendiente de integrar" disabled>
+        </label>
+
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-close-access>Cerrar</button>
+          <button type="button" disabled>Acceder</button>
+        </div>
+      </form>
+    </dialog>
+  `;
+};
+
 window.RMCComponents.renderApp = function renderApp(root) {
   root.innerHTML = `
     <header class="top-navbar">
@@ -152,6 +208,7 @@ window.RMCComponents.renderApp = function renderApp(root) {
     </div>
 
     ${window.RMCComponents.logPanel()}
+    ${window.RMCComponents.accessModal()}
 
     <footer class="footer-credits">
       Creado por Jose Alberto Villarreal Garcia

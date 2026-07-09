@@ -1,6 +1,9 @@
 // Formateador compartido para cantidades en todo el frontend.
 const numberFormatter = new Intl.NumberFormat("es-MX");
 
+const themeStorageKey = "rmc-control-center-theme";
+const defaultTheme = "dark";
+
 // Tablas que tienen filtros de texto/columna en pantalla.
 const filterTargets = [
   "runsTable",
@@ -58,6 +61,60 @@ function setText(id, value) {
 
   if (element) {
     element.textContent = value ?? "";
+  }
+}
+
+function getStoredTheme() {
+  try {
+    const stored = localStorage.getItem(themeStorageKey);
+    return stored === "light" || stored === "dark" ? stored : defaultTheme;
+  } catch (error) {
+    return defaultTheme;
+  }
+}
+
+function persistTheme(theme) {
+  try {
+    localStorage.setItem(themeStorageKey, theme);
+  } catch (error) {
+    appendLog("No se pudo guardar el tema localmente", "warning");
+  }
+}
+
+function updateThemeControls(theme) {
+  const toggle = getElement("themeToggle");
+  const darkLabel = getElement("themeDarkLabel");
+  const lightLabel = getElement("themeLightLabel");
+  const logo = getElement("rmcSidebarLogo");
+  const isLight = theme === "light";
+
+  if (toggle) {
+    toggle.checked = isLight;
+    toggle.setAttribute("aria-label", isLight ? "Tema Light activo" : "Tema Dark activo");
+  }
+
+  if (logo) {
+    logo.src = isLight
+      ? logo.dataset.lightLogo || logo.src
+      : logo.dataset.darkLogo || logo.src;
+  }
+
+  darkLabel?.classList.toggle("theme-label-active", !isLight);
+  lightLabel?.classList.toggle("theme-label-active", isLight);
+}
+
+function applyTheme(theme, options = {}) {
+  const nextTheme = theme === "light" ? "light" : "dark";
+
+  document.documentElement.dataset.theme = nextTheme;
+  updateThemeControls(nextTheme);
+
+  if (options.persist) {
+    persistTheme(nextTheme);
+  }
+
+  if (options.log) {
+    appendLog(`Tema ${nextTheme === "light" ? "Light" : "Dark"} aplicado`, "success");
   }
 }
 
@@ -325,6 +382,10 @@ function formatFileStatusLine(file, type) {
   return displayPath ? `${statusText} | ${displayPath}` : statusText;
 }
 
+function hasResolvedFile(file) {
+  return Boolean(file?.exists && file?.resolvedPath);
+}
+
 function renderNikeMockupOptions(item) {
   const options = getElement("nikeItemMaquetaOptions");
 
@@ -355,12 +416,14 @@ function renderNikeMockupOptions(item) {
     row.className = "resource-option";
     label.textContent = parts.join(" | ") || `Maqueta ${file.mockupItemId || ""}`;
     action.className = "resource-state resource-download";
-    action.textContent = file.exists ? "Ver maqueta" : "No disponible";
-    action.href = file.exists ? file.resolvedUrl : "#";
-    action.target = file.exists ? "_blank" : "";
-    action.setAttribute("aria-disabled", String(!file.exists));
+    const hasFile = hasResolvedFile(file);
 
-    if (!file.exists) {
+    action.textContent = hasFile ? "Ver maqueta" : "No disponible";
+    action.href = hasFile ? file.resolvedUrl : "#";
+    action.target = hasFile ? "_blank" : "";
+    action.setAttribute("aria-disabled", String(!hasFile));
+
+    if (!hasFile) {
       action.addEventListener("click", event => {
         event.preventDefault();
         appendLog(getFileStatusText(file, "mockup"), "info");
@@ -1886,7 +1949,7 @@ function loadViewData(viewId) {
 
 // Conecta los botones del sidebar con las vistas internas.
 function bindNavigation() {
-  document.querySelectorAll(".menu-item").forEach(button => {
+  document.querySelectorAll(".menu-item[data-view]").forEach(button => {
     button.addEventListener("click", () => {
       switchView(button.dataset.view);
     });
@@ -1916,6 +1979,42 @@ function bindSidebarControls() {
     if (event.key === "Escape") {
       closeSidebar();
     }
+  });
+}
+
+function bindThemeControls() {
+  const toggle = getElement("themeToggle");
+
+  applyTheme(getStoredTheme());
+
+  if (!toggle) {
+    return;
+  }
+
+  toggle.addEventListener("change", () => {
+    applyTheme(toggle.checked ? "light" : "dark", { persist: true, log: true });
+  });
+}
+
+function bindAccessControls() {
+  const modal = getElement("accessModal");
+  const openButton = getElement("btnOpenAccessModal");
+  const closeButton = getElement("btnCloseAccessModal");
+
+  if (!modal || !openButton) {
+    return;
+  }
+
+  openButton.addEventListener("click", () => {
+    closeSidebar();
+    modal.showModal();
+    appendLog("Pantalla de acceso provisional abierta", "info");
+  });
+
+  closeButton?.addEventListener("click", () => modal.close());
+
+  modal.querySelectorAll("[data-close-access]").forEach(button => {
+    button.addEventListener("click", () => modal.close());
   });
 }
 
@@ -2187,13 +2286,13 @@ function showNikeItemModal(item) {
   const pdfFile = item.pdfFile || {
     originalPath: item.plantilla_path || item.path || "",
     resolvedPath: item.plantilla_resolved_path || "",
-    exists: Boolean(item.plantilla_resolved_path || item.plantilla_path || item.path),
+    exists: Boolean(item.plantilla_resolved_path),
     status: item.plantilla_file_status || "found_original"
   };
   const mockupFile = item.mockupFile || {
     originalPath: item.maqueta_path || "",
     resolvedPath: item.maqueta_resolved_path || "",
-    exists: Boolean(item.maqueta_resolved_path || item.maqueta_path),
+    exists: Boolean(item.maqueta_resolved_path),
     status: item.maqueta_file_status || "found_original"
   };
   roster.textContent = item.roster || "N/D";
@@ -2218,7 +2317,7 @@ function showNikeItemModal(item) {
   };
 
   const hasMultipleMockups = mockupFile.status === "multiple_mockups";
-  const hasMaqueta = Boolean(item.id && mockupFile.exists && !hasMultipleMockups);
+  const hasMaqueta = Boolean(item.id && hasResolvedFile(mockupFile) && !hasMultipleMockups);
   maqueta.href = hasMaqueta
     ? `/api/files/nike/${encodeURIComponent(item.id)}/maqueta/view`
     : "#";
@@ -2226,7 +2325,7 @@ function showNikeItemModal(item) {
   maquetaDownload.href = hasMaqueta
     ? `/api/files/nike/${encodeURIComponent(item.id)}/maqueta/download`
     : "#";
-  const hasPlantilla = Boolean(item.id && pdfFile.exists);
+  const hasPlantilla = Boolean(item.id && hasResolvedFile(pdfFile));
   plantilla.href = hasPlantilla
     ? `/api/files/nike/${encodeURIComponent(item.id)}/plantilla/view`
     : "#";
@@ -2573,7 +2672,13 @@ function showMockupItemModal(item) {
     return;
   }
 
-  const hasMaqueta = Boolean(item.id && item.path);
+  const mockupFile = {
+    originalPath: item.path || "",
+    resolvedPath: item.maqueta_resolved_path || "",
+    exists: Boolean(item.maqueta_exists),
+    status: item.maqueta_file_status || (item.path ? "missing" : "no_path")
+  };
+  const hasMaqueta = Boolean(item.id && hasResolvedFile(mockupFile));
   const hasExcelDownload = Boolean(item.id);
   const hasExcelPath = Boolean(item.excel_path);
   title.textContent = [item.wo, item.style, item.talla].filter(Boolean).join(" | ") || "Maqueta";
@@ -2609,7 +2714,7 @@ function showMockupItemModal(item) {
   excelCopy.textContent = hasExcelPath ? "Copiar ruta" : "Sin ruta";
 
   if (pathLabel) {
-    pathLabel.textContent = item.path || "Ruta pendiente de definir";
+    pathLabel.textContent = formatFileStatusLine(mockupFile, "mockup");
   }
 
   if (excelPath) {
@@ -2745,12 +2850,16 @@ function bindExcelFilterMenuClose() {
 
 // Arranque de la aplicacion: primero conecta eventos, luego carga datos iniciales.
 async function init() {
+  applyTheme(getStoredTheme());
+
   if (window.RMCComponents?.renderApp) {
     window.RMCComponents.renderApp(getElement("appRoot"));
   }
 
   bindNavigation();
   bindSidebarControls();
+  bindThemeControls();
+  bindAccessControls();
   bindLogControls();
   bindDetailControls();
   bindGitCommitControls();

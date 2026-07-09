@@ -28,6 +28,14 @@
   --rmc-secondary-hover: #555555;
 
   --rmc-focus: #f7c948;
+  --rmc-row-hover: rgba(255, 255, 255, 0.08);
+  --rmc-shadow-primary: rgba(162, 26, 47, 0.45);
+  --rmc-shadow-panel: rgba(0, 0, 0, 0.36);
+  --rmc-backdrop: rgba(0, 0, 0, 0.62);
+  --rmc-resource-action-text: #ffffff;
+  --rmc-table-button-bg: var(--rmc-primary);
+  --rmc-table-button-hover-bg: var(--rmc-primary-hover);
+  --rmc-table-button-text: #ffffff;
 
   --rmc-log-text: #00ff00;
   --rmc-log-success: #50fa7b;
@@ -41,6 +49,48 @@
   --dept-calidad: #facc15;
   --dept-embarque: #34d399;
   --dept-default: #94a3b8;
+}
+
+:root[data-theme="light"] {
+  --rmc-bg: #f4f5f7;
+  --rmc-surface: #ffffff;
+  --rmc-surface-soft: #eef0f3;
+  --rmc-surface-deep: #dfe3e8;
+  --rmc-field: #ffffff;
+
+  --rmc-border: #d2d6dc;
+  --rmc-border-strong: #9da6b2;
+
+  --rmc-text: #1f2328;
+  --rmc-text-soft: #2f363d;
+  --rmc-muted: #5f6772;
+  --rmc-muted-low: #7b8490;
+
+  --rmc-secondary: #e3e6eb;
+  --rmc-secondary-hover: #d4d9e1;
+
+  --rmc-focus: #b38600;
+  --rmc-row-hover: rgba(130, 20, 36, 0.07);
+  --rmc-shadow-primary: rgba(130, 20, 36, 0.22);
+  --rmc-shadow-panel: rgba(31, 35, 40, 0.16);
+  --rmc-backdrop: rgba(17, 24, 39, 0.48);
+  --rmc-resource-action-text: #1f2328;
+  --rmc-table-button-bg: #ffffff;
+  --rmc-table-button-hover-bg: #ffffff;
+  --rmc-table-button-text: #111111;
+
+  --rmc-log-text: #22c55e;
+  --rmc-log-success: #15803d;
+  --rmc-log-error: #b91c1c;
+  --rmc-log-warning: #a16207;
+
+  --dept-diseno: #0369a1;
+  --dept-sublimado: #b45309;
+  --dept-almacen: #047857;
+  --dept-costura: #be123c;
+  --dept-calidad: #a16207;
+  --dept-embarque: #047857;
+  --dept-default: #64748b;
 }
 
 /* =========================================================
@@ -114,7 +164,19 @@ a.btn {
 button:hover,
 a.btn:hover {
   background: var(--rmc-primary-hover);
-  box-shadow: 0 0 12px rgba(162, 26, 47, 0.45);
+  box-shadow: 0 0 12px var(--rmc-shadow-primary);
+}
+
+button:disabled,
+a.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button:disabled:hover,
+a.btn[aria-disabled="true"]:hover {
+  background: var(--rmc-primary);
+  box-shadow: none;
 }
 
 button:focus-visible,
@@ -224,6 +286,11 @@ input::placeholder {
 
 .menu-item.active {
   background: var(--rmc-primary);
+  color: #ffffff;
+}
+
+.menu-item.active span {
+  color: #ffffff;
 }
 
 .menu-icon {
@@ -263,6 +330,89 @@ input::placeholder {
 .menu-item.active .menu-icon,
 .menu-item:hover .menu-icon {
   color: var(--rmc-text);
+}
+
+.menu-item.active .menu-icon {
+  color: #ffffff;
+}
+
+.theme-control {
+  display: grid;
+  grid-template-columns: 1fr 48px 1fr;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+  color: var(--rmc-muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.theme-control span:first-child {
+  text-align: right;
+}
+
+.theme-label-active {
+  color: var(--rmc-primary-strong);
+}
+
+.theme-switch {
+  position: relative;
+  display: inline-flex;
+  width: 48px;
+  height: 24px;
+}
+
+.theme-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.theme-slider {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--rmc-border-strong);
+  border-radius: 999px;
+  background: var(--rmc-surface-deep);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.theme-slider::before {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--rmc-primary-strong);
+  box-shadow: 0 0 0 2px var(--rmc-field);
+  content: "";
+  transition: transform 160ms ease;
+}
+
+.theme-switch input:checked + .theme-slider {
+  border-color: var(--rmc-primary);
+  background: color-mix(in srgb, var(--rmc-primary) 16%, var(--rmc-field));
+}
+
+.theme-switch input:checked + .theme-slider::before {
+  transform: translateX(24px);
+}
+
+.theme-switch input:focus-visible + .theme-slider {
+  outline: 2px solid var(--rmc-focus);
+  outline-offset: 2px;
+}
+
+.access-menu-item {
+  margin-top: 8px;
 }
 
 /* =========================================================
@@ -636,7 +786,7 @@ tr:last-child td {
 }
 
 tbody tr:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--rmc-row-hover);
 }
 
 tbody tr:hover td {
@@ -715,7 +865,7 @@ tbody tr:hover td {
   border: 1px solid var(--rmc-border-strong);
   border-radius: 4px;
   background: var(--rmc-surface-deep);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
+  box-shadow: 0 10px 28px var(--rmc-shadow-panel);
 }
 
 .excel-filter-menu strong {
@@ -775,14 +925,28 @@ tbody tr:hover td {
   overflow-wrap: anywhere;
 }
 
-.table-button {
+.table-button,
+button.table-button,
+a.btn.table-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 58px;
   min-height: 28px;
   padding: 6px 9px;
+  border: 3px solid var(--rmc-primary);
+  background: var(--rmc-table-button-bg);
+  color: var(--rmc-table-button-text);
   white-space: nowrap;
+}
+
+.table-button:hover,
+button.table-button:hover,
+a.btn.table-button:hover {
+  border-color: var(--rmc-primary-hover);
+  background: var(--rmc-table-button-hover-bg);
+  color: var(--rmc-table-button-text);
+  box-shadow: 0 0 0 2px var(--rmc-shadow-primary);
 }
 
 /* =========================================================
@@ -839,7 +1003,7 @@ tbody tr:hover td {
 }
 
 .modal::backdrop {
-  background: rgba(0, 0, 0, 0.62);
+  background: var(--rmc-backdrop);
 }
 
 .modal form {
@@ -866,6 +1030,17 @@ tbody tr:hover td {
 .modal input {
   width: 100%;
   padding: 8px 9px;
+}
+
+.access-modal {
+  width: min(420px, calc(100vw - 24px));
+}
+
+.access-note {
+  margin-bottom: 0;
+  color: var(--rmc-muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .nike-item-modal {
@@ -1116,7 +1291,7 @@ tbody tr:hover td {
 }
 
 .resource-main-action[aria-disabled="false"] strong {
-  color: #ffffff;
+  color: var(--rmc-resource-action-text);
 }
 
 .resource-main-action strong,

@@ -5,6 +5,7 @@ const {
   MOCKUP_RUN_YEAR_SQL,
   getMockupRunGroup
 } = require("../services/mockupGroups");
+const { resolveRmcFilePath } = require("../services/rmcFileResolver");
 
 const router = express.Router();
 
@@ -62,16 +63,30 @@ router.get("/runs/:id", (req, res) => {
     }
 
     // Conserva el run_id para identificar de que ejecucion proviene cada maqueta.
-    const items = db.prepare(`
+    const rawItems = db.prepare(`
       SELECT
         i.*,
-        r.disenador AS disenador
+        r.disenador AS disenador,
+        r.excel_path AS excel_path
       FROM rmc_mockuptool_items i
       LEFT JOIN rmc_mockuptool_runs r
         ON r.id = i.run_id
       WHERE i.run_id IN (${group.runIds.map(() => "?").join(",")})
       ORDER BY i.run_id, i.equipo, i.style, i.talla
     `).all(...group.runIds);
+    const items = rawItems.map(item => {
+      const maquetaFile = resolveRmcFilePath(item.path, {
+        enableGenericasFallback: true,
+        fileName: item.archivo || item.path
+      });
+
+      return {
+        ...item,
+        maqueta_resolved_path: maquetaFile.resolvedPath || "",
+        maqueta_file_status: maquetaFile.status,
+        maqueta_exists: maquetaFile.exists
+      };
+    });
 
     res.json({
       run: group.run,

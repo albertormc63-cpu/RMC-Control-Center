@@ -52,9 +52,37 @@ function isLocalIp(ip) {
   return ip === "127.0.0.1" || ip === "localhost" || ip === "::1";
 }
 
+function parseClientNames(value) {
+  const clientNames = new Map();
+
+  if (!value || !String(value).trim()) {
+    return clientNames;
+  }
+
+  String(value)
+    .split(/[,;\n]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .forEach((entry) => {
+      const separatorIndex = entry.indexOf("=");
+      if (separatorIndex <= 0) {
+        return;
+      }
+
+      const ip = normalizeIp(entry.slice(0, separatorIndex));
+      const name = entry.slice(separatorIndex + 1).trim();
+      if (ip && name) {
+        clientNames.set(ip, name);
+      }
+    });
+
+  return clientNames;
+}
+
 function createAccessLogger(options = {}) {
   const enabled = isEnabled(options.enabled ?? process.env.RMC_ACCESS_LOG_ENABLED, true);
   const logPath = resolveLogPath(options.logPath ?? process.env.RMC_ACCESS_LOG_PATH);
+  const clientNames = parseClientNames(options.clientNames ?? process.env.RMC_ACCESS_LOG_CLIENT_NAMES);
   const seenRemoteClients = new Set();
   let reportedWriteError = false;
 
@@ -75,11 +103,13 @@ function createAccessLogger(options = {}) {
     const startedAt = Date.now();
     const clientIp = getClientIp(req);
     const isLocal = isLocalIp(clientIp);
+    const clientName = clientNames.get(clientIp) || null;
 
     res.on("finish", () => {
       const entry = {
         ts: new Date().toISOString(),
         client_ip: clientIp,
+        client_name: clientName,
         is_local: isLocal,
         method: req.method,
         path: req.originalUrl || req.url,
@@ -98,7 +128,8 @@ function createAccessLogger(options = {}) {
 
       if (!isLocal && !seenRemoteClients.has(clientIp)) {
         seenRemoteClients.add(clientIp);
-        console.log(`[access-log] Cliente LAN detectado: ${clientIp} (${req.method} ${entry.path})`);
+        const clientLabel = clientName ? `${clientName} (${clientIp})` : clientIp;
+        console.log(`[access-log] Cliente LAN detectado: ${clientLabel} (${req.method} ${entry.path})`);
       }
     });
 
@@ -113,5 +144,6 @@ function createAccessLogger(options = {}) {
 module.exports = {
   createAccessLogger,
   normalizeIp,
-  isLocalIp
+  isLocalIp,
+  parseClientNames
 };

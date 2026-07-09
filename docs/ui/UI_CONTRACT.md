@@ -14,6 +14,13 @@ Contrato visual y de comportamiento para la interfaz de `RMC Control Center`.
 
 ## Paleta base
 
+La interfaz soporta tema `Dark` y tema `Light`.
+
+- `Dark` es el modo por defecto para operacion diaria.
+- `Light` usa superficies claras para usuarios que prefieren lectura en blanco/claro.
+- El rojo RMC se mantiene como color de acciones principales, estado activo y acentos de marca.
+- La preferencia se guarda localmente en el navegador.
+
 ```css
 --rmc-bg: #2b2b2b;
 --rmc-surface: #3a3a3a;
@@ -46,6 +53,7 @@ Fuentes:
 ## Assets
 
 - `assets/logo rmccc.svg`: logo principal del sidebar.
+- `assets/logo rmc mt light.svg`: logo alterno del sidebar para tema `Light`.
 - `assets/logo nike.svg`: icono del boton de RMCOp-Nike.
 
 Se sirven desde `/assets/...`.
@@ -59,6 +67,8 @@ Desktop:
 - Botones por grupos: Dashboard, Herramientas Nike, Herramienta 27 Sports / Rapid, Reportes, Sistema.
 - `Herramientas Nike` contiene `Pedidos RMC Nike` y `Maquetas RMC Nike`.
 - `Herramienta 27 Sports / Rapid` muestra un panel provisional sin integracion operativa real todavia.
+- Debajo de `SISTEMA` se muestra el selector de tema `Dark / Light`.
+- Debajo del selector se muestra `Acceder` como entrada provisional para futura autenticacion y permisos.
 
 Mobile:
 
@@ -82,6 +92,8 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 
 - Navbar movil.
 - Sidebar.
+- Selector local de tema claro/oscuro.
+- Modal provisional de acceso.
 - Layout general.
 - Montaje de vistas.
 - Log colapsable.

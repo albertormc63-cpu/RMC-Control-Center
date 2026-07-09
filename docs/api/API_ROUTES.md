@@ -173,6 +173,13 @@ Devuelve el embarque MockupTool al que pertenece `:id`, consolidando todos los r
 - `runIds`
 - `items`
 
+Cada item incluye metadatos de archivo para la maqueta:
+
+- `excel_path`
+- `maqueta_resolved_path`
+- `maqueta_file_status`
+- `maqueta_exists`
+
 Si no existe responde `404`.
 
 ## Reportes

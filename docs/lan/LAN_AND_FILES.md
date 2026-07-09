@@ -35,6 +35,7 @@ RMC_LAN_HOST=RMLART2.local
 RMC_FILE_ROOT=/Volumes/Fullsize
 RMC_ACCESS_LOG_ENABLED=true
 RMC_ACCESS_LOG_PATH=logs/access.log
+RMC_ACCESS_LOG_CLIENT_NAMES=127.0.0.1=Servidor,10.5.2.36=Equipo-LAN
 ```
 
 ## Registro de accesos
@@ -45,14 +46,21 @@ Cada linea incluye:
 
 - `ts`: fecha/hora ISO del request.
 - `client_ip`: IP detectada del cliente.
+- `client_name`: alias configurado para esa IP, si existe.
 - `is_local`: `true` para `localhost`/`127.0.0.1`, `false` para otra PC de la LAN.
 - `method`, `path`, `status` y `duration_ms`.
 - `user_agent` y `referer`.
 
+Los alias se configuran en `.env` separando pares `ip=Nombre` con comas:
+
+```env
+RMC_ACCESS_LOG_CLIENT_NAMES=127.0.0.1=Servidor,10.5.2.36=Equipo-LAN
+```
+
 Al iniciar el server se imprime la ruta activa del log. Cuando aparece una IP no-local por primera vez durante esa ejecucion, tambien se imprime en consola:
 
 ```text
-[access-log] Cliente LAN detectado: 192.168.1.50 (GET /)
+[access-log] Cliente LAN detectado: Equipo-LAN (10.5.2.36) (GET /)
 ```
 
 Para revisar accesos recientes:
