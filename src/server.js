@@ -12,6 +12,7 @@ const reportsRoutes = require("./routes/reports.routes");
 const filesRoutes = require("./routes/files.routes");
 const syncRoutes = require("./routes/sync.routes");
 const gitCommitsRoutes = require("./routes/gitCommits.routes");
+const nikeCatalogRoutes = require("./routes/nikeCatalog.routes");
 const { createAccessLogger } = require("./services/accessLogger");
 
 const app = express();
@@ -91,6 +92,7 @@ app.get("/health", (req, res) => {
 
 // Agrupacion de APIs por modulo/herramienta.
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/nike/catalog", nikeCatalogRoutes);
 app.use("/api/mockup", mockupRoutes);
 app.use("/api/nike", nikeRoutes);
 app.use("/api/reports", reportsRoutes);

@@ -6,6 +6,8 @@ Modelo de lectura usado por `RMC Control Center`.
 
 Control Center consume una SQLite compartida configurada por `RMC_DB_PATH`. Este repo no debe crear, migrar ni corregir tablas operativas de CEPs.
 
+Excepcion vigente: la pantalla `Catalogo Op-Nike` administra el catalogo SQLite usado por RMCOp-Nike para resolver styles, variantes, rutas de plantillas y nombres finales. Esa pantalla escribe solo `rmc_nike_style_families` y `rmc_nike_style_variants`.
+
 La conexion actual usa `better-sqlite3` y `fileMustExist: true`.
 
 ## Tablas leidas
@@ -17,6 +19,7 @@ rmcop_nike_items
 rmcop_nike_git_commits
 rmc_git_commits
 rmc_nike_style_variants
+rmc_nike_style_families
 rmc_mockuptool_runs
 rmc_mockuptool_items
 ```
@@ -108,10 +111,53 @@ Columnas usadas:
 - `variant_name`
 - `team_market`
 - `team_mascot`
+- `opnike_enabled`
+- `opnike_rule_status`
+- `opnike_style_scope`
+- `opnike_variant_root_folder`
+- `opnike_group_folder_pattern`
+- `opnike_product_folder_pattern`
+- `opnike_version_folder_pattern`
+- `opnike_team_folder_pattern`
+- `opnike_design_folder`
+- `opnike_style_subfolder_rule`
+- `opnike_template_code`
+- `opnike_template_name_pattern`
+- `opnike_output_name_pattern`
+- `opnike_fallback_search_mode`
+- `opnike_resolution_strategy`
+- `opnike_requires_version_folder`
+- `opnike_requires_team_folder`
+- `opnike_requires_design_folder`
+- `opnike_requires_style_subfolder`
+- `opnike_validated_at`
+- `opnike_validation_message`
 
 Uso:
 
 - Mostrar `team_market team_mascot` en la columna Equipo del detalle Nike cuando el item es All Star (`AS`) y `equipo` viene vacio.
+- Administrar reglas Op-Nike en estados `draft`, `shadow`, `active` e `inactive`.
+- Validar campos obligatorios antes de permitir `opnike_rule_status = active`.
+
+## rmc_nike_style_families
+
+Catalogo de familias de style Nike.
+
+Columnas usadas:
+
+- `style_family`
+- `liga`
+- `line_name`
+- `audience`
+- `product_folder`
+- `garment_type`
+- `is_active`
+- `source_notes`
+
+Uso:
+
+- Administrar familias disponibles para reglas Op-Nike.
+- Resolver tokens de preview como `{style.product_folder}`.
 
 ## rmcop_nike_git_commits
 

@@ -53,6 +53,10 @@ window.RMCComponents.sidebar = function sidebar() {
 
       <section class="menu-group">
         <h3>SISTEMA</h3>
+        <button class="menu-item" type="button" data-view="opnike-catalog-view">
+          <span>Catalogo Op-Nike</span>
+          <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
+        </button>
         <button class="menu-item" type="button" data-view="registry-view">
           <span>CEP Registry</span>
           <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
@@ -181,6 +185,39 @@ window.RMCComponents.accessModal = function accessModal() {
   `;
 };
 
+window.RMCComponents.opNikePinModal = function opNikePinModal() {
+  return `
+    <dialog id="opNikePinModal" class="modal pin-modal">
+      <form id="opNikePinForm">
+        <div class="modal-header">
+          <div>
+            <span class="modal-eyebrow">Acceso protegido</span>
+            <h3>Catalogo Op-Nike</h3>
+          </div>
+
+          <button id="btnCloseOpNikePinModal" class="secondary-button" type="button">Cerrar</button>
+        </div>
+
+        <p class="access-note">
+          Ingresa el PIN temporal para administrar familias, variantes y reglas.
+        </p>
+
+        <label>
+          PIN
+          <input id="opNikePinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN de administracion">
+        </label>
+
+        <p id="opNikePinMessage" class="form-message"></p>
+
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-close-opnike-pin>Cerrar</button>
+          <button type="submit">Entrar</button>
+        </div>
+      </form>
+    </dialog>
+  `;
+};
+
 window.RMCComponents.renderApp = function renderApp(root) {
   root.innerHTML = `
     <header class="top-navbar">
@@ -199,6 +236,7 @@ window.RMCComponents.renderApp = function renderApp(root) {
       <main class="content">
         ${window.RMCComponents.dashboardView()}
         ${window.RMCComponents.nikeView()}
+        ${window.RMCComponents.opNikeCatalogView()}
         ${window.RMCComponents.mockupView()}
         ${window.RMCComponents.rapid27View()}
         ${window.RMCComponents.exportsView()}
@@ -209,6 +247,7 @@ window.RMCComponents.renderApp = function renderApp(root) {
 
     ${window.RMCComponents.logPanel()}
     ${window.RMCComponents.accessModal()}
+    ${window.RMCComponents.opNikePinModal()}
 
     <footer class="footer-credits">
       Creado por Jose Alberto Villarreal Garcia

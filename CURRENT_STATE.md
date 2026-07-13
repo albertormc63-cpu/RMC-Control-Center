@@ -12,6 +12,8 @@ El Control Center debe seguir siendo consumidor/visualizador de datos operativos
 
 Excepcion documentada: el modulo de sincronizacion externa escribe tablas auxiliares propias de RMCCC para espejear Exceles compartidos, como `rmc_external_sources`, `rmc_sync_runs`, `rmc_print_sublimation_log` y `rmc_sublimation_output_log`. Ver `docs/sqlite/database-sync.md`.
 
+Excepcion Op-Nike: la pantalla `Catalogo Op-Nike` administra `rmc_nike_style_families` y `rmc_nike_style_variants` para configurar familias, variantes, aliases y reglas de ruta/nombre. No escribe runs ni items de produccion.
+
 ## Herramientas integradas
 
 - `RMCOp-Nike`: pedidos, piezas, items, commits, archivos de produccion y reportes Excel.
@@ -33,6 +35,15 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `GET /api/nike/runs`
 - `GET /api/nike/runs/:id`
 - `GET /api/nike/items/:id/print-sublimation`
+- `GET /api/nike/catalog`
+- `POST /api/nike/catalog/unlock`
+- `POST /api/nike/catalog/families`
+- `PUT /api/nike/catalog/families/:styleFamily`
+- `POST /api/nike/catalog/variants`
+- `PUT /api/nike/catalog/variants/:id`
+- `POST /api/nike/catalog/variants/validate`
+- `POST /api/nike/catalog/variants/:id/validate`
+- `POST /api/nike/catalog/variants/:id/activate`
 - `GET /api/mockup/runs`
 - `GET /api/mockup/runs/:id`
 - `GET /api/reports/nike/:id/excel`
@@ -55,6 +66,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/db.js`: conexion SQLite por `RMC_DB_PATH`.
 - `src/routes/dashboard.routes.js`: metricas generales, Registry y conteo de tablas.
 - `src/routes/nike.routes.js`: listado y detalle agrupado de Nike; tambien endpoint item -> impresion/sublimado.
+- `src/routes/nikeCatalog.routes.js`: administracion acotada del catalogo Op-Nike.
 - `src/routes/mockup.routes.js`: listado y detalle agrupado de MockupTool.
 - `src/routes/reports.routes.js`: Excel Nike y MockupTool.
 - `src/routes/files.routes.js`: view/download con validacion bajo `RMC_FILE_ROOT`.
@@ -63,6 +75,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/services/nikeGroups.js`: agrupacion Nike por fecha de embarque y ano.
 - `src/services/mockupGroups.js`: agrupacion MockupTool por fecha de embarque y ano.
 - `src/services/nikeFiles.js`: paths de maqueta/plantilla para items Nike.
+- `src/services/opNikeCatalog.js`: validacion y preview de reglas del catalogo Op-Nike.
 - `src/services/gitCommits.js`: consultas de `rmc_git_commits`.
 - `src/services/printSublimationSync.js`: lectura/sync del Excel de impresores.
 - `src/services/syncPoller.js`: polling automatico de fuentes externas activas, con timers apagables para correr en worker.
@@ -86,6 +99,8 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmcop_nike_runs`
 - `rmcop_nike_items`
 - `rmcop_nike_git_commits`
+- `rmc_nike_style_families`
+- `rmc_nike_style_variants`
 - `rmc_git_commits`
 - `rmc_mockuptool_runs`
 - `rmc_mockuptool_items`
@@ -100,8 +115,14 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_sync_runs`
 - `rmc_print_sublimation_log`
 - `rmc_sublimation_output_log`
+- `rmc_nike_style_families`
+- `rmc_nike_style_variants`
 
 No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop_nike_runs`, `rmc_mockuptool_items` o `rmc_mockuptool_runs` salvo instruccion explicita y documentada.
+
+Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/configuracion Op-Nike. Antes de permitir `opnike_rule_status = active`, RMCCC valida campos obligatorios y mantiene `draft`, `shadow`, `active` e `inactive`.
+
+`Catalogo Op-Nike` vive bajo `Sistema` y usa PIN temporal para administracion en LAN. Default actual: `290497`, configurable por `RMC_OPNIKE_ADMIN_PIN`.
 
 ## Reglas operativas vigentes
 

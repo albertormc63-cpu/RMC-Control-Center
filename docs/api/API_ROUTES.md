@@ -108,6 +108,32 @@ Devuelve conteo y ultimo commit por herramienta.
 
 ## RMCOp-Nike
 
+### Catalogo Op-Nike
+
+```http
+GET /api/nike/catalog
+```
+
+Devuelve familias, variantes, estados permitidos y raiz de plantillas para la pantalla de administracion Op-Nike.
+
+```http
+POST /api/nike/catalog/unlock
+```
+
+Valida el PIN temporal de administracion. Las rutas de escritura del catalogo requieren el header `X-RMC-OPNIKE-PIN` o `pin` en el body. El PIN por default es `290497` y puede configurarse con `RMC_OPNIKE_ADMIN_PIN`.
+
+```http
+POST /api/nike/catalog/families
+PUT /api/nike/catalog/families/:styleFamily
+POST /api/nike/catalog/variants
+PUT /api/nike/catalog/variants/:id
+POST /api/nike/catalog/variants/validate
+POST /api/nike/catalog/variants/:id/validate
+POST /api/nike/catalog/variants/:id/activate
+```
+
+Estas rutas escriben solamente `rmc_nike_style_families` y `rmc_nike_style_variants`. La activacion exige validacion completa y no toca runs/items Nike.
+
 ```http
 GET /api/nike/runs
 ```

@@ -69,6 +69,7 @@ Desktop:
 - `Herramienta 27 Sports / Rapid` muestra un panel provisional sin integracion operativa real todavia.
 - Debajo de `SISTEMA` se muestra el selector de tema `Dark / Light`.
 - Debajo del selector se muestra `Acceder` como entrada provisional para futura autenticacion y permisos.
+- `Catalogo Op-Nike` vive en `SISTEMA` y pide PIN temporal antes de abrir la pantalla.
 
 Mobile:
 
@@ -119,6 +120,18 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Filtros por columna tipo Excel en la tabla de detalle.
 - Herramienta por item.
 - Boton ocultar detalle.
+
+`opNikeCatalogView.js`:
+
+- Pantalla `Catalogo Op-Nike` bajo `SISTEMA`.
+- Acceso protegido por PIN temporal `290497` mientras no exista autenticacion formal.
+- Tabla de variantes/diseños desde `rmc_nike_style_variants`.
+- Formulario de alta/edicion de variantes, aliases y reglas de ruta/nombre.
+- Formulario de alta/edicion de familias desde `rmc_nike_style_families`.
+- Boton `Validar regla` con campos faltantes visibles.
+- Boton `Activar` deshabilitado hasta que la validacion permita `active`.
+- Preview de ruta esperada, nombre final, tokens usados y estado de archivo.
+- No acepta JavaScript editable por usuario; usa patrones y estrategias controladas.
 
 `mockupView.js`:
 

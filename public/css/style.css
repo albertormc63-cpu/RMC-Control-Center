@@ -197,7 +197,8 @@ select:focus-visible {
 }
 
 input,
-select {
+select,
+textarea {
   min-height: 30px;
   border: 1px solid var(--rmc-border);
   border-radius: 4px;
@@ -209,6 +210,12 @@ select {
 
 input::placeholder {
   color: var(--rmc-muted-low);
+}
+
+textarea {
+  min-width: 0;
+  padding: 8px 9px;
+  resize: vertical;
 }
 
 /* =========================================================
@@ -1424,6 +1431,188 @@ a.btn.table-button:hover {
   font-size: 11px;
 }
 
+/* =========================================================
+   Catalogo Op-Nike
+   Administracion compacta de familias, variantes y reglas.
+   ========================================================= */
+.catalog-root {
+  margin: 0;
+  color: var(--rmc-muted-low);
+  font-size: 11px;
+}
+
+.catalog-admin-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.85fr) minmax(520px, 1.15fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.catalog-list-panel,
+.catalog-editor-panel {
+  min-width: 0;
+}
+
+.catalog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.catalog-actions button {
+  min-height: 30px;
+  padding: 6px 10px;
+}
+
+.catalog-form {
+  display: grid;
+  gap: 10px;
+}
+
+.catalog-form fieldset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-field);
+}
+
+.catalog-form legend {
+  padding: 0 6px;
+  color: var(--rmc-muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.catalog-form label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.catalog-form input,
+.catalog-form select,
+.catalog-form textarea {
+  width: 100%;
+}
+
+.catalog-form .span-2 {
+  grid-column: 1 / -1;
+}
+
+.checkbox-label {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+}
+
+.checkbox-label input {
+  width: auto;
+  min-height: 0;
+}
+
+.catalog-validation-panel {
+  margin-top: 10px;
+}
+
+.catalog-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.catalog-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.catalog-chip-missing {
+  border-color: color-mix(in srgb, var(--rmc-log-error) 65%, var(--rmc-border));
+  color: var(--rmc-log-error);
+}
+
+.catalog-chip-warning {
+  border-color: color-mix(in srgb, var(--rmc-log-warning) 65%, var(--rmc-border));
+  color: var(--rmc-log-warning);
+}
+
+.catalog-chip-ok {
+  border-color: color-mix(in srgb, var(--rmc-log-success) 65%, var(--rmc-border));
+  color: var(--rmc-log-success);
+}
+
+.catalog-preview {
+  display: grid;
+  gap: 6px;
+}
+
+.catalog-preview > div {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+}
+
+.catalog-preview strong {
+  color: var(--rmc-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.catalog-preview span {
+  color: var(--rmc-text-soft);
+  font-family: var(--rmc-font-log);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.catalog-family-panel {
+  margin-top: 10px;
+}
+
+.catalog-family-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(300px, 0.7fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.catalog-family-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 10px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-field);
+}
+
+.catalog-family-form button {
+  grid-column: 1 / -1;
+}
+
+.selected-row td {
+  background: color-mix(in srgb, var(--rmc-primary) 18%, transparent);
+  color: var(--rmc-text);
+}
+
 .hidden {
   display: none;
 }
@@ -1527,6 +1716,11 @@ a.btn.table-button:hover {
   .summary-grid-rapid27,
   .rapid27-flow-panel {
     grid-template-columns: repeat(3, minmax(120px, 1fr));
+  }
+
+  .catalog-admin-grid,
+  .catalog-family-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1645,6 +1839,11 @@ a.btn.table-button:hover {
   .summary-grid-mockup,
   .summary-grid-rapid27,
   .rapid27-flow-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-form fieldset,
+  .catalog-family-form {
     grid-template-columns: 1fr;
   }
 

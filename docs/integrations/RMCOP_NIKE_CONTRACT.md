@@ -10,6 +10,9 @@ Tablas:
 - `rmcop_nike_items`
 - `rmcop_nike_git_commits`
 - `rmc_nike_style_variants`
+- `rmc_nike_style_families`
+
+`RMC Control Center` mantiene una pantalla administrativa acotada para el catalogo Op-Nike. Esa pantalla puede crear y editar familias/variantes/reglas en `rmc_nike_style_families` y `rmc_nike_style_variants`, pero no escribe runs ni items de produccion.
 
 ## Agrupacion operativa
 
@@ -66,6 +69,16 @@ Para items All Star (`AS`) con `equipo` vacio, el detalle puede usar el catalogo
 - `variant_name`
 - `team_market`
 - `team_mascot`
+- `opnike_enabled`
+- `opnike_rule_status`
+- reglas `opnike_*` de ruta, nombre y estrategia
+
+Estados de regla:
+
+- `draft`: editable, no usado por produccion.
+- `shadow`: RMCOp-Nike puede comparar/loguear sin depender totalmente.
+- `active`: RMCOp-Nike puede usar la regla.
+- `inactive`: retenido para historial, no usado.
 
 ## Archivos Nike
 

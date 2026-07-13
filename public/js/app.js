@@ -2,6 +2,7 @@
 const numberFormatter = new Intl.NumberFormat("es-MX");
 
 const themeStorageKey = "rmc-control-center-theme";
+const opNikePinStorageKey = "rmc-opnike-admin-pin";
 const defaultTheme = "dark";
 
 // Tablas que tienen filtros de texto/columna en pantalla.
@@ -11,7 +12,8 @@ const filterTargets = [
   "mockupTable",
   "mockupItemsTable",
   "rapid27Table",
-  "gitCommitsTable"
+  "gitCommitsTable",
+  "opNikeVariantsTable"
 ];
 
 const excelFilterTargets = [
@@ -28,7 +30,9 @@ const sortableTargets = [
   "rapid27Table",
   "registryTable",
   "tablesTable",
-  "gitCommitsTable"
+  "gitCommitsTable",
+  "opNikeVariantsTable",
+  "opNikeFamiliesTable"
 ];
 
 // Estado de ordenamiento por tabla. Permite alternar ascendente/descendente.
@@ -47,8 +51,18 @@ let mockupRunsCache = [];
 // Cargas diferidas por vista para que el arranque pinte primero lo operativo.
 const lazyViewLoads = {
   registry: false,
-  gitHistory: false
+  gitHistory: false,
+  opNikeCatalog: false
 };
+
+let opNikeCatalogData = {
+  templateRoot: "",
+  families: [],
+  variants: []
+};
+let opNikeSelectedVariantId = null;
+let opNikeSelectedFamilyKey = "";
+let opNikeLastValidation = null;
 
 // Acceso corto a elementos por id para evitar repetir document.getElementById.
 function getElement(id) {
@@ -557,6 +571,74 @@ async function getJSON(url) {
   return response.json();
 }
 
+async function sendJSON(url, options = {}) {
+  const method = options.method || "POST";
+  const headers = {
+    "Content-Type": "application/json"
+  };
+
+  if (url.startsWith("/api/nike/catalog") && method !== "GET") {
+    const pin = getStoredOpNikePin();
+
+    if (pin) {
+      headers["X-RMC-OPNIKE-PIN"] = pin;
+    }
+  }
+
+  const response = await fetch(url, {
+    method,
+    headers,
+    body: JSON.stringify(options.body || {})
+  });
+
+  if (!response.ok) {
+    let message = `Error consultando ${url}`;
+    let body = null;
+
+    try {
+      body = await response.json();
+      message = body.message || body.error || message;
+    } catch (error) {
+      message = response.statusText || message;
+    }
+
+    const requestError = new Error(message);
+    requestError.response = body;
+    requestError.status = response.status;
+    throw requestError;
+  }
+
+  return response.json();
+}
+
+function getStoredOpNikePin() {
+  try {
+    return sessionStorage.getItem(opNikePinStorageKey) || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function setStoredOpNikePin(pin) {
+  try {
+    sessionStorage.setItem(opNikePinStorageKey, pin);
+  } catch (error) {
+    appendLog("No se pudo guardar el PIN temporal en esta sesion", "warning");
+  }
+}
+
+function clearStoredOpNikePin() {
+  try {
+    sessionStorage.removeItem(opNikePinStorageKey);
+  } catch (error) {
+    appendLog("No se pudo limpiar el PIN temporal", "warning");
+  }
+}
+
+function isOpNikeCatalogUnlocked() {
+  return Boolean(getStoredOpNikePin());
+}
+
 // Crea una celda de tabla y la agrega a la fila recibida.
 function addCell(row, value, className) {
   const cell = document.createElement("td");
@@ -605,6 +687,12 @@ function openSidebar() {
 
 // Cambia la vista activa y sincroniza el estado visual del menu lateral.
 function switchView(viewId) {
+  if (viewId === "opnike-catalog-view" && !isOpNikeCatalogUnlocked()) {
+    showOpNikePinModal();
+    closeSidebar();
+    return;
+  }
+
   document.querySelectorAll(".view").forEach(view => {
     view.classList.toggle("active-view", view.id === viewId);
   });
@@ -1927,7 +2015,443 @@ async function loadGitCommits() {
   appendLog(`Historial de desarrollo: ${formatNumber(data.commits?.length || 0)} commits cargados`, "success");
 }
 
+function getOpNikeVariantForm() {
+  return getElement("opNikeVariantForm");
+}
+
+function getOpNikeFamilyForm() {
+  return getElement("opNikeFamilyForm");
+}
+
+function setFormValues(form, row = {}) {
+  if (!form) {
+    return;
+  }
+
+  Array.from(form.elements).forEach(control => {
+    if (!control.name) {
+      return;
+    }
+
+    if (control.type === "checkbox") {
+      control.checked = Number(row[control.name] ?? 0) === 1;
+      return;
+    }
+
+    control.value = row[control.name] ?? "";
+  });
+}
+
+function collectFormPayload(form) {
+  return Array.from(form.elements).reduce((payload, control) => {
+    if (!control.name || control.disabled || control.type === "hidden" && control.name === "original_style_family") {
+      return payload;
+    }
+
+    payload[control.name] = control.type === "checkbox"
+      ? (control.checked ? 1 : 0)
+      : control.value.trim();
+
+    return payload;
+  }, {});
+}
+
+function getVariantIdentity(variant) {
+  return [
+    variant.team_market,
+    variant.team_mascot,
+    variant.design_code,
+    variant.design_name
+  ].filter(Boolean).join(" | ") || variant.aliases || "Sin equipo/diseño";
+}
+
+function getRuleStatusDepartment(status) {
+  if (status === "active") return "almacen";
+  if (status === "shadow") return "sublimado";
+  if (status === "inactive") return "costura";
+  return "default";
+}
+
+function getFilePreviewText(file) {
+  if (!file) {
+    return "Sin preview de archivo";
+  }
+
+  if (file.status === "found_expected") return "Plantilla final encontrada";
+  if (file.status === "found_candidate") return "Candidato final encontrado";
+  if (file.status === "source_or_roll_file_rejected") return "Archivo fuente/ROLLO rechazado";
+  if (file.status === "folder_not_found") return "Carpeta no existe";
+  return "No existe plantilla final";
+}
+
+function markOpNikeValidationStale() {
+  opNikeLastValidation = null;
+  const activateButton = getElement("opNikeActivateRule");
+  const badge = getElement("opNikeValidationBadge");
+
+  if (activateButton) {
+    activateButton.disabled = true;
+  }
+
+  if (badge) {
+    badge.textContent = "Pendiente";
+    badge.dataset.department = "default";
+  }
+}
+
+function renderOpNikeValidation(result) {
+  const validation = result?.validation || {};
+  const preview = result?.preview || {};
+  const missing = getElement("opNikeMissingFields");
+  const previewContainer = getElement("opNikePreview");
+  const badge = getElement("opNikeValidationBadge");
+  const activateButton = getElement("opNikeActivateRule");
+  const canActivate = Boolean(validation.canActivate);
+
+  opNikeLastValidation = result;
+
+  if (badge) {
+    badge.textContent = canActivate ? "Completa" : "Incompleta";
+    badge.dataset.department = canActivate ? "almacen" : "costura";
+  }
+
+  if (activateButton) {
+    activateButton.disabled = !canActivate || !opNikeSelectedVariantId;
+  }
+
+  if (missing) {
+    missing.textContent = "";
+
+    if (validation.missingFields?.length) {
+      validation.missingFields.forEach(field => {
+        const chip = document.createElement("span");
+        chip.className = "catalog-chip catalog-chip-missing";
+        chip.textContent = field;
+        missing.appendChild(chip);
+      });
+    } else {
+      const chip = document.createElement("span");
+      chip.className = "catalog-chip catalog-chip-ok";
+      chip.textContent = "Sin campos faltantes";
+      missing.appendChild(chip);
+    }
+
+    (validation.warnings || []).forEach(warning => {
+      const chip = document.createElement("span");
+      chip.className = "catalog-chip catalog-chip-warning";
+      chip.textContent = warning;
+      missing.appendChild(chip);
+    });
+  }
+
+  if (previewContainer) {
+    const tokens = preview.tokens || {};
+    const tokenText = Object.entries(tokens)
+      .filter(([, value]) => String(value || "").trim())
+      .map(([key, value]) => `${key}=${value}`)
+      .join(" | ");
+
+    previewContainer.innerHTML = "";
+
+    [
+      ["Ruta esperada", preview.expectedTemplatePath || "Sin ruta calculada"],
+      ["Nombre final", preview.outputName || "Sin nombre calculado"],
+      ["Archivo", `${getFilePreviewText(preview.file)}${preview.file?.path ? ` | ${preview.file.path}` : ""}`],
+      ["Tokens usados", tokenText || "Sin tokens"]
+    ].forEach(([label, value]) => {
+      const item = document.createElement("div");
+      const title = document.createElement("strong");
+      const detail = document.createElement("span");
+
+      title.textContent = label;
+      detail.textContent = value;
+      item.append(title, detail);
+      previewContainer.appendChild(item);
+    });
+  }
+}
+
+function renderOpNikeVariants() {
+  const tbody = getElement("opNikeVariantsTable");
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML = "";
+
+  if (!opNikeCatalogData.variants.length) {
+    addEmptyTableRow(tbody, "Sin variantes Op-Nike registradas.", 6);
+  }
+
+  opNikeCatalogData.variants.forEach(variant => {
+    const row = document.createElement("tr");
+    const statusCell = document.createElement("td");
+    const statusBadge = makeDepartmentBadge(variant.opnike_rule_status || "draft");
+    const validationMessage = variant.opnike_validation_message || "Pendiente";
+
+    row.dataset.variantId = variant.id;
+    row.classList.toggle("selected-row", Number(variant.id) === Number(opNikeSelectedVariantId));
+    statusBadge.dataset.department = getRuleStatusDepartment(variant.opnike_rule_status);
+    statusCell.dataset.filterValue = variant.opnike_rule_status || "draft";
+    statusCell.appendChild(statusBadge);
+
+    addCell(row, variant.id);
+    addCell(row, `${variant.variant_code || ""} | ${variant.variant_name || ""}`);
+    addCell(row, getVariantIdentity(variant));
+    row.appendChild(statusCell);
+    addCell(row, variant.opnike_style_scope || "");
+    addCell(row, validationMessage);
+
+    row.addEventListener("click", () => selectOpNikeVariant(variant.id));
+    tbody.appendChild(row);
+  });
+
+  refreshTableFilter("opNikeVariantsTable");
+  updateSortIndicators("opNikeVariantsTable");
+}
+
+function renderOpNikeFamilies() {
+  const tbody = getElement("opNikeFamiliesTable");
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML = "";
+
+  if (!opNikeCatalogData.families.length) {
+    addEmptyTableRow(tbody, "Sin familias de style registradas.", 6);
+  }
+
+  opNikeCatalogData.families.forEach(family => {
+    const row = document.createElement("tr");
+
+    row.dataset.styleFamily = family.style_family;
+    row.classList.toggle("selected-row", family.style_family === opNikeSelectedFamilyKey);
+    addCell(row, family.style_family);
+    addCell(row, family.liga);
+    addCell(row, family.line_name);
+    addCell(row, family.audience);
+    addCell(row, family.product_folder);
+    addCell(row, Number(family.is_active) === 1 ? "Si" : "No");
+    row.addEventListener("click", () => selectOpNikeFamily(family.style_family));
+    tbody.appendChild(row);
+  });
+
+  updateSortIndicators("opNikeFamiliesTable");
+}
+
+function selectOpNikeVariant(id) {
+  const variant = opNikeCatalogData.variants.find(item => Number(item.id) === Number(id));
+  const form = getOpNikeVariantForm();
+
+  if (!variant || !form) {
+    return;
+  }
+
+  opNikeSelectedVariantId = Number(variant.id);
+  setText("opNikeVariantFormTitle", `Editando variante #${variant.id}`);
+  setFormValues(form, variant);
+  markOpNikeValidationStale();
+  renderOpNikeVariants();
+  validateOpNikeRule({ persist: true }).catch(error => {
+    console.error(error);
+    appendLog(error.message || "No se pudo validar la regla Op-Nike", "error");
+  });
+}
+
+function resetOpNikeVariantForm() {
+  const form = getOpNikeVariantForm();
+
+  opNikeSelectedVariantId = null;
+  setText("opNikeVariantFormTitle", "Nueva variante Op-Nike");
+  form?.reset();
+  setFormValues(form, {
+    is_active: 1,
+    opnike_enabled: 0,
+    opnike_rule_status: "draft",
+    opnike_fallback_search_mode: "style_and_size",
+    opnike_resolution_strategy: "standard_team_version_folder"
+  });
+  markOpNikeValidationStale();
+  renderOpNikeVariants();
+}
+
+function selectOpNikeFamily(styleFamily) {
+  const family = opNikeCatalogData.families.find(item => item.style_family === styleFamily);
+  const form = getOpNikeFamilyForm();
+
+  if (!family || !form) {
+    return;
+  }
+
+  opNikeSelectedFamilyKey = family.style_family;
+  setFormValues(form, family);
+  form.elements.original_style_family.value = family.style_family;
+  renderOpNikeFamilies();
+}
+
+function resetOpNikeFamilyForm() {
+  const form = getOpNikeFamilyForm();
+
+  opNikeSelectedFamilyKey = "";
+  form?.reset();
+  setFormValues(form, {
+    is_active: 1,
+    garment_type: "jersey"
+  });
+  renderOpNikeFamilies();
+}
+
+async function loadOpNikeCatalog() {
+  const data = await getJSON("/api/nike/catalog");
+
+  opNikeCatalogData = {
+    templateRoot: data.templateRoot || "",
+    families: data.families || [],
+    variants: data.variants || []
+  };
+
+  setText("opNikeCatalogRoot", `Raiz de plantillas: ${opNikeCatalogData.templateRoot}`);
+  renderOpNikeVariants();
+  renderOpNikeFamilies();
+
+  if (!opNikeSelectedVariantId && opNikeCatalogData.variants[0]) {
+    selectOpNikeVariant(opNikeCatalogData.variants[0].id);
+  }
+
+  if (!opNikeSelectedFamilyKey && opNikeCatalogData.families[0]) {
+    selectOpNikeFamily(opNikeCatalogData.families[0].style_family);
+  }
+
+  appendLog(`Catalogo Op-Nike: ${formatNumber(opNikeCatalogData.variants.length)} variantes cargadas`, "success");
+}
+
+async function saveOpNikeVariant(options = {}) {
+  const form = getOpNikeVariantForm();
+
+  if (!form) {
+    return null;
+  }
+
+  const payload = {
+    ...collectFormPayload(form),
+    ...(options.overrides || {})
+  };
+  const id = payload.id || opNikeSelectedVariantId;
+  const url = id
+    ? `/api/nike/catalog/variants/${encodeURIComponent(id)}`
+    : "/api/nike/catalog/variants";
+  const result = await sendJSON(url, {
+    method: id ? "PUT" : "POST",
+    body: payload
+  });
+
+  opNikeSelectedVariantId = Number(result.variant?.id || id);
+  renderOpNikeValidation(result);
+  await loadOpNikeCatalog();
+
+  if (opNikeSelectedVariantId) {
+    selectOpNikeVariant(opNikeSelectedVariantId);
+  }
+
+  if (!options.silent) {
+    appendLog(`Variante Op-Nike guardada: ${payload.variant_code || ""}`, "success");
+  }
+
+  return result;
+}
+
+async function validateOpNikeRule(options = {}) {
+  const form = getOpNikeVariantForm();
+
+  if (!form) {
+    return null;
+  }
+
+  const payload = collectFormPayload(form);
+  const id = payload.id || opNikeSelectedVariantId;
+  const url = id && options.persist
+    ? `/api/nike/catalog/variants/${encodeURIComponent(id)}/validate`
+    : "/api/nike/catalog/variants/validate";
+  const result = await sendJSON(url, {
+    method: "POST",
+    body: payload
+  });
+
+  renderOpNikeValidation(result);
+  appendLog(
+    result.validation?.canActivate
+      ? "Regla Op-Nike completa"
+      : `Regla Op-Nike incompleta: ${(result.validation?.missingFields || []).join(", ")}`,
+    result.validation?.canActivate ? "success" : "warning"
+  );
+  return result;
+}
+
+async function activateOpNikeRule() {
+  const form = getOpNikeVariantForm();
+  const id = form?.elements.id?.value || opNikeSelectedVariantId;
+
+  if (!id || !opNikeLastValidation?.validation?.canActivate) {
+    appendLog("Valida y guarda la regla antes de activar", "warning");
+    return;
+  }
+
+  await saveOpNikeVariant({
+    silent: true,
+    overrides: {
+      opnike_enabled: 1,
+      opnike_rule_status: "shadow"
+    }
+  });
+
+  const result = await sendJSON(`/api/nike/catalog/variants/${encodeURIComponent(id)}/activate`, {
+    method: "POST",
+    body: {}
+  });
+
+  opNikeSelectedVariantId = Number(result.variant?.id || id);
+  renderOpNikeValidation(result);
+  await loadOpNikeCatalog();
+  appendLog(`Regla Op-Nike activada: #${id}`, "success");
+}
+
+async function saveOpNikeFamily() {
+  const form = getOpNikeFamilyForm();
+
+  if (!form) {
+    return;
+  }
+
+  const payload = collectFormPayload(form);
+  const originalKey = form.elements.original_style_family.value;
+  const url = originalKey
+    ? `/api/nike/catalog/families/${encodeURIComponent(originalKey)}`
+    : "/api/nike/catalog/families";
+
+  await sendJSON(url, {
+    method: originalKey ? "PUT" : "POST",
+    body: payload
+  });
+
+  opNikeSelectedFamilyKey = payload.style_family;
+  await loadOpNikeCatalog();
+  selectOpNikeFamily(opNikeSelectedFamilyKey);
+  appendLog(`Familia Op-Nike guardada: ${payload.style_family}`, "success");
+}
+
 function loadViewData(viewId) {
+  if (viewId === "opnike-catalog-view" && !lazyViewLoads.opNikeCatalog) {
+    lazyViewLoads.opNikeCatalog = true;
+    loadOpNikeCatalog().catch(error => {
+      lazyViewLoads.opNikeCatalog = false;
+      console.error(error);
+      appendLog(error.message || "No se pudo cargar catalogo Op-Nike", "error");
+    });
+  }
+
   if (viewId === "registry-view" && !lazyViewLoads.registry) {
     lazyViewLoads.registry = true;
     loadRegistry().catch(error => {
@@ -2018,6 +2542,78 @@ function bindAccessControls() {
   });
 }
 
+function showOpNikePinModal() {
+  const modal = getElement("opNikePinModal");
+  const input = getElement("opNikePinInput");
+  const message = getElement("opNikePinMessage");
+
+  if (!modal) {
+    return;
+  }
+
+  if (message) {
+    message.textContent = "";
+  }
+
+  if (input) {
+    input.value = "";
+  }
+
+  modal.showModal();
+  window.setTimeout(() => input?.focus(), 0);
+}
+
+function bindOpNikePinControls() {
+  const modal = getElement("opNikePinModal");
+  const form = getElement("opNikePinForm");
+  const input = getElement("opNikePinInput");
+  const message = getElement("opNikePinMessage");
+  const closeButton = getElement("btnCloseOpNikePinModal");
+
+  if (!modal || !form || !input) {
+    return;
+  }
+
+  function closePinModal() {
+    modal.close();
+    closeSidebar();
+  }
+
+  closeButton?.addEventListener("click", closePinModal);
+  modal.querySelectorAll("[data-close-opnike-pin]").forEach(button => {
+    button.addEventListener("click", closePinModal);
+  });
+
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+
+    const pin = input.value.trim();
+
+    if (!pin) {
+      if (message) {
+        message.textContent = "Ingresa el PIN.";
+      }
+      return;
+    }
+
+    sendJSON("/api/nike/catalog/unlock", {
+      method: "POST",
+      body: { pin }
+    }).then(() => {
+      setStoredOpNikePin(pin);
+      modal.close();
+      appendLog("Catalogo Op-Nike desbloqueado para esta sesion", "success");
+      switchView("opnike-catalog-view");
+    }).catch(error => {
+      clearStoredOpNikePin();
+      if (message) {
+        message.textContent = error.message || "PIN invalido";
+      }
+      appendLog("PIN Op-Nike invalido", "warning");
+    });
+  });
+}
+
 // Conecta el log compacto: mostrar/ocultar y limpiar.
 function bindLogControls() {
   const clearButton = getElement("btnClearLog");
@@ -2069,6 +2665,73 @@ function bindGitCommitControls() {
       });
     });
   }
+}
+
+function bindOpNikeCatalogControls() {
+  const variantForm = getOpNikeVariantForm();
+  const familyForm = getOpNikeFamilyForm();
+
+  getElement("opNikeRefreshCatalog")?.addEventListener("click", () => {
+    loadOpNikeCatalog().catch(error => {
+      console.error(error);
+      appendLog(error.message || "No se pudo actualizar catalogo Op-Nike", "error");
+    });
+  });
+
+  getElement("opNikeNewVariant")?.addEventListener("click", resetOpNikeVariantForm);
+  getElement("opNikeNewFamily")?.addEventListener("click", resetOpNikeFamilyForm);
+
+  getElement("opNikeSaveVariant")?.addEventListener("click", () => {
+    saveOpNikeVariant().catch(error => {
+      console.error(error);
+      if (error.status === 401) {
+        clearStoredOpNikePin();
+        showOpNikePinModal();
+      }
+      renderOpNikeValidation(error.response || null);
+      appendLog(error.message || "No se pudo guardar variante Op-Nike", "error");
+    });
+  });
+
+  getElement("opNikeValidateRule")?.addEventListener("click", () => {
+    validateOpNikeRule({ persist: Boolean(opNikeSelectedVariantId) }).catch(error => {
+      console.error(error);
+      if (error.status === 401) {
+        clearStoredOpNikePin();
+        showOpNikePinModal();
+      }
+      renderOpNikeValidation(error.response || null);
+      appendLog(error.message || "No se pudo validar regla Op-Nike", "error");
+    });
+  });
+
+  getElement("opNikeActivateRule")?.addEventListener("click", () => {
+    activateOpNikeRule().catch(error => {
+      console.error(error);
+      if (error.status === 401) {
+        clearStoredOpNikePin();
+        showOpNikePinModal();
+      }
+      renderOpNikeValidation(error.response || null);
+      appendLog(error.message || "No se pudo activar regla Op-Nike", "error");
+    });
+  });
+
+  getElement("opNikeSaveFamily")?.addEventListener("click", () => {
+    saveOpNikeFamily().catch(error => {
+      console.error(error);
+      if (error.status === 401) {
+        clearStoredOpNikePin();
+        showOpNikePinModal();
+      }
+      appendLog(error.message || "No se pudo guardar familia Op-Nike", "error");
+    });
+  });
+
+  variantForm?.addEventListener("input", markOpNikeValidationStale);
+  variantForm?.addEventListener("change", markOpNikeValidationStale);
+  familyForm?.addEventListener("submit", event => event.preventDefault());
+  variantForm?.addEventListener("submit", event => event.preventDefault());
 }
 
 function renderNikePrintSublimationTracking(data, loading = false) {
@@ -2860,9 +3523,11 @@ async function init() {
   bindSidebarControls();
   bindThemeControls();
   bindAccessControls();
+  bindOpNikePinControls();
   bindLogControls();
   bindDetailControls();
   bindGitCommitControls();
+  bindOpNikeCatalogControls();
   bindNikeItemModal();
   bindMockupItemModal();
   bindDashboardMonthFilters();
