@@ -83,8 +83,9 @@ Antes de servir un archivo, Control Center resuelve candidatos seguros sin modif
 
 - Primero valida la ruta original registrada.
 - Para PDFs Nike bajo `/Volumes/Fullsize/New Art`, si el original ya no existe, prueba candidatos equivalentes bajo `/Volumes/Fullsize/TO PRINT`.
-- Para PDFs Nike ya registrados bajo `/Volumes/Fullsize/TO PRINT/NIKE ORDERS`, si la carpeta del pedido fue movida a una carpeta mensual como `NIKE JULIO`, prueba ese candidato usando `fecha_embarque`.
-- Para maquetas MockupTool, usa `rmc_mockuptool_items.path` como fuente principal y puede probar candidatos seguros bajo `/Volumes/Fullsize/TO PRINT/NIKE ORDERS/LISTAS ON DEMAND/Genericas` y `/Volumes/Fullsize/TO PRINT/NIKE ORDERS/LISTAS NIKE/Genericas` usando el nombre de archivo registrado.
+- Para PDFs Nike ya registrados bajo `/Volumes/Fullsize/TO PRINT/NIKE ORDERS`, si la carpeta del pedido fue movida a una carpeta mensual como `JUNIO`, `NIKE JULIO` o una carpeta anual como `NIKE 2026/JULIO`, prueba candidatos equivalentes usando `fecha_embarque` y el nombre de la carpeta original.
+- Para maquetas MockupTool, usa `rmc_mockuptool_items.path` como fuente principal y puede probar candidatos seguros bajo `LISTAS ON DEMAND/Genericas`, `LISTAS ON DEMAND/Personalizadas`, `LISTAS NIKE/Genericas` y `LISTAS NIKE/Personalizadas`.
+- Para carpetas de pedido movidas, conserva el tramo final del path registrado. Ejemplo: `NIKE OD 3 JUL/Y1000/SML/archivo.pdf` puede resolverse aunque haya pasado de `LISTAS ON DEMAND/Personalizadas` a `LISTAS NIKE/Personalizadas`.
 - Si no hay archivo resuelto, la API responde error controlado y la UI muestra estado textual.
 
 Nike:

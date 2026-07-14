@@ -77,6 +77,7 @@ router.get("/runs/:id", (req, res) => {
     const items = rawItems.map(item => {
       const maquetaFile = resolveRmcFilePath(item.path, {
         enableGenericasFallback: true,
+        enableMockupArchiveFallback: true,
         fileName: item.archivo || item.path
       });
 

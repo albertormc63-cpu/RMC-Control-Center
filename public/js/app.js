@@ -375,6 +375,7 @@ function getFileStatusText(file, type) {
   if (type === "pdf") {
     if (status === "found_original") return "PDF encontrado en ruta original";
     if (status === "found_moved_to_to_print") return "PDF encontrado en TO PRINT";
+    if (status === "found_relocated_archive") return "PDF encontrado en carpeta archivada";
     if (status === "invalid_path") return "Ruta PDF fuera del volumen autorizado";
     if (status === "no_path") return "Sin ruta PDF vinculada";
     return "PDF no encontrado";
@@ -382,6 +383,7 @@ function getFileStatusText(file, type) {
 
   if (status === "found_original") return "Maqueta encontrada";
   if (status === "found_genericas") return "Maqueta encontrada en Genericas";
+  if (status === "found_relocated_archive") return "Maqueta encontrada en carpeta archivada";
   if (status === "multiple_mockups") return "Multiples maquetas relacionadas";
   if (status === "no_mockup_record") return "Sin maqueta vinculada";
   if (status === "invalid_path") return "Ruta de maqueta fuera del volumen autorizado";

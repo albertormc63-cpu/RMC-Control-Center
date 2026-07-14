@@ -1812,9 +1812,14 @@ a.btn.table-button:hover {
 }
 
 .MonthFilter::-webkit-calendar-picker-indicator {
-    filter: invert(1);
+  filter: invert(1);
+  opacity: 0.82;
 }
 
+:root[data-theme="light"] .MonthFilter::-webkit-calendar-picker-indicator {
+  filter: invert(0.18);
+  opacity: 0.78;
+}
 
 @media (max-width: 520px) {
   body {

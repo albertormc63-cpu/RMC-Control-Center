@@ -131,6 +131,7 @@ function resolveMockupMatch(match) {
 
   const resolution = resolveRmcFilePath(originalPath, {
     enableGenericasFallback: true,
+    enableMockupArchiveFallback: true,
     fileName: match.archivo || originalPath
   });
   const status = resolution.status === "found_original" && isInsideGenericas(resolution.resolvedPath)
@@ -162,7 +163,9 @@ function resolveNikePdfFile(nikeItem) {
   const originalPath = nikeItem.path || "";
   const resolution = resolveRmcFilePath(originalPath, {
     enableNewArtToPrint: true,
-    fechaEmbarque: nikeItem.fecha_embarque
+    enableNikeOrdersArchiveFallback: true,
+    fechaEmbarque: nikeItem.fecha_embarque,
+    fileName: nikeItem.archivo || originalPath
   });
 
   return {

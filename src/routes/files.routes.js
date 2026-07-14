@@ -136,6 +136,7 @@ function getMockupFile(itemId) {
 
   return validateFilePath(item, item.path, {
     enableGenericasFallback: true,
+    enableMockupArchiveFallback: true,
     fileName: item.archivo || item.path
   });
 }

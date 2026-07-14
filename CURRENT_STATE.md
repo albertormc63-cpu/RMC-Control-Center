@@ -75,6 +75,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/services/nikeGroups.js`: agrupacion Nike por fecha de embarque y ano.
 - `src/services/mockupGroups.js`: agrupacion MockupTool por fecha de embarque y ano.
 - `src/services/nikeFiles.js`: paths de maqueta/plantilla para items Nike.
+- `src/services/rmcFileResolver.js`: validacion segura y relocalizacion de archivos movidos dentro de `/Volumes/Fullsize`.
 - `src/services/opNikeCatalog.js`: validacion y preview de reglas del catalogo Op-Nike.
 - `src/services/gitCommits.js`: consultas de `rmc_git_commits`.
 - `src/services/printSublimationSync.js`: lectura/sync del Excel de impresores.
@@ -131,6 +132,7 @@ Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/co
 - El detalle de un embarque consolida todos los runs del grupo.
 - Los reportes Excel exportan todos los items del grupo, no solo un run aislado.
 - Los archivos se sirven por endpoint, no por rutas directas del navegador.
+- Los paths historicos de SQLite no se reescriben cuando el volumen archiva carpetas; `rmcFileResolver` busca candidatos seguros bajo `TO PRINT/NIKE ORDERS`, carpetas mensuales/anuales y listas Nike/On Demand.
 - El servidor escucha en `0.0.0.0` para acceso LAN.
 - RMCCC no reemplaza Exceles operativos de cada area; los puede leer como fuentes externas y espejear en tablas auxiliares.
 - El reporte de impresores se cruza inicialmente con Nike por `work_order = wo`.
