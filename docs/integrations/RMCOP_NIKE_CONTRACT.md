@@ -60,15 +60,18 @@ Si `herramienta` esta vacio, Control Center muestra `RMCOp-Nike`. Si el grupo me
 - `catalog_variant_id`
 - `variant_code`
 
-Para items All Star (`AS`) con `equipo` vacio, el detalle puede usar el catalogo `rmc_nike_style_variants` para mostrar `team_market team_mascot` como valor de presentacion en la columna Equipo.
+Cuando `equipo` esta vacio, el detalle puede usar el catalogo `rmc_nike_style_variants` como valor de presentacion en la columna Equipo. Para All Star (`AS`) conserva `team_market team_mascot`; cuando `team_code` y `team_name` estan vacios, como en Special / Foundation Designs (`SS`), usa el primer valor no vacio de `aliases`, separado por `;`.
 
 ## Campos de catalogo de variantes consumidos
 
 - `id`
 - `variant_code`
 - `variant_name`
+- `team_code`
+- `team_name`
 - `team_market`
 - `team_mascot`
+- `aliases`
 - `opnike_enabled`
 - `opnike_rule_status`
 - reglas `opnike_*` de ruta, nombre y estrategia

@@ -109,8 +109,11 @@ Columnas usadas:
 - `id`
 - `variant_code`
 - `variant_name`
+- `team_code`
+- `team_name`
 - `team_market`
 - `team_mascot`
+- `aliases`
 - `opnike_enabled`
 - `opnike_rule_status`
 - `opnike_style_scope`
@@ -135,7 +138,7 @@ Columnas usadas:
 
 Uso:
 
-- Mostrar `team_market team_mascot` en la columna Equipo del detalle Nike cuando el item es All Star (`AS`) y `equipo` viene vacio.
+- Completar la columna Equipo del detalle Nike cuando `equipo` viene vacio: para All Star (`AS`) mostrar `team_market team_mascot` y, cuando `team_code` y `team_name` estan vacios, mostrar el primer alias no vacio separado por `;`.
 - Administrar reglas Op-Nike en estados `draft`, `shadow`, `active` e `inactive`.
 - Validar campos obligatorios antes de permitir `opnike_rule_status = active`.
 

@@ -47,6 +47,8 @@ let dashboardData = null;
 // Cache de embarques agrupados para abrir detalle desde graficas sin nuevas rutas backend.
 let nikeRunsCache = [];
 let mockupRunsCache = [];
+let nikeDetailRequestId = 0;
+let mockupDetailRequestId = 0;
 
 // Cargas diferidas por vista para que el arranque pinte primero lo operativo.
 const lazyViewLoads = {
@@ -332,6 +334,64 @@ function addEmptyTableRow(tbody, message, colSpan) {
   tbody.appendChild(row);
 }
 
+function addLoadingTableRow(tbody, message, colSpan) {
+  const row = document.createElement("tr");
+  const cell = document.createElement("td");
+  const loading = document.createElement("div");
+  const spinner = document.createElement("span");
+  const text = document.createElement("span");
+
+  row.dataset.emptyRow = "true";
+  row.dataset.loadingRow = "true";
+  cell.colSpan = colSpan;
+  loading.className = "detail-loading";
+  loading.setAttribute("role", "status");
+  loading.setAttribute("aria-live", "polite");
+  spinner.className = "detail-loading-spinner";
+  spinner.setAttribute("aria-hidden", "true");
+  text.textContent = message;
+
+  loading.append(spinner, text);
+  cell.appendChild(loading);
+  row.appendChild(cell);
+  tbody.appendChild(row);
+}
+
+function setDetailToolsLoading(tableId, loading) {
+  const tools = document.querySelector(`.table-tools[data-filter-target="${tableId}"]`);
+
+  tools?.querySelectorAll("input, select, button").forEach(control => {
+    control.disabled = loading;
+  });
+}
+
+function showDetailLoading(sectionId, infoId, tableId, message, colSpan) {
+  const detailSection = getElement(sectionId);
+  const runInfo = getElement(infoId);
+  const tbody = getElement(tableId);
+
+  if (!detailSection || !runInfo || !tbody) {
+    return;
+  }
+
+  closeExcelFilterMenu();
+  detailSection.classList.remove("hidden");
+  detailSection.setAttribute("aria-busy", "true");
+  detailSection.querySelector(".compact-flow-panel")?.classList.add("hidden");
+  runInfo.textContent = message;
+  tbody.innerHTML = "";
+  addLoadingTableRow(tbody, message, colSpan);
+  setDetailToolsLoading(tableId, true);
+  refreshTableFilter(tableId);
+  updateSortIndicators(tableId);
+  detailSection.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function finishDetailLoading(sectionId, tableId) {
+  getElement(sectionId)?.removeAttribute("aria-busy");
+  setDetailToolsLoading(tableId, false);
+}
+
 function getNikeOperationalState(item) {
   const state = item.print_sublimation?.state;
 
@@ -347,7 +407,7 @@ function getNikeOperationalState(item) {
   };
 }
 
-function getNikeTeamDisplay(item) {
+function getTeamDisplay(item) {
   return item?.equipo_display || item?.equipo || "";
 }
 
@@ -728,7 +788,7 @@ function showEmptyShipmentDetail(tool, fechaEmbarque, message) {
         detailId: "detailSection",
         infoId: "runInfo",
         tableId: "itemsTable",
-        colSpan: 10,
+        colSpan: 11,
         label: "Nike"
       }
     : {
@@ -736,7 +796,7 @@ function showEmptyShipmentDetail(tool, fechaEmbarque, message) {
         detailId: "mockupDetailSection",
         infoId: "mockupRunInfo",
         tableId: "mockupItemsTable",
-        colSpan: 8,
+        colSpan: 10,
         label: "MockupTool"
       };
   const detailSection = getElement(config.detailId);
@@ -1744,10 +1804,14 @@ function renderNikeRunsTable() {
     );
     addCell(row, formatNumber(run.pedidos));
     addCell(row, formatNumber(run.piezas));
-    addButtonCell(row, "Ver", () => loadRunDetail(actionId));
+    addButtonCell(row, "Ver", () => {
+      loadRunDetail(actionId).catch(error => console.error(error));
+    });
     addLinkCell(row, "Excel", `/api/reports/nike/${encodeURIComponent(actionId)}/excel`);
 
-    row.addEventListener("dblclick", () => loadRunDetail(actionId));
+    row.addEventListener("dblclick", () => {
+      loadRunDetail(actionId).catch(error => console.error(error));
+    });
     tbody.appendChild(row);
   });
 
@@ -1767,53 +1831,78 @@ async function loadRuns() {
 
 // Carga el detalle de una ejecucion Nike y muestra el panel bajo la tabla.
 async function loadRunDetail(id) {
-  const data = await getJSON(`/api/nike/runs/${encodeURIComponent(id)}`);
+  const requestId = ++nikeDetailRequestId;
   const detailSection = getElement("detailSection");
   const runInfo = getElement("runInfo");
   const tbody = getElement("itemsTable");
 
-  detailSection.classList.remove("hidden");
-  const runCount = Number(data.runCount || 1);
-  const executionLabel = runCount === 1 ? "ejecución" : "ejecuciones";
+  showDetailLoading("detailSection", "runInfo", "itemsTable", "Cargando detalle Nike...", 11);
 
-  runInfo.textContent = `${runCount} ${executionLabel} | ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)} | ${data.herramienta || data.run?.herramienta || "RMCOp-Nike"} | ${formatNumber(data.totalPieces || data.run?.piezas)} piezas | ${data.year || ""}`;
-  renderNikeActiveFlowSummary(data.items);
-  tbody.innerHTML = "";
+  try {
+    const data = await getJSON(`/api/nike/runs/${encodeURIComponent(id)}`);
 
-  if (!data.items.length) {
-    addEmptyTableRow(
-      tbody,
-      `No hay items registrados para el embarque ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)}.`,
-      11
-    );
+    if (requestId !== nikeDetailRequestId) {
+      return;
+    }
+
+    detailSection.classList.remove("hidden");
+    const runCount = Number(data.runCount || 1);
+    const executionLabel = runCount === 1 ? "ejecución" : "ejecuciones";
+
+    runInfo.textContent = `${runCount} ${executionLabel} | ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)} | ${data.herramienta || data.run?.herramienta || "RMCOp-Nike"} | ${formatNumber(data.totalPieces || data.run?.piezas)} piezas | ${data.year || ""}`;
+    renderNikeActiveFlowSummary(data.items);
+    tbody.innerHTML = "";
+
+    if (!data.items.length) {
+      addEmptyTableRow(
+        tbody,
+        `No hay items registrados para el embarque ${formatDDMM(data.groupDate || data.run?.fecha_embarque || data.run?.created_at)}.`,
+        11
+      );
+    }
+
+    data.items.forEach(item => {
+      const row = document.createElement("tr");
+
+      row.dataset.itemId = item.id || "";
+      row.dataset.itemRunId = item.run_id || "";
+
+      addCell(row, item.wo || "");
+      addCell(row, item.style || "");
+      addCell(row, getTeamDisplay(item));
+      addCell(row, item.variante || "");
+      addCell(row, getItemTypeDisplay(item));
+      addCell(row, item.talla || "");
+      addCell(row, formatNumber(item.piezas));
+      addCell(row, item.nombre || "");
+      addCell(row, item.numero || "");
+      addOperationalStatusCell(row, item);
+      addButtonCell(row, "Ver mas", () => showNikeItemModal(item));
+
+      row.addEventListener("dblclick", () => showNikeItemModal(item));
+      tbody.appendChild(row);
+    });
+
+    refreshTableFilter("itemsTable");
+    updateSortIndicators("itemsTable");
+    detailSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    appendLog(`Detalle Nike ${id}: ${data.items.length} items`, "success");
+  } catch (error) {
+    if (requestId === nikeDetailRequestId) {
+      tbody.innerHTML = "";
+      runInfo.textContent = "No se pudo cargar el detalle Nike";
+      addEmptyTableRow(tbody, error.message || "No se pudo cargar el detalle Nike.", 11);
+      refreshTableFilter("itemsTable");
+      updateSortIndicators("itemsTable");
+      appendLog(error.message || `No se pudo cargar detalle Nike ${id}`, "error");
+    }
+
+    throw error;
+  } finally {
+    if (requestId === nikeDetailRequestId) {
+      finishDetailLoading("detailSection", "itemsTable");
+    }
   }
-
-  data.items.forEach(item => {
-    const row = document.createElement("tr");
-
-    row.dataset.itemId = item.id || "";
-    row.dataset.itemRunId = item.run_id || "";
-
-    addCell(row, item.wo || "");
-    addCell(row, item.style || "");
-    addCell(row, getNikeTeamDisplay(item));
-    addCell(row, item.variante || "");
-    addCell(row, getItemTypeDisplay(item));
-    addCell(row, item.talla || "");
-    addCell(row, formatNumber(item.piezas));
-    addCell(row, item.nombre || "");
-    addCell(row, item.numero || "");
-    addOperationalStatusCell(row, item);
-    addButtonCell(row, "Ver mas", () => showNikeItemModal(item));
-
-    row.addEventListener("dblclick", () => showNikeItemModal(item));
-    tbody.appendChild(row);
-  });
-
-  refreshTableFilter("itemsTable");
-  updateSortIndicators("itemsTable");
-  detailSection.scrollIntoView({ behavior: "smooth", block: "start" });
-  appendLog(`Detalle Nike ${id}: ${data.items.length} items`, "success");
 }
 
 function renderMockupRunsTable() {
@@ -1848,10 +1937,14 @@ function renderMockupRunsTable() {
     addCell(row, `${runCount} ${runCount === 1 ? "ejecución" : "ejecuciones"}`);
     addCell(row, formatNumber(run.pedidos));
     addCell(row, formatNumber(run.maquetas));
-    addButtonCell(row, "Ver", () => loadMockupDetail(actionId));
+    addButtonCell(row, "Ver", () => {
+      loadMockupDetail(actionId).catch(error => console.error(error));
+    });
     addLinkCell(row, "Excel", `/api/reports/mockup/${encodeURIComponent(actionId)}/excel`);
 
-    row.addEventListener("dblclick", () => loadMockupDetail(actionId));
+    row.addEventListener("dblclick", () => {
+      loadMockupDetail(actionId).catch(error => console.error(error));
+    });
     tbody.appendChild(row);
   });
 
@@ -1871,49 +1964,74 @@ async function loadMockupRuns() {
 
 // Carga el detalle de una ejecucion MockupTool.
 async function loadMockupDetail(id) {
-  const data = await getJSON(`/api/mockup/runs/${encodeURIComponent(id)}`);
+  const requestId = ++mockupDetailRequestId;
   const detailSection = getElement("mockupDetailSection");
   const runInfo = getElement("mockupRunInfo");
   const tbody = getElement("mockupItemsTable");
 
-  detailSection.classList.remove("hidden");
-  const runCount = Number(data.runCount || 1);
-  runInfo.textContent = `${runCount} ${runCount === 1 ? "ejecución" : "ejecuciones"} | ${formatDDMM(data.groupDate || data.run.fecha_embarque)} | ${formatNumber(data.totalMaquetas)} maquetas | ${data.year || ""}`;
-  tbody.innerHTML = "";
+  showDetailLoading("mockupDetailSection", "mockupRunInfo", "mockupItemsTable", "Cargando detalle MockupTool...", 10);
 
-  if (!data.items.length) {
-    addEmptyTableRow(
-      tbody,
-      `No hay items registrados para el embarque ${formatDDMM(data.groupDate || data.run.fecha_embarque)}.`,
-      10
-    );
+  try {
+    const data = await getJSON(`/api/mockup/runs/${encodeURIComponent(id)}`);
+
+    if (requestId !== mockupDetailRequestId) {
+      return;
+    }
+
+    detailSection.classList.remove("hidden");
+    const runCount = Number(data.runCount || 1);
+    runInfo.textContent = `${runCount} ${runCount === 1 ? "ejecución" : "ejecuciones"} | ${formatDDMM(data.groupDate || data.run.fecha_embarque)} | ${formatNumber(data.totalMaquetas)} maquetas | ${data.year || ""}`;
+    tbody.innerHTML = "";
+
+    if (!data.items.length) {
+      addEmptyTableRow(
+        tbody,
+        `No hay items registrados para el embarque ${formatDDMM(data.groupDate || data.run.fecha_embarque)}.`,
+        10
+      );
+    }
+
+    data.items.forEach(item => {
+      const row = document.createElement("tr");
+
+      addCell(row, item.wo || "");
+      addCell(row, item.style || "");
+      addCell(row, getTeamDisplay(item));
+      addCell(row, item.variante || "");
+      addCell(row, getItemTypeDisplay(item));
+      addCell(row, item.talla || "");
+      addCell(row, formatNumber(item.piezas));
+      addCell(row, item.disenador || "");
+      addDepartmentStatusCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
+      addButtonCell(row, "Ver mas", () => showMockupItemModal(item));
+
+      row.dataset.itemId = item.id || "";
+      row.dataset.itemRunId = item.run_id || "";
+      row.addEventListener("dblclick", () => showMockupItemModal(item));
+
+      tbody.appendChild(row);
+    });
+
+    refreshTableFilter("mockupItemsTable");
+    updateSortIndicators("mockupItemsTable");
+    detailSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    appendLog(`Detalle de maquetas ${id}: ${data.items.length} items`, "success");
+  } catch (error) {
+    if (requestId === mockupDetailRequestId) {
+      tbody.innerHTML = "";
+      runInfo.textContent = "No se pudo cargar el detalle MockupTool";
+      addEmptyTableRow(tbody, error.message || "No se pudo cargar el detalle MockupTool.", 10);
+      refreshTableFilter("mockupItemsTable");
+      updateSortIndicators("mockupItemsTable");
+      appendLog(error.message || `No se pudo cargar detalle MockupTool ${id}`, "error");
+    }
+
+    throw error;
+  } finally {
+    if (requestId === mockupDetailRequestId) {
+      finishDetailLoading("mockupDetailSection", "mockupItemsTable");
+    }
   }
-
-  data.items.forEach(item => {
-    const row = document.createElement("tr");
-
-    addCell(row, item.wo || "");
-    addCell(row, item.style || "");
-    addCell(row, item.equipo || "");
-    addCell(row, item.variante || "");
-    addCell(row, getItemTypeDisplay(item));
-    addCell(row, item.talla || "");
-    addCell(row, formatNumber(item.piezas));
-    addCell(row, item.disenador || "");
-    addDepartmentStatusCell(row, item.estado || "", item.error ? "status-error" : "status-ok");
-    addButtonCell(row, "Ver mas", () => showMockupItemModal(item));
-
-    row.dataset.itemId = item.id || "";
-    row.dataset.itemRunId = item.run_id || "";
-    row.addEventListener("dblclick", () => showMockupItemModal(item));
-
-    tbody.appendChild(row);
-  });
-
-  refreshTableFilter("mockupItemsTable");
-  updateSortIndicators("mockupItemsTable");
-  detailSection.scrollIntoView({ behavior: "smooth", block: "start" });
-  appendLog(`Detalle de maquetas ${id}: ${data.items.length} items`, "success");
 }
 
 function loadRapid27ProvisionalPanel() {
@@ -2962,7 +3080,7 @@ function showNikeItemModal(item) {
   };
   roster.textContent = item.roster || "N/D";
   wo.textContent = item.wo || "N/D";
-  equipo.textContent = item.equipo || "N/D";
+  equipo.textContent = getTeamDisplay(item) || "N/D";
   variante.textContent = item.variante || "N/D";
   style.textContent = item.style || "N/D";
   size.textContent = item.talla || "N/D";

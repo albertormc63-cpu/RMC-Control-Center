@@ -114,8 +114,10 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Filtro por texto/columna.
 - Filtro por mes sincronizado con el mes del Dashboard y selector local en la tabla.
 - Panel de detalle.
+- Indicador `Cargando detalle Nike...` dentro de la tabla mientras se consulta el detalle desde boton o doble click.
 - Resumen compacto de circulacion activa por etapa dentro del detalle Nike.
 - Tabla de items Nike.
+- Columna `Equipo` con fallback al primer alias del catalogo cuando el item no trae equipo y la variante tampoco tiene datos de equipo, como `SS`.
 - Columna `Tipo` entre `Variante` y `Talla` para filtrar `Generica`, `Personalizada` o `Manual`.
 - Filtros por columna tipo Excel en la tabla de detalle.
 - Herramienta por item.
@@ -139,6 +141,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Filtro por texto/columna.
 - Filtro por mes sincronizado con el mes del Dashboard y selector local en la tabla.
 - Panel de detalle.
+- Indicador `Cargando detalle MockupTool...` dentro de la tabla mientras se consulta el detalle desde boton o doble click.
 - Tabla de items MockupTool.
 - Columna `Tipo` entre `Variante` y `Talla` para filtrar `Generica` o `Personalizada`.
 - Filtros por columna tipo Excel en la tabla de detalle.

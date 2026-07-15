@@ -143,7 +143,23 @@ function buildTeamDisplay(item) {
     .filter(Boolean)
     .join(" ");
 
-  return isAllStarItem(item) ? teamDisplay : "";
+  if (isAllStarItem(item) && teamDisplay) {
+    return teamDisplay;
+  }
+
+  const hasCatalogTeam = [item.team_code, item.team_name]
+    .some(value => String(value || "").trim());
+
+  if (hasCatalogTeam) {
+    return teamDisplay
+      || String(item.team_name || "").trim()
+      || String(item.team_code || "").trim();
+  }
+
+  return String(item.aliases || "")
+    .split(";")
+    .map(alias => alias.trim())
+    .find(Boolean) || "";
 }
 
 function getCatalogVariantsById(items) {
@@ -161,8 +177,11 @@ function getCatalogVariantsById(items) {
         id,
         variant_code,
         variant_name,
+        team_code,
+        team_name,
         team_market,
-        team_mascot
+        team_mascot,
+        aliases
       FROM rmc_nike_style_variants
       WHERE id IN (${ids.map(() => "?").join(",")})
     `).all(...ids);
@@ -249,8 +268,11 @@ router.get("/runs/:id", (req, res) => {
         ...item,
         catalog_variant_code: catalogVariant.variant_code || "",
         catalog_variant_name: catalogVariant.variant_name || "",
+        team_code: catalogVariant.team_code || "",
+        team_name: catalogVariant.team_name || "",
         team_market: catalogVariant.team_market || "",
-        team_mascot: catalogVariant.team_mascot || ""
+        team_mascot: catalogVariant.team_mascot || "",
+        aliases: catalogVariant.aliases || ""
       };
       const printSublimationSummary = printSummaryByWorkOrder.get(String(item.wo || "")) || {
         matches: 0,
