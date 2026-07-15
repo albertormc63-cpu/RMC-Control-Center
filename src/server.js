@@ -13,6 +13,7 @@ const filesRoutes = require("./routes/files.routes");
 const syncRoutes = require("./routes/sync.routes");
 const gitCommitsRoutes = require("./routes/gitCommits.routes");
 const nikeCatalogRoutes = require("./routes/nikeCatalog.routes");
+const chatRoutes = require("./routes/chat.routes");
 const { createAccessLogger } = require("./services/accessLogger");
 
 const app = express();
@@ -99,6 +100,7 @@ app.use("/api/reports", reportsRoutes);
 app.use("/api/files", filesRoutes);
 app.use("/api/sync", syncRoutes);
 app.use("/api/git-commits", gitCommitsRoutes);
+app.use("/api/chat", chatRoutes);
 
 // Manejador final para errores no capturados por rutas especificas.
 app.use((error, req, res, next) => {

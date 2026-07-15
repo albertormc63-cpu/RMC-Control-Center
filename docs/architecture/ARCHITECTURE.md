@@ -46,6 +46,7 @@
 - Sirve `/assets`.
 - Expone `/health`.
 - Monta `/api/dashboard`, `/api/nike`, `/api/mockup`, `/api/reports` y `/api/files`.
+- Monta `/api/chat` para el canal grupal LAN persistido en una tabla auxiliar propia.
 - Escucha en `0.0.0.0` para LAN.
 - Devuelve errores finales en JSON.
 
@@ -75,6 +76,8 @@ window.RMCComponents.nombre = function nombre() {
 ```
 
 No usan imports, bundler ni framework.
+
+El widget de chat se monta de forma independiente con `public/js/chat.js`, permanece disponible al cambiar de vista y consulta mensajes nuevos mediante sondeo incremental.
 
 ## Servicios de agrupacion
 

@@ -1,0 +1,138 @@
+/* =========================================================
+   Graficas simples
+   Barras CSS generadas desde public/js/app.js.
+   ========================================================= */
+.chart-panel {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--rmc-surface-soft);
+}
+
+.dashboard-table-panel {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+}
+
+.chart-canvas {
+  min-width: 0;
+  min-height: 190px;
+  padding: 4px;
+}
+
+.chart-month-nav {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-nav-button {
+  width: 36px;
+  min-width: 36px;
+  min-height: 72px;
+  padding: 0;
+  border-color: var(--rmc-border);
+  background: var(--rmc-secondary);
+  color: var(--rmc-text);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.chart-nav-button:hover {
+  background: var(--rmc-secondary-hover);
+  box-shadow: none;
+}
+
+.chart-nav-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.chart-nav-button:disabled:hover {
+  background: var(--rmc-secondary);
+}
+
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: 220px;
+}
+
+.chart-grid-line {
+  stroke: var(--rmc-border);
+  stroke-width: 1;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--rmc-primary-hover);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.chart-point {
+  fill: var(--rmc-primary-hover);
+  stroke: var(--rmc-text);
+  stroke-width: 2;
+}
+
+.chart-bar {
+  fill: var(--rmc-primary);
+  filter: drop-shadow(0 0 4px rgba(162, 26, 47, 0.36));
+}
+.chart-bar:hover {
+  fill: var(--rmc-primary-hover);
+  filter: drop-shadow(0 0 6px rgba(146, 21, 40, 0.45));
+}
+.chart-bar:focus {
+  fill: var(--rmc-primary-strong);
+  outline: none; /* Quita el borde cuadrado por defecto */
+}
+
+.chart-axis-line {
+  stroke: var(--rmc-text);
+  stroke-width: 1.25;
+}
+
+.chart-title {
+  fill: var(--rmc-text);
+  font-family: var(--rmc-font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.chart-axis-label {
+  fill: var(--rmc-muted);
+  font-family: var(--rmc-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.chart-label,
+.chart-value {
+  fill: var(--rmc-muted);
+  font-family: var(--rmc-font-ui);
+  font-size: 11px;
+  text-anchor: middle;
+}
+
+.chart-value {
+  fill: var(--rmc-text);
+  font-weight: 700;
+}
+
+.chart-empty {
+  color: var(--rmc-muted-low);
+  font-size: 11px;
+}
+
+.rapid27-flow-panel {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 10px;
+}

@@ -58,6 +58,22 @@ Fuentes:
 
 Se sirven desde `/assets/...`.
 
+## CSS
+
+`public/css/style.css` es la entrada principal y solo importa archivos por responsabilidad:
+
+- `tokens.css`: variables de tema, colores y fuentes.
+- `base.css`: reset pequeno, tipografia, botones y campos base.
+- `layout.css`: navbar, sidebar, selector de tema y layout principal.
+- `dashboard.css`: vistas, bloques de dashboard, resumenes y badges.
+- `charts.css`: graficas SVG/CSS y paneles de charts.
+- `tables.css`: tablas, filtros, sort, botones de tabla y estado de carga.
+- `details.css`: paneles de detalle, modales, tracking y recursos.
+- `catalog.css`: pantalla de Catalogo Op-Nike.
+- `system.css`: utilidades globales, log compacto y footer.
+- `chat.css`: widget flotante del chat grupal LAN.
+- `responsive.css`: media queries y ajustes mobile.
+
 ## Layout
 
 Desktop:
@@ -100,6 +116,15 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Log colapsable.
 - Footer.
 
+`chatView.js` y `chat.js`:
+
+- Boton flotante abajo a la derecha con contador de mensajes nuevos.
+- Panel grupal independiente de la vista activa.
+- Cada mensaje muestra la IP detectada por el servidor y su fecha/hora.
+- Envio con `Enter`; `Shift + Enter` agrega una linea.
+- Sondeo incremental cada 3 segundos para compartir mensajes en LAN.
+- En mobile se adapta como panel ancho sin modificar el dashboard.
+
 `dashboardView.js`:
 
 - Dashboard general.
@@ -129,8 +154,10 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Acceso protegido por PIN temporal `290497` mientras no exista autenticacion formal.
 - Tabla de variantes/diseños desde `rmc_nike_style_variants`.
 - Formulario de alta/edicion de variantes, aliases y reglas de ruta/nombre.
+- Captura guiada con plantillas controladas de regla, duplicado seguro de variantes, sugerencia/normalizacion de aliases y datalists de ligas/familias.
 - Formulario de alta/edicion de familias desde `rmc_nike_style_families`.
 - Boton `Validar regla` con campos faltantes visibles.
+- Los campos faltantes tambien se resaltan directamente en el formulario para acelerar captura.
 - Boton `Activar` deshabilitado hasta que la validacion permita `active`.
 - Preview de ruta esperada, nombre final, tokens usados y estado de archivo.
 - No acepta JavaScript editable por usuario; usa patrones y estrategias controladas.

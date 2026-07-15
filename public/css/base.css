@@ -1,0 +1,124 @@
+/* =========================================================
+   Base
+   Reset pequeno y estilos globales del documento.
+   ========================================================= */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 10px;
+  background: var(--rmc-bg);
+  color: var(--rmc-text);
+  font-family: var(--rmc-font-ui);
+  font-size: 13px;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-top: 0;
+}
+
+h2 {
+  margin-bottom: 14px;
+  font-size: 18px;
+}
+
+h3 {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+h4 {
+  margin-bottom: 8px;
+  color: var(--rmc-muted);
+  font-size: 12px;
+}
+
+p {
+  color: var(--rmc-muted);
+}
+
+/* =========================================================
+   Botones y campos
+   Controles reutilizables de la UI.
+   ========================================================= */
+button,
+a.btn {
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--rmc-primary);
+  color: var(--rmc-text);
+  cursor: pointer;
+  font-family: var(--rmc-font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+button:hover,
+a.btn:hover {
+  background: var(--rmc-primary-hover);
+  box-shadow: 0 0 12px var(--rmc-shadow-primary);
+}
+
+button:disabled,
+a.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button:disabled:hover,
+a.btn[aria-disabled="true"]:hover {
+  background: var(--rmc-primary);
+  box-shadow: none;
+}
+
+button:focus-visible,
+a.btn:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--rmc-focus);
+  outline-offset: 2px;
+}
+
+.secondary-button {
+  background: var(--rmc-secondary);
+}
+
+.secondary-button:hover {
+  background: var(--rmc-secondary-hover);
+  box-shadow: none;
+}
+
+input,
+select,
+textarea {
+  min-height: 30px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-field);
+  color: var(--rmc-text);
+  font-family: var(--rmc-font-ui);
+  font-size: 12px;
+}
+
+input::placeholder {
+  color: var(--rmc-muted-low);
+}
+
+textarea {
+  min-width: 0;
+  padding: 8px 9px;
+  resize: vertical;
+}

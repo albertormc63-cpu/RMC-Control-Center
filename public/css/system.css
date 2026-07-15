@@ -1,0 +1,92 @@
+.hidden {
+  display: none;
+}
+
+/* =========================================================
+   Log compacto
+   Se colapsa por defecto para liberar espacio del dashboard.
+   ========================================================= */
+.log-container {
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid #333333;
+  border-radius: 4px;
+  background: var(--rmc-surface-deep);
+  color: var(--rmc-log-text);
+  font-family: var(--rmc-font-log);
+  font-size: 10px;
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #333333;
+  color: #cccccc;
+  font-family: var(--rmc-font-log);
+  font-weight: bold;
+}
+
+.log-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+#btnToggleLog,
+#btnClearLog {
+  width: auto;
+  min-height: 22px;
+  padding: 3px 8px;
+  background: var(--rmc-secondary);
+  color: var(--rmc-muted);
+  font-family: var(--rmc-font-ui);
+  font-size: 10px;
+}
+
+#btnToggleLog:hover,
+#btnClearLog:hover {
+  background: var(--rmc-secondary-hover);
+  box-shadow: none;
+}
+
+#terminal {
+  height: 150px;
+  padding: 8px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.log-collapsed #terminal {
+  display: none;
+}
+
+.log-line {
+  margin-bottom: 3px;
+}
+
+.log-info {
+  color: var(--rmc-log-text);
+}
+
+.log-error {
+  color: var(--rmc-log-error);
+}
+
+.log-success {
+  color: var(--rmc-log-success);
+}
+
+.log-warning {
+  color: var(--rmc-log-warning);
+}
+
+.footer-credits {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rmc-border);
+  color: var(--rmc-muted-low);
+  font-size: 11px;
+  text-align: center;
+}

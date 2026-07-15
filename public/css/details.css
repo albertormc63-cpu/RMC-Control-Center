@@ -1,0 +1,474 @@
+/* =========================================================
+   Detalles y Registry
+   Paneles secundarios, modal y formulario de alta CEP.
+   ========================================================= */
+.detail-panel {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--rmc-surface-soft);
+}
+
+.detail-header {
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.detail-actions {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.detail-actions .secondary-button {
+  min-height: 28px;
+  padding: 5px 10px;
+}
+
+.run-info {
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.registry-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 10px;
+}
+
+.registry-grid table {
+  min-width: 0;
+}
+
+.modal {
+  width: min(460px, calc(100vw - 24px));
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface);
+  color: var(--rmc-text);
+}
+
+.modal::backdrop {
+  background: var(--rmc-backdrop);
+}
+
+.modal form {
+  display: grid;
+  gap: 12px;
+}
+
+.modal-header,
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.modal label {
+  display: grid;
+  gap: 5px;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.modal input {
+  width: 100%;
+  padding: 8px 9px;
+}
+
+.access-modal {
+  width: min(420px, calc(100vw - 24px));
+}
+
+.access-note {
+  margin-bottom: 0;
+  color: var(--rmc-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.nike-item-modal {
+  width: min(620px, calc(100vw - 24px));
+  padding: 18px;
+}
+
+.modal-eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--rmc-muted-low);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.nike-item-modal .modal-header h3 {
+  margin: 0;
+}
+
+.nike-item-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.nike-item-summary > div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+}
+
+.nike-item-summary span,
+.nike-item-summary strong {
+  display: block;
+}
+
+.nike-item-summary span {
+  margin-bottom: 5px;
+  color: var(--rmc-muted-low);
+  font-size: 10px;
+}
+
+.nike-item-summary strong {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.tracking-panel {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 11px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-field);
+}
+
+.tracking-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tracking-header h4 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.tracking-header strong {
+  flex: 0 0 auto;
+  color: var(--rmc-log-warning);
+  font-size: 11px;
+  text-align: right;
+}
+
+.tracking-header .department-badge {
+  color: var(--department-color);
+}
+
+.tracking-summary {
+  margin: 0;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.tracking-match-list {
+  display: grid;
+  gap: 6px;
+}
+
+.tracking-match {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+  color: var(--rmc-text-soft);
+  font-size: 11px;
+}
+
+.tracking-match strong {
+  color: var(--rmc-text);
+}
+
+.tracking-step {
+  --department-color: var(--dept-default);
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--rmc-border);
+  border-left: 3px solid var(--department-color);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+  color: var(--rmc-muted);
+  font-size: 11px;
+}
+
+.tracking-step[data-active="true"] {
+  color: var(--rmc-text-soft);
+}
+
+.tracking-step[data-department="diseno"] {
+  --department-color: var(--dept-diseno);
+}
+
+.tracking-step[data-department="sublimado"] {
+  --department-color: var(--dept-sublimado);
+}
+
+.tracking-step[data-department="almacen"] {
+  --department-color: var(--dept-almacen);
+}
+
+.tracking-step strong {
+  color: var(--department-color);
+}
+
+.compact-flow-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 7px;
+}
+
+.compact-flow-label {
+  flex: 0 0 auto;
+  color: var(--rmc-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.compact-tracking-step {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+
+.compact-tracking-step span {
+  overflow: hidden;
+  color: var(--rmc-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operational-status {
+  --department-color: var(--dept-default);
+  display: grid;
+  gap: 2px;
+  padding-left: 8px;
+  border-left: 3px solid var(--department-color);
+}
+
+.operational-status[data-department="diseno"] {
+  --department-color: var(--dept-diseno);
+}
+
+.operational-status[data-department="sublimado"] {
+  --department-color: var(--dept-sublimado);
+}
+
+.operational-status[data-department="almacen"] {
+  --department-color: var(--dept-almacen);
+}
+
+.operational-status[data-department="costura"] {
+  --department-color: var(--dept-costura);
+}
+
+.operational-status[data-department="calidad"] {
+  --department-color: var(--dept-calidad);
+}
+
+.operational-status[data-department="embarque"] {
+  --department-color: var(--dept-embarque);
+}
+
+.operational-status strong {
+  color: var(--rmc-text);
+  font-size: 12px;
+}
+
+.operational-status span {
+  color: var(--rmc-text-soft);
+  font-size: 10px;
+}
+
+.resource-list {
+  display: grid;
+  gap: 8px;
+}
+
+.resource-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-field);
+  color: var(--rmc-text);
+  text-decoration: none;
+}
+
+.resource-main-action {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.resource-main-action[aria-disabled="false"] strong {
+  color: var(--rmc-resource-action-text);
+}
+
+.resource-main-action strong,
+.resource-main-action small {
+  display: block;
+}
+
+.resource-main-action small {
+  overflow: hidden;
+  color: var(--rmc-muted-low);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-download {
+  text-decoration: none;
+}
+
+.resource-link-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.resource-download[aria-disabled="false"] {
+  background: #821424;
+  color: #ffffff;
+}
+
+.resource-download[aria-disabled="false"]:hover {
+  background: #a21a2f;
+}
+
+.resource-link:hover {
+  border-color: var(--rmc-border-strong);
+  background: var(--rmc-surface-deep);
+}
+
+.resource-options {
+  display: grid;
+  gap: 6px;
+  padding: 0 8px 4px 18px;
+}
+
+.resource-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  color: var(--rmc-text-soft);
+  font-size: 11px;
+}
+
+.resource-option span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-option a {
+  flex: 0 0 auto;
+}
+
+.resource-copy {
+  min-width: 0;
+}
+
+.resource-copy strong,
+.resource-copy small {
+  display: block;
+}
+
+.resource-copy small {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--rmc-muted-low);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-state {
+  flex: 0 0 auto;
+  color: var(--rmc-log-warning);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.excel-preview-modal {
+  width: min(1080px, calc(100vw - 24px));
+  padding: 18px;
+}
+
+.excel-preview-meta {
+  margin: 8px 0 12px;
+  color: var(--rmc-muted);
+  font-size: 12px;
+}
+
+.excel-preview-wrap {
+  max-height: min(62vh, 620px);
+  overflow: auto;
+  border: 1px solid var(--rmc-border);
+  background: var(--rmc-field);
+}
+
+.excel-preview-table {
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.excel-preview-table td {
+  max-width: 280px;
+  padding: 7px 8px;
+  border: 1px solid var(--rmc-border);
+  color: var(--rmc-text-soft);
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.form-message {
+  min-height: 16px;
+  margin: 0;
+  color: var(--rmc-log-warning);
+  font-size: 11px;
+}

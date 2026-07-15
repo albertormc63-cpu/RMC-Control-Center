@@ -14,6 +14,8 @@ Excepcion documentada: el modulo de sincronizacion externa escribe tablas auxili
 
 Excepcion Op-Nike: la pantalla `Catalogo Op-Nike` administra `rmc_nike_style_families` y `rmc_nike_style_variants` para configurar familias, variantes, aliases y reglas de ruta/nombre. No escribe runs ni items de produccion.
 
+Excepcion chat LAN: el chat grupal escribe solamente la tabla auxiliar `rmc_chat_messages`. La IP de la conexion identifica provisionalmente cada mensaje hasta integrar usuarios.
+
 ## Herramientas integradas
 
 - `RMCOp-Nike`: pedidos, piezas, items, commits, archivos de produccion y reportes Excel.
@@ -58,6 +60,8 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `GET /api/sync/sources`
 - `POST /api/sync/sources/:id/run`
 - `GET /api/sync/sources/:id/runs`
+- `GET /api/chat/messages`
+- `POST /api/chat/messages`
 
 ## Codigo principal
 
@@ -72,6 +76,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/routes/files.routes.js`: view/download con validacion bajo `RMC_FILE_ROOT`.
 - `src/routes/gitCommits.routes.js`: historial tecnico centralizado de commits del RMC Control System.
 - `src/routes/sync.routes.js`: fuentes externas y sincronizacion manual.
+- `src/routes/chat.routes.js`: lectura y envio del chat grupal LAN.
 - `src/services/nikeGroups.js`: agrupacion Nike por fecha de embarque y ano.
 - `src/services/mockupGroups.js`: agrupacion MockupTool por fecha de embarque y ano.
 - `src/services/nikeFiles.js`: paths de maqueta/plantilla para items Nike.
@@ -80,6 +85,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/services/gitCommits.js`: consultas de `rmc_git_commits`.
 - `src/services/printSublimationSync.js`: lectura/sync del Excel de impresores.
 - `src/services/syncPoller.js`: polling automatico de fuentes externas activas, con timers apagables para correr en worker.
+- `src/services/chatMessages.js`: esquema auxiliar, validacion, persistencia e IP del chat.
 - `public/js/app.js`: carga de APIs, render, filtros, sort y graficas SVG.
 - `public/js/components/`: componentes HTML sin imports ni bundler.
 
@@ -109,6 +115,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_sync_runs`
 - `rmc_print_sublimation_log`
 - `rmc_sublimation_output_log`
+- `rmc_chat_messages`
 
 ## Tablas auxiliares escritas por RMCCC
 
@@ -118,6 +125,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_sublimation_output_log`
 - `rmc_nike_style_families`
 - `rmc_nike_style_variants`
+- `rmc_chat_messages`
 
 No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop_nike_runs`, `rmc_mockuptool_items` o `rmc_mockuptool_runs` salvo instruccion explicita y documentada.
 

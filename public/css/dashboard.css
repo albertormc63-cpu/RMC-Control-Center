@@ -1,0 +1,140 @@
+/* =========================================================
+   Vistas y dashboard
+   Contenedores base y resumenes separados por herramienta.
+   ========================================================= */
+.content {
+  min-width: 0;
+}
+
+.view {
+  display: none;
+  min-height: 340px;
+  padding: 14px;
+}
+
+.active-view {
+  display: block;
+}
+
+.view-header,
+.block-title,
+.detail-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-period-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.dashboard-period-filter label {
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dashboard-period-filter input[type="month"] {
+  min-height: 32px;
+  padding: 5px 8px;
+}
+
+.dashboard-block {
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.summary-grid-nike,
+.summary-grid-mockup,
+.summary-grid-rapid27 {
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+}
+
+.summary-card {
+  min-height: 82px;
+  padding: 12px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+}
+
+.summary-card span {
+  display: block;
+  min-height: 28px;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.summary-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--rmc-text);
+  font-size: 25px;
+  line-height: 1;
+}
+
+.summary-card.danger strong,
+.status-error {
+  color: var(--rmc-log-error);
+}
+
+.status-ok {
+  color: var(--rmc-log-success);
+}
+
+.status-warning {
+  color: var(--rmc-log-warning);
+}
+
+.department-badge {
+  --department-color: var(--dept-default);
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--department-color) 74%, #ffffff 8%);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--department-color);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.department-badge[data-department="diseno"] {
+  --department-color: var(--dept-diseno);
+}
+
+.department-badge[data-department="sublimado"] {
+  --department-color: var(--dept-sublimado);
+}
+
+.department-badge[data-department="almacen"] {
+  --department-color: var(--dept-almacen);
+}
+
+.department-badge[data-department="costura"] {
+  --department-color: var(--dept-costura);
+}
+
+.department-badge[data-department="calidad"] {
+  --department-color: var(--dept-calidad);
+}
+
+.department-badge[data-department="embarque"] {
+  --department-color: var(--dept-embarque);
+}

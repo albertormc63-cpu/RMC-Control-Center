@@ -1,0 +1,173 @@
+/* =========================================================
+   Responsive
+   Drawer lateral en pantallas pequenas y grids mas compactas.
+   ========================================================= */
+@media (max-width: 1180px) {
+  .summary-grid-nike,
+  .summary-grid-mockup,
+  .summary-grid-rapid27,
+  .rapid27-flow-panel {
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+  }
+
+  .catalog-admin-grid,
+  .catalog-family-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 980px) {
+  body {
+    padding-top: 56px;
+  }
+
+  .top-navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 46px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--rmc-border);
+    background: var(--rmc-surface-deep);
+  }
+
+  .sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+  }
+
+  .top-navbar-title {
+    color: var(--rmc-muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: block;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+
+  .app-layout,
+  .registry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 46px;
+    left: 0;
+    z-index: 35;
+    width: min(285px, calc(100vw - 44px));
+    height: calc(100vh - 46px);
+    min-height: auto;
+    overflow-y: auto;
+    transform: translateX(calc(-100% - 12px));
+    transition: transform 180ms ease;
+  }
+
+  body.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  body.sidebar-open .sidebar-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .logo img {
+    width: min(190px, 100%);
+  }
+
+  .summary-grid,
+  .summary-grid-nike,
+  .summary-grid-mockup,
+  .summary-grid-rapid27,
+  .rapid27-flow-panel {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+}
+
+.MonthFilter::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.82;
+}
+
+:root[data-theme="light"] .MonthFilter::-webkit-calendar-picker-indicator {
+  filter: invert(0.18);
+  opacity: 0.78;
+}
+
+@media (max-width: 520px) {
+  body {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .chart-month-nav {
+    grid-template-columns: 30px minmax(0, 1fr) 30px;
+    gap: 5px;
+  }
+
+  .chart-nav-button {
+    width: 30px;
+    min-width: 30px;
+    min-height: 64px;
+    font-size: 16px;
+  }
+
+  .summary-grid,
+  .summary-grid-nike,
+  .summary-grid-mockup,
+  .summary-grid-rapid27,
+  .rapid27-flow-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-form fieldset,
+  .catalog-family-form {
+    grid-template-columns: 1fr;
+  }
+
+  .table-tools {
+    align-items: stretch;
+  }
+
+  .table-search,
+  .table-column,
+  .table-month-filter,
+  .run-month-all,
+  .table-clear,
+  .table-count {
+    flex: 1 1 100%;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .table-month-filter {
+    justify-content: space-between;
+  }
+
+  .detail-actions {
+    justify-content: flex-start;
+  }
+
+  .nike-item-summary {
+    grid-template-columns: 1fr;
+  }
+}

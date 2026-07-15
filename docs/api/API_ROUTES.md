@@ -106,6 +106,25 @@ GET /api/git-commits/summary
 
 Devuelve conteo y ultimo commit por herramienta.
 
+## Chat grupal LAN
+
+```http
+GET /api/chat/messages?after=:id&limit=50
+```
+
+Devuelve mensajes del canal general en orden ascendente, la IP visible del cliente y el limite de caracteres. Sin `after` entrega los mensajes recientes; con `after` permite sondeo incremental.
+
+```http
+POST /api/chat/messages
+Content-Type: application/json
+
+{
+  "message": "Texto del mensaje"
+}
+```
+
+Registra un mensaje de hasta 500 caracteres en `rmc_chat_messages`. La IP se obtiene de la conexion TCP y no se acepta desde el body.
+
 ## RMCOp-Nike
 
 ### Catalogo Op-Nike

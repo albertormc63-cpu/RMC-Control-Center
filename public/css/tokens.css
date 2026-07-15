@@ -1,0 +1,94 @@
+/* =========================================================
+   Tokens RMC
+   Paleta y fuentes compartidas por todos los CEPs RMC.
+   ========================================================= */
+:root {
+  --rmc-font-ui: Arial, sans-serif;
+  --rmc-font-log: monospace;
+
+  --rmc-bg: #2b2b2b;
+  --rmc-surface: #3a3a3a;
+  --rmc-surface-soft: #333333;
+  --rmc-surface-deep: #1e1e1e;
+  --rmc-field: #181a1d;
+
+  --rmc-border: #444444;
+  --rmc-border-strong: #666666;
+
+  --rmc-text: #ffffff;
+  --rmc-text-soft: #eeeeee;
+  --rmc-muted: #cccccc;
+  --rmc-muted-low: #888888;
+
+  --rmc-primary: #821424;
+  --rmc-primary-hover: #a21a2f;
+  --rmc-primary-strong: #bd1f36;
+
+  --rmc-secondary: #444444;
+  --rmc-secondary-hover: #555555;
+
+  --rmc-focus: #f7c948;
+  --rmc-row-hover: rgba(255, 255, 255, 0.08);
+  --rmc-shadow-primary: rgba(162, 26, 47, 0.45);
+  --rmc-shadow-panel: rgba(0, 0, 0, 0.36);
+  --rmc-backdrop: rgba(0, 0, 0, 0.62);
+  --rmc-resource-action-text: #ffffff;
+  --rmc-table-button-bg: var(--rmc-primary);
+  --rmc-table-button-hover-bg: var(--rmc-primary-hover);
+  --rmc-table-button-text: #ffffff;
+
+  --rmc-log-text: #00ff00;
+  --rmc-log-success: #50fa7b;
+  --rmc-log-error: #ff5555;
+  --rmc-log-warning: #f1fa8c;
+
+  --dept-diseno: #38bdf8;
+  --dept-sublimado: #facc15;
+  --dept-almacen: #34d399;
+  --dept-costura: #fb7185;
+  --dept-calidad: #facc15;
+  --dept-embarque: #34d399;
+  --dept-default: #94a3b8;
+}
+
+:root[data-theme="light"] {
+  --rmc-bg: #f4f5f7;
+  --rmc-surface: #ffffff;
+  --rmc-surface-soft: #eef0f3;
+  --rmc-surface-deep: #dfe3e8;
+  --rmc-field: #ffffff;
+
+  --rmc-border: #d2d6dc;
+  --rmc-border-strong: #9da6b2;
+
+  --rmc-text: #1f2328;
+  --rmc-text-soft: #2f363d;
+  --rmc-muted: #5f6772;
+  --rmc-muted-low: #7b8490;
+
+  --rmc-secondary: #e3e6eb;
+  --rmc-secondary-hover: #d4d9e1;
+
+  --rmc-focus: #b38600;
+  --rmc-row-hover: rgba(130, 20, 36, 0.07);
+  --rmc-shadow-primary: rgba(130, 20, 36, 0.22);
+  --rmc-shadow-panel: rgba(31, 35, 40, 0.16);
+  --rmc-backdrop: rgba(17, 24, 39, 0.48);
+  --rmc-resource-action-text: #1f2328;
+  --rmc-table-button-bg: #ffffff;
+  --rmc-table-button-hover-bg: #ffffff;
+  --rmc-table-button-text: #111111;
+
+  --rmc-log-text: #22c55e;
+  --rmc-log-success: #15803d;
+  --rmc-log-error: #b91c1c;
+  --rmc-log-warning: #a16207;
+
+  --dept-diseno: #0369a1;
+  --dept-sublimado: #b45309;
+  --dept-almacen: #047857;
+  --dept-costura: #be123c;
+  --dept-calidad: #a16207;
+  --dept-embarque: #047857;
+  --dept-default: #64748b;
+}

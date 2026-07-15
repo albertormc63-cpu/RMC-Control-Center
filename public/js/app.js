@@ -66,6 +66,177 @@ let opNikeSelectedVariantId = null;
 let opNikeSelectedFamilyKey = "";
 let opNikeLastValidation = null;
 
+const opNikeVariantPresets = {
+  official_home: {
+    label: "Equipo oficial HOME",
+    values: {
+      variant_code: "H",
+      variant_name: "Home",
+      aliases: "Home; HOME",
+      opnike_enabled: 1,
+      opnike_rule_status: "draft",
+      is_official_team: 1,
+      requires_design_code: 0,
+      opnike_variant_root_folder: "STANDARD",
+      opnike_group_folder_pattern: "NIKE Mens and Youth",
+      opnike_product_folder_pattern: "{style.product_folder}",
+      opnike_version_folder_pattern: "HOME",
+      opnike_team_folder_pattern: "",
+      opnike_design_folder: "",
+      opnike_style_subfolder_rule: "",
+      opnike_template_name_pattern: "{liga} {file_team_name} {style} {size}.pdf",
+      opnike_output_name_pattern: "{orderId} {liga}-{team_market}{nickname} {style} {size} {identifier}.pdf",
+      opnike_fallback_search_mode: "style_and_size",
+      opnike_resolution_strategy: "standard_team_version_folder",
+      opnike_requires_version_folder: 1,
+      opnike_requires_team_folder: 0,
+      opnike_requires_design_folder: 0,
+      opnike_requires_style_subfolder: 0
+    }
+  },
+  official_away: {
+    label: "Equipo oficial AWAY",
+    values: {
+      variant_code: "A",
+      variant_name: "Away",
+      aliases: "Away; AWAY",
+      opnike_enabled: 1,
+      opnike_rule_status: "draft",
+      is_official_team: 1,
+      requires_design_code: 0,
+      opnike_variant_root_folder: "STANDARD",
+      opnike_group_folder_pattern: "NIKE Mens and Youth",
+      opnike_product_folder_pattern: "{style.product_folder}",
+      opnike_version_folder_pattern: "AWAY",
+      opnike_team_folder_pattern: "",
+      opnike_design_folder: "",
+      opnike_style_subfolder_rule: "",
+      opnike_template_name_pattern: "{liga} {file_team_name} {style} {size}.pdf",
+      opnike_output_name_pattern: "{orderId} {liga}-{team_market}{nickname} {style} {size} {identifier}.pdf",
+      opnike_fallback_search_mode: "style_and_size",
+      opnike_resolution_strategy: "standard_team_version_folder",
+      opnike_requires_version_folder: 1,
+      opnike_requires_team_folder: 0,
+      opnike_requires_design_folder: 0,
+      opnike_requires_style_subfolder: 0
+    }
+  },
+  special_team: {
+    label: "Especial por carpeta de equipo",
+    values: {
+      opnike_enabled: 1,
+      opnike_rule_status: "draft",
+      is_official_team: 1,
+      requires_design_code: 0,
+      opnike_variant_root_folder: "SPECIAL",
+      opnike_group_folder_pattern: "NIKE Mens and Youth",
+      opnike_product_folder_pattern: "{style.product_folder}",
+      opnike_version_folder_pattern: "{variant_name}",
+      opnike_team_folder_pattern: "{file_team_name}",
+      opnike_design_folder: "",
+      opnike_style_subfolder_rule: "",
+      opnike_template_name_pattern: "{liga} {file_team_name} {style} {size}.pdf",
+      opnike_output_name_pattern: "{orderId} {liga}-{team_market}{nickname} {style} {size} {identifier}.pdf",
+      opnike_fallback_search_mode: "style_and_size",
+      opnike_resolution_strategy: "special_team_folder_with_legacy_version_fallback",
+      opnike_requires_version_folder: 1,
+      opnike_requires_team_folder: 1,
+      opnike_requires_design_folder: 0,
+      opnike_requires_style_subfolder: 0
+    }
+  },
+  jr_1500: {
+    label: "JR 1500 con subcarpeta A/Y",
+    values: {
+      opnike_enabled: 1,
+      opnike_rule_status: "draft",
+      is_official_team: 1,
+      requires_design_code: 0,
+      opnike_style_scope: "A1500,Y1500",
+      opnike_variant_root_folder: "JR",
+      opnike_group_folder_pattern: "NIKE Mens and Youth",
+      opnike_product_folder_pattern: "{style.product_folder}",
+      opnike_version_folder_pattern: "{variant_name}",
+      opnike_team_folder_pattern: "{file_team_name}",
+      opnike_design_folder: "",
+      opnike_style_subfolder_rule: "{style_family}",
+      opnike_template_name_pattern: "{liga} {file_team_name} {style} {size}.pdf",
+      opnike_output_name_pattern: "{orderId} {liga}-{team_market}{nickname} {style} {size} {identifier}.pdf",
+      opnike_fallback_search_mode: "style_and_size",
+      opnike_resolution_strategy: "jr_team_folder_with_optional_style_subfolder",
+      opnike_requires_version_folder: 1,
+      opnike_requires_team_folder: 1,
+      opnike_requires_design_folder: 0,
+      opnike_requires_style_subfolder: 1
+    }
+  },
+  design_folder: {
+    label: "Diseño/causa especial",
+    values: {
+      opnike_enabled: 1,
+      opnike_rule_status: "draft",
+      is_official_team: 0,
+      requires_design_code: 1,
+      opnike_variant_root_folder: "SPECIAL",
+      opnike_group_folder_pattern: "NIKE Mens and Youth",
+      opnike_product_folder_pattern: "{style.product_folder}",
+      opnike_version_folder_pattern: "",
+      opnike_team_folder_pattern: "",
+      opnike_design_folder: "{design_name}",
+      opnike_style_subfolder_rule: "",
+      opnike_template_name_pattern: "{liga} {design_name} {style} {size}.pdf",
+      opnike_output_name_pattern: "{orderId} {liga}-{design_name} {style} {size} {identifier}.pdf",
+      opnike_fallback_search_mode: "style_and_size",
+      opnike_resolution_strategy: "design_folder",
+      opnike_requires_version_folder: 0,
+      opnike_requires_team_folder: 0,
+      opnike_requires_design_folder: 1,
+      opnike_requires_style_subfolder: 0
+    }
+  },
+  design_version: {
+    label: "Diseño con version Home/Away",
+    values: {
+      opnike_enabled: 1,
+      opnike_rule_status: "draft",
+      is_official_team: 0,
+      requires_design_code: 1,
+      opnike_variant_root_folder: "SPECIAL",
+      opnike_group_folder_pattern: "NIKE Mens and Youth",
+      opnike_product_folder_pattern: "{style.product_folder}",
+      opnike_version_folder_pattern: "{variant_name}",
+      opnike_team_folder_pattern: "",
+      opnike_design_folder: "{design_name}",
+      opnike_style_subfolder_rule: "",
+      opnike_template_name_pattern: "{liga} {design_name} {variant_name} {style} {size}.pdf",
+      opnike_output_name_pattern: "{orderId} {liga}-{design_name} {variant_name} {style} {size} {identifier}.pdf",
+      opnike_fallback_search_mode: "style_and_size",
+      opnike_resolution_strategy: "design_version_folder",
+      opnike_requires_version_folder: 1,
+      opnike_requires_team_folder: 0,
+      opnike_requires_design_folder: 1,
+      opnike_requires_style_subfolder: 0
+    }
+  }
+};
+
+const opNikeDuplicateClearFields = [
+  "id",
+  "variant_code",
+  "variant_name",
+  "team_code",
+  "team_name",
+  "team_market",
+  "team_mascot",
+  "file_team_name",
+  "design_code",
+  "design_name",
+  "template_name_placeholder",
+  "template_number_placeholder",
+  "aliases",
+  "notes"
+];
+
 // Acceso corto a elementos por id para evitar repetir document.getElementById.
 function getElement(id) {
   return document.getElementById(id);
@@ -2176,6 +2347,128 @@ function collectFormPayload(form) {
   }, {});
 }
 
+function setFormControlValue(form, name, value) {
+  const control = form?.elements?.[name];
+
+  if (!control) {
+    return;
+  }
+
+  if (control.type === "checkbox") {
+    control.checked = Number(value ?? 0) === 1;
+    return;
+  }
+
+  control.value = value ?? "";
+}
+
+function patchFormValues(form, values = {}) {
+  Object.entries(values).forEach(([name, value]) => setFormControlValue(form, name, value));
+}
+
+function normalizeAliasList(value) {
+  const seen = new Set();
+
+  return String(value || "")
+    .split(/[;,\n|]+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .filter(item => {
+      const key = item.toLowerCase();
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+}
+
+function buildOpNikeAliasSuggestions(payload = {}) {
+  return normalizeAliasList([
+    payload.aliases,
+    payload.team_market,
+    payload.team_mascot,
+    payload.team_name,
+    payload.file_team_name,
+    payload.design_code,
+    payload.design_name,
+    payload.variant_code,
+    payload.variant_name
+  ].filter(Boolean).join("; "));
+}
+
+function clearOpNikeFieldHighlights(form = getOpNikeVariantForm()) {
+  form?.querySelectorAll(".catalog-field-missing").forEach(label => {
+    label.classList.remove("catalog-field-missing");
+  });
+}
+
+function highlightOpNikeMissingFields(missingFields = []) {
+  const form = getOpNikeVariantForm();
+
+  clearOpNikeFieldHighlights(form);
+  missingFields.forEach(field => {
+    const control = form?.elements?.[field];
+    const label = control?.closest?.("label");
+
+    label?.classList.add("catalog-field-missing");
+  });
+}
+
+function updateOpNikeCaptureSummary(message = "") {
+  const form = getOpNikeVariantForm();
+  const summary = getElement("opNikeCaptureSummary");
+
+  if (!form || !summary) {
+    return;
+  }
+
+  const payload = collectFormPayload(form);
+  const parts = [];
+
+  if (payload.variant_code || payload.variant_name) {
+    parts.push(`${payload.variant_code || "sin code"} · ${payload.variant_name || "sin nombre"}`);
+  }
+
+  if (payload.opnike_style_scope) {
+    parts.push(`styles ${payload.opnike_style_scope}`);
+  }
+
+  if (payload.opnike_resolution_strategy) {
+    parts.push(payload.opnike_resolution_strategy);
+  }
+
+  summary.textContent = message || parts.join(" | ") || "Elige una plantilla, completa identidad/equipo y valida antes de activar.";
+}
+
+function renderOpNikeCatalogHelpers() {
+  const familyList = getElement("opNikeStyleFamiliesDatalist");
+  const ligaList = getElement("opNikeLigaDatalist");
+
+  if (familyList) {
+    familyList.innerHTML = "";
+    opNikeCatalogData.families.forEach(family => {
+      const option = document.createElement("option");
+
+      option.value = family.style_family || "";
+      option.label = [family.liga, family.line_name, family.product_folder].filter(Boolean).join(" · ");
+      familyList.appendChild(option);
+    });
+  }
+
+  if (ligaList) {
+    ligaList.innerHTML = "";
+    Array.from(new Set(opNikeCatalogData.families.map(family => family.liga).filter(Boolean))).sort().forEach(liga => {
+      const option = document.createElement("option");
+
+      option.value = liga;
+      ligaList.appendChild(option);
+    });
+  }
+}
+
 function getVariantIdentity(variant) {
   return [
     variant.team_market,
@@ -2217,6 +2510,9 @@ function markOpNikeValidationStale() {
     badge.textContent = "Pendiente";
     badge.dataset.department = "default";
   }
+
+  clearOpNikeFieldHighlights();
+  updateOpNikeCaptureSummary();
 }
 
 function renderOpNikeValidation(result) {
@@ -2229,6 +2525,12 @@ function renderOpNikeValidation(result) {
   const canActivate = Boolean(validation.canActivate);
 
   opNikeLastValidation = result;
+  highlightOpNikeMissingFields(validation.missingFields || []);
+  updateOpNikeCaptureSummary(
+    canActivate
+      ? "Regla completa: ya puede guardarse/activarse cuando corresponda."
+      : `Faltan ${formatNumber(validation.missingFields?.length || 0)} campo(s) para activar.`
+  );
 
   if (badge) {
     badge.textContent = canActivate ? "Completa" : "Incompleta";
@@ -2362,6 +2664,72 @@ function renderOpNikeFamilies() {
   updateSortIndicators("opNikeFamiliesTable");
 }
 
+function applyOpNikeVariantPreset() {
+  const form = getOpNikeVariantForm();
+  const select = getElement("opNikeVariantPreset");
+  const preset = opNikeVariantPresets[select?.value || ""];
+
+  if (!form || !preset) {
+    appendLog("Selecciona una plantilla de regla Op-Nike", "warning");
+    return;
+  }
+
+  patchFormValues(form, preset.values);
+  markOpNikeValidationStale();
+  updateOpNikeCaptureSummary(`Plantilla aplicada: ${preset.label}. Completa los datos propios de la variante.`);
+  appendLog(`Plantilla Op-Nike aplicada: ${preset.label}`, "info");
+}
+
+function duplicateOpNikeSelectedVariant() {
+  const form = getOpNikeVariantForm();
+
+  if (!form || !opNikeSelectedVariantId) {
+    appendLog("Selecciona una variante existente para duplicarla", "warning");
+    return;
+  }
+
+  const payload = collectFormPayload(form);
+  opNikeDuplicateClearFields.forEach(field => {
+    payload[field] = "";
+  });
+  payload.is_active = 1;
+  payload.opnike_enabled = 0;
+  payload.opnike_rule_status = "draft";
+
+  opNikeSelectedVariantId = null;
+  setText("opNikeVariantFormTitle", "Nueva variante desde copia");
+  setFormValues(form, payload);
+  clearOpNikeFieldHighlights(form);
+  markOpNikeValidationStale();
+  renderOpNikeVariants();
+  updateOpNikeCaptureSummary("Copia lista: captura code, nombre, equipo/diseño y aliases antes de guardar.");
+  appendLog("Variante duplicada como borrador local; aun no se guarda en SQLite", "info");
+}
+
+function suggestOpNikeAliases() {
+  const form = getOpNikeVariantForm();
+
+  if (!form) {
+    return;
+  }
+
+  const payload = collectFormPayload(form);
+  const aliases = buildOpNikeAliasSuggestions(payload).join("; ");
+
+  setFormControlValue(form, "aliases", aliases);
+  markOpNikeValidationStale();
+  updateOpNikeCaptureSummary("Aliases sugeridos a partir de equipo, diseño y variante.");
+}
+
+function normalizeOpNikeAliases() {
+  const form = getOpNikeVariantForm();
+  const aliases = normalizeAliasList(form?.elements?.aliases?.value).join("; ");
+
+  setFormControlValue(form, "aliases", aliases);
+  markOpNikeValidationStale();
+  updateOpNikeCaptureSummary("Aliases ordenados y sin duplicados.");
+}
+
 function selectOpNikeVariant(id) {
   const variant = opNikeCatalogData.variants.find(item => Number(item.id) === Number(id));
   const form = getOpNikeVariantForm();
@@ -2434,6 +2802,7 @@ async function loadOpNikeCatalog() {
   };
 
   setText("opNikeCatalogRoot", `Raiz de plantillas: ${opNikeCatalogData.templateRoot}`);
+  renderOpNikeCatalogHelpers();
   renderOpNikeVariants();
   renderOpNikeFamilies();
 
@@ -2800,6 +3169,10 @@ function bindOpNikeCatalogControls() {
 
   getElement("opNikeNewVariant")?.addEventListener("click", resetOpNikeVariantForm);
   getElement("opNikeNewFamily")?.addEventListener("click", resetOpNikeFamilyForm);
+  getElement("opNikeApplyPreset")?.addEventListener("click", applyOpNikeVariantPreset);
+  getElement("opNikeDuplicateVariant")?.addEventListener("click", duplicateOpNikeSelectedVariant);
+  getElement("opNikeBuildAliases")?.addEventListener("click", suggestOpNikeAliases);
+  getElement("opNikeNormalizeAliases")?.addEventListener("click", normalizeOpNikeAliases);
 
   getElement("opNikeSaveVariant")?.addEventListener("click", () => {
     saveOpNikeVariant().catch(error => {

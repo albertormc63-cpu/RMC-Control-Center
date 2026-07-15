@@ -55,14 +55,50 @@ window.RMCComponents.opNikeCatalogView = function opNikeCatalogView() {
             </div>
           </div>
 
+          <section class="catalog-capture-helper" aria-label="Captura rapida de variantes Op-Nike">
+            <div>
+              <span class="modal-eyebrow">Captura guiada</span>
+              <p id="opNikeCaptureSummary">Elige una plantilla, completa identidad/equipo y valida antes de activar.</p>
+            </div>
+            <div class="catalog-helper-controls">
+              <label>Plantilla de regla
+                <select id="opNikeVariantPreset">
+                  <option value="">Seleccionar plantilla</option>
+                  <option value="official_home">Equipo oficial HOME</option>
+                  <option value="official_away">Equipo oficial AWAY</option>
+                  <option value="special_team">Especial por carpeta de equipo</option>
+                  <option value="jr_1500">JR 1500 con subcarpeta A/Y</option>
+                  <option value="design_folder">Diseño/causa especial</option>
+                  <option value="design_version">Diseño con version Home/Away</option>
+                </select>
+              </label>
+              <button id="opNikeApplyPreset" class="secondary-button" type="button">Aplicar plantilla</button>
+              <button id="opNikeDuplicateVariant" class="secondary-button" type="button">Duplicar seleccionado</button>
+              <button id="opNikeBuildAliases" class="secondary-button" type="button">Sugerir aliases</button>
+              <button id="opNikeNormalizeAliases" class="secondary-button" type="button">Ordenar aliases</button>
+            </div>
+            <div class="catalog-token-help">
+              <span>Tokens comunes</span>
+              <code>{liga}</code>
+              <code>{file_team_name}</code>
+              <code>{team_market}</code>
+              <code>{nickname}</code>
+              <code>{style}</code>
+              <code>{size}</code>
+              <code>{templateCode}</code>
+            </div>
+          </section>
+
           <form id="opNikeVariantForm" class="catalog-form">
+            <datalist id="opNikeStyleFamiliesDatalist"></datalist>
+            <datalist id="opNikeLigaDatalist"></datalist>
             <input type="hidden" name="id">
 
             <fieldset>
               <legend>Identidad</legend>
               <label>Variant code<input name="variant_code" type="text" required placeholder="H, A, IH, TB, SS"></label>
               <label>Nombre<input name="variant_name" type="text" required placeholder="Home, Away, Green Beret"></label>
-              <label>Liga<input name="liga" type="text" placeholder="PLL, WLL"></label>
+              <label>Liga<input name="liga" type="text" list="opNikeLigaDatalist" placeholder="PLL, WLL"></label>
               <label>Status
                 <select name="opnike_rule_status" required>
                   <option value="draft">draft</option>
@@ -89,7 +125,7 @@ window.RMCComponents.opNikeCatalogView = function opNikeCatalogView() {
 
             <fieldset>
               <legend>Reglas de ruta y nombre</legend>
-              <label>Style scope<input name="opnike_style_scope" type="text" required placeholder="A1000,Y1000"></label>
+              <label>Style scope<input name="opnike_style_scope" type="text" list="opNikeStyleFamiliesDatalist" required placeholder="A1000,Y1000"></label>
               <label>Variant root<input name="opnike_variant_root_folder" type="text" required placeholder="STANDARD"></label>
               <label>Group folder<input name="opnike_group_folder_pattern" type="text" required placeholder="NIKE Mens and Youth"></label>
               <label>Product folder<input name="opnike_product_folder_pattern" type="text" required placeholder="{style.product_folder}"></label>
