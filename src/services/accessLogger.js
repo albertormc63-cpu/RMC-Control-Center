@@ -3,6 +3,10 @@ const path = require("path");
 
 const DISABLED_VALUES = new Set(["0", "false", "no", "off"]);
 const DEFAULT_LOG_PATH = path.join(__dirname, "..", "..", "logs", "access.log");
+const CHAT_POLLING_PATHS = new Set([
+  "/api/chat/messages",
+  "/api/chat/reactions"
+]);
 
 function isEnabled(value, fallback = true) {
   if (value === undefined || value === null || String(value).trim() === "") {
@@ -79,8 +83,22 @@ function parseClientNames(value) {
   return clientNames;
 }
 
+function getRequestPath(req) {
+  const requestPath = req.path || req.originalUrl || req.url || "";
+  return String(requestPath).split("?")[0];
+}
+
+function isChatPollingRequest(req) {
+  return String(req.method || "").toUpperCase() === "GET" &&
+    CHAT_POLLING_PATHS.has(getRequestPath(req));
+}
+
 function createAccessLogger(options = {}) {
   const enabled = isEnabled(options.enabled ?? process.env.RMC_ACCESS_LOG_ENABLED, true);
+  const logPollingRequests = isEnabled(
+    options.logPollingRequests ?? process.env.RMC_ACCESS_LOG_POLLING_ENABLED,
+    false
+  );
   const logPath = resolveLogPath(options.logPath ?? process.env.RMC_ACCESS_LOG_PATH);
   const clientNames = parseClientNames(options.clientNames ?? process.env.RMC_ACCESS_LOG_CLIENT_NAMES);
   const seenRemoteClients = new Set();
@@ -100,6 +118,11 @@ function createAccessLogger(options = {}) {
   }
 
   const middleware = (req, res, next) => {
+    if (!logPollingRequests && isChatPollingRequest(req)) {
+      next();
+      return;
+    }
+
     const startedAt = Date.now();
     const clientIp = getClientIp(req);
     const isLocal = isLocalIp(clientIp);
@@ -138,6 +161,7 @@ function createAccessLogger(options = {}) {
 
   middleware.enabled = true;
   middleware.logPath = logPath;
+  middleware.logPollingRequests = logPollingRequests;
   return middleware;
 }
 
@@ -145,5 +169,6 @@ module.exports = {
   createAccessLogger,
   normalizeIp,
   isLocalIp,
+  isChatPollingRequest,
   parseClientNames
 };

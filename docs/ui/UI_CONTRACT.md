@@ -123,6 +123,8 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Cada mensaje muestra la IP detectada por el servidor y su fecha/hora.
 - Envio con `Enter`; `Shift + Enter` agrega una linea.
 - Sondeo incremental cada 3 segundos para compartir mensajes en LAN.
+- Selector de reacciones `👍 ❤️ 😂 😮 😢 😡` similar a Facebook.
+- Conteos por reaccion sincronizados y una reaccion activa por IP/mensaje.
 - En mobile se adapta como panel ancho sin modificar el dashboard.
 
 `dashboardView.js`:

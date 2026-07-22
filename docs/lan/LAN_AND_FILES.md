@@ -36,11 +36,20 @@ RMC_FILE_ROOT=/Volumes/Fullsize
 RMC_ACCESS_LOG_ENABLED=true
 RMC_ACCESS_LOG_PATH=logs/access.log
 RMC_ACCESS_LOG_CLIENT_NAMES=127.0.0.1=Servidor,10.5.2.36=Equipo-LAN
+RMC_ACCESS_LOG_POLLING_ENABLED=false
 ```
 
 ## Registro de accesos
 
-El servidor registra cada request HTTP en `logs/access.log` usando formato JSON Lines. El archivo queda fuera de git por `.gitignore`.
+El servidor registra los accesos HTTP en `logs/access.log` usando formato JSON Lines. El archivo queda fuera de git por `.gitignore`.
+
+Por defecto omite los `GET` repetitivos de `/api/chat/messages` y `/api/chat/reactions`, ya que son sondeos automaticos cada 3 segundos. Los `POST` de mensajes y `PUT` de reacciones si permanecen en el log.
+
+Para diagnosticar el sondeo e incluir tambien esos `GET`:
+
+```env
+RMC_ACCESS_LOG_POLLING_ENABLED=true
+```
 
 Cada linea incluye:
 

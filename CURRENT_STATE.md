@@ -14,7 +14,7 @@ Excepcion documentada: el modulo de sincronizacion externa escribe tablas auxili
 
 Excepcion Op-Nike: la pantalla `Catalogo Op-Nike` administra `rmc_nike_style_families` y `rmc_nike_style_variants` para configurar familias, variantes, aliases y reglas de ruta/nombre. No escribe runs ni items de produccion.
 
-Excepcion chat LAN: el chat grupal escribe solamente la tabla auxiliar `rmc_chat_messages`. La IP de la conexion identifica provisionalmente cada mensaje hasta integrar usuarios.
+Excepcion chat LAN: el chat grupal escribe solamente las tablas auxiliares `rmc_chat_messages` y `rmc_chat_reactions`. La IP de la conexion identifica provisionalmente cada mensaje y reaccion hasta integrar usuarios.
 
 ## Herramientas integradas
 
@@ -62,6 +62,8 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `GET /api/sync/sources/:id/runs`
 - `GET /api/chat/messages`
 - `POST /api/chat/messages`
+- `GET /api/chat/reactions`
+- `PUT /api/chat/messages/:id/reaction`
 
 ## Codigo principal
 
@@ -116,6 +118,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_print_sublimation_log`
 - `rmc_sublimation_output_log`
 - `rmc_chat_messages`
+- `rmc_chat_reactions`
 
 ## Tablas auxiliares escritas por RMCCC
 
@@ -126,6 +129,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_nike_style_families`
 - `rmc_nike_style_variants`
 - `rmc_chat_messages`
+- `rmc_chat_reactions`
 
 No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop_nike_runs`, `rmc_mockuptool_items` o `rmc_mockuptool_runs` salvo instruccion explicita y documentada.
 
@@ -142,6 +146,7 @@ Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/co
 - Los archivos se sirven por endpoint, no por rutas directas del navegador.
 - Los paths historicos de SQLite no se reescriben cuando el volumen archiva carpetas; `rmcFileResolver` busca candidatos seguros bajo `TO PRINT/NIKE ORDERS`, carpetas mensuales/anuales y listas Nike/On Demand.
 - El servidor escucha en `0.0.0.0` para acceso LAN.
+- El access log omite por default los `GET` periodicos del chat; `RMC_ACCESS_LOG_POLLING_ENABLED=true` permite registrarlos para diagnostico.
 - RMCCC no reemplaza Exceles operativos de cada area; los puede leer como fuentes externas y espejear en tablas auxiliares.
 - El reporte de impresores se cruza inicialmente con Nike por `work_order = wo`.
 - Una fila del reporte de impresores puede representar varias piezas Nike.

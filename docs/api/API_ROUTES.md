@@ -125,6 +125,23 @@ Content-Type: application/json
 
 Registra un mensaje de hasta 500 caracteres en `rmc_chat_messages`. La IP se obtiene de la conexion TCP y no se acepta desde el body.
 
+```http
+GET /api/chat/reactions?message_ids=1,2,3
+```
+
+Devuelve conteos y la reaccion de la IP solicitante para hasta 100 mensajes visibles. Permite sincronizar cambios de reaccion sin recargar el historial.
+
+```http
+PUT /api/chat/messages/:id/reaction
+Content-Type: application/json
+
+{
+  "reaction": "like"
+}
+```
+
+Reacciones permitidas: `like`, `love`, `haha`, `wow`, `sad` y `angry`. Cada IP mantiene una sola reaccion por mensaje: elegir otra la reemplaza y repetir la misma la elimina.
+
 ## RMCOp-Nike
 
 ### Catalogo Op-Nike

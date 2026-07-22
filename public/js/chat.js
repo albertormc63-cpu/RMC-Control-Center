@@ -1,6 +1,15 @@
 (function initGroupChat() {
   const POLL_INTERVAL_MS = 3000;
   const OPEN_STORAGE_KEY = "rmc-group-chat-open";
+  const REACTIONS = [
+    { key: "like", emoji: "👍", label: "Me gusta" },
+    { key: "love", emoji: "❤️", label: "Me encanta" },
+    { key: "haha", emoji: "😂", label: "Me divierte" },
+    { key: "wow", emoji: "😮", label: "Me asombra" },
+    { key: "sad", emoji: "😢", label: "Me entristece" },
+    { key: "angry", emoji: "😡", label: "Me enoja" }
+  ];
+  const REACTION_BY_KEY = Object.fromEntries(REACTIONS.map(reaction => [reaction.key, reaction]));
   const state = {
     currentIp: "",
     lastMessageId: 0,
@@ -109,6 +118,174 @@
     }
   }
 
+  function createReactionControls() {
+    const footer = document.createElement("div");
+    const control = document.createElement("div");
+    const trigger = document.createElement("button");
+    const picker = document.createElement("div");
+    const summary = document.createElement("div");
+
+    footer.className = "group-chat-message-reactions";
+    control.className = "group-chat-reaction-control";
+    trigger.type = "button";
+    trigger.className = "group-chat-reaction-trigger";
+    trigger.dataset.reactionTrigger = "";
+    trigger.setAttribute("aria-haspopup", "menu");
+    trigger.setAttribute("aria-expanded", "false");
+    picker.className = "group-chat-reaction-picker";
+    picker.setAttribute("role", "menu");
+    picker.setAttribute("aria-label", "Elegir reaccion");
+    summary.className = "group-chat-reaction-summary";
+    summary.setAttribute("aria-label", "Resumen de reacciones");
+
+    REACTIONS.forEach(reaction => {
+      const button = document.createElement("button");
+
+      button.type = "button";
+      button.className = "group-chat-reaction-option";
+      button.dataset.chatReaction = reaction.key;
+      button.textContent = reaction.emoji;
+      button.title = reaction.label;
+      button.setAttribute("aria-label", reaction.label);
+      button.setAttribute("role", "menuitem");
+      picker.appendChild(button);
+    });
+
+    control.append(trigger, picker);
+    footer.append(control, summary);
+    return footer;
+  }
+
+  function renderReactionState(article, data = {}) {
+    if (!article) {
+      return;
+    }
+
+    const trigger = article.querySelector("[data-reaction-trigger]");
+    const summary = article.querySelector(".group-chat-reaction-summary");
+    const counts = data.counts || {};
+    const viewerReaction = REACTION_BY_KEY[data.viewer_reaction] ? data.viewer_reaction : "";
+    const selected = REACTION_BY_KEY[viewerReaction];
+
+    article.dataset.viewerReaction = viewerReaction;
+
+    if (trigger) {
+      trigger.textContent = selected ? `${selected.emoji} ${selected.label}` : "Reaccionar";
+      trigger.classList.toggle("is-active", Boolean(selected));
+      trigger.setAttribute(
+        "aria-label",
+        selected ? `${selected.label}. Pulsa para cambiar la reaccion` : "Reaccionar al mensaje"
+      );
+    }
+
+    if (!summary) {
+      return;
+    }
+
+    summary.textContent = "";
+
+    REACTIONS.forEach(reaction => {
+      const count = Number(counts[reaction.key]) || 0;
+
+      if (!count) {
+        return;
+      }
+
+      const button = document.createElement("button");
+
+      button.type = "button";
+      button.className = "group-chat-reaction-count";
+      button.classList.toggle("is-active", reaction.key === viewerReaction);
+      button.dataset.chatReaction = reaction.key;
+      button.textContent = `${reaction.emoji} ${count}`;
+      button.title = `${reaction.label}: ${count}`;
+      button.setAttribute("aria-label", `${reaction.label}: ${count}`);
+      summary.appendChild(button);
+    });
+  }
+
+  function closeReactionPickers(exceptArticle = null) {
+    document.querySelectorAll(".group-chat-reaction-control.is-open").forEach(control => {
+      if (exceptArticle && exceptArticle.contains(control)) {
+        return;
+      }
+
+      control.classList.remove("is-open");
+      control.querySelector("[data-reaction-trigger]")?.setAttribute("aria-expanded", "false");
+
+      if (control.contains(document.activeElement)) {
+        document.activeElement.blur();
+      }
+    });
+  }
+
+  function toggleReactionPicker(article) {
+    const control = article?.querySelector(".group-chat-reaction-control");
+    const trigger = control?.querySelector("[data-reaction-trigger]");
+
+    if (!control || !trigger) {
+      return;
+    }
+
+    const nextOpen = !control.classList.contains("is-open");
+    closeReactionPickers(article);
+    control.classList.toggle("is-open", nextOpen);
+    trigger.setAttribute("aria-expanded", String(nextOpen));
+  }
+
+  async function applyReaction(article, reaction) {
+    const messageId = Number(article?.dataset.messageId) || 0;
+
+    if (!messageId || !REACTION_BY_KEY[reaction] || article.dataset.reactionPending === "true") {
+      return;
+    }
+
+    article.dataset.reactionPending = "true";
+    article.querySelectorAll("[data-chat-reaction]").forEach(button => {
+      button.disabled = true;
+    });
+
+    try {
+      const data = await requestJson(`/api/chat/messages/${messageId}/reaction`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reaction })
+      });
+
+      state.currentIp = data.viewer_ip || state.currentIp;
+      renderReactionState(article, data.reactions);
+      closeReactionPickers();
+      setStatus("");
+    } catch (error) {
+      setStatus(error.message, "error");
+    } finally {
+      article.dataset.reactionPending = "false";
+      article.querySelectorAll("[data-chat-reaction]").forEach(button => {
+        button.disabled = false;
+      });
+    }
+  }
+
+  async function refreshReactions() {
+    const articles = [...document.querySelectorAll(".group-chat-message[data-message-id]")].slice(-100);
+    const messageIds = articles.map(article => article.dataset.messageId).filter(Boolean);
+
+    if (!messageIds.length) {
+      return;
+    }
+
+    const data = await requestJson(`/api/chat/reactions?message_ids=${encodeURIComponent(messageIds.join(","))}`);
+    state.currentIp = data.viewer_ip || state.currentIp;
+
+    articles.forEach(article => {
+      const reactions = data.reactions?.[article.dataset.messageId];
+
+      if (reactions) {
+        renderReactionState(article, reactions);
+      }
+    });
+  }
+
   function createMessageNode(message) {
     const article = document.createElement("article");
     const meta = document.createElement("div");
@@ -124,10 +301,12 @@
     ip.textContent = ownMessage ? `${message.client_ip} · Tú` : message.client_ip;
     time.dateTime = message.created_at || "";
     time.textContent = formatTime(message.created_at);
+    body.className = "group-chat-message-body";
     body.textContent = message.message;
 
     meta.append(ip, time);
-    article.append(meta, body);
+    article.append(meta, body, createReactionControls());
+    renderReactionState(article, message.reactions);
     return article;
   }
 
@@ -145,7 +324,12 @@
     items.forEach(message => {
       const id = Number(message.id) || 0;
 
-      if (!id || container.querySelector(`[data-message-id="${id}"]`)) {
+      const existing = id ? container.querySelector(`[data-message-id="${id}"]`) : null;
+
+      if (!id || existing) {
+        if (existing) {
+          renderReactionState(existing, message.reactions);
+        }
         state.lastMessageId = Math.max(state.lastMessageId, id);
         return;
       }
@@ -195,6 +379,7 @@
       const initial = !state.initialized;
       state.currentIp = data.viewer_ip || state.currentIp;
       appendMessages(data.messages, { initial, forceScroll: options.forceScroll });
+      await refreshReactions();
       state.initialized = true;
       setStatus("");
     } catch (error) {
@@ -253,6 +438,24 @@
     element("groupChatToggle")?.addEventListener("click", () => setOpen(!isOpen()));
     element("groupChatClose")?.addEventListener("click", () => setOpen(false));
     element("groupChatForm")?.addEventListener("submit", sendMessage);
+    element("groupChatMessages")?.addEventListener("click", event => {
+      const article = event.target.closest(".group-chat-message[data-message-id]");
+
+      if (!article) {
+        return;
+      }
+
+      if (event.target.closest("[data-reaction-trigger]")) {
+        toggleReactionPicker(article);
+        return;
+      }
+
+      const reactionButton = event.target.closest("[data-chat-reaction]");
+
+      if (reactionButton) {
+        applyReaction(article, reactionButton.dataset.chatReaction);
+      }
+    });
     element("groupChatInput")?.addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
@@ -266,6 +469,16 @@
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) {
         loadMessages({ forceScroll: isOpen() });
+      }
+    });
+    document.addEventListener("click", event => {
+      if (!event.target.closest(".group-chat-reaction-control")) {
+        closeReactionPickers();
+      }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        closeReactionPickers();
       }
     });
   }

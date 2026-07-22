@@ -10,7 +10,7 @@ Excepcion vigente: la pantalla `Catalogo Op-Nike` administra el catalogo SQLite 
 
 La conexion actual usa `better-sqlite3` y `fileMustExist: true`.
 
-El chat grupal LAN es un modulo auxiliar propio de RMCCC. Crea y escribe solamente `rmc_chat_messages`; no modifica datos operativos de ningun CEP.
+El chat grupal LAN es un modulo auxiliar propio de RMCCC. Crea y escribe solamente `rmc_chat_messages` y `rmc_chat_reactions`; no modifica datos operativos de ningun CEP.
 
 ## Tablas leidas
 
@@ -25,6 +25,7 @@ rmc_nike_style_families
 rmc_mockuptool_runs
 rmc_mockuptool_items
 rmc_chat_messages
+rmc_chat_reactions
 ```
 
 ## rmc_chat_messages
@@ -42,6 +43,23 @@ Uso:
 
 - Historial compartido del chat LAN.
 - Identificacion provisional por IP hasta integrar usuarios y permisos.
+
+## rmc_chat_reactions
+
+Reaccion unica por mensaje e IP.
+
+Columnas:
+
+- `message_id`
+- `client_ip`
+- `reaction`
+- `created_at`
+- `updated_at`
+
+Uso:
+
+- Conteos `like`, `love`, `haha`, `wow`, `sad` y `angry`.
+- Reemplazo o eliminacion de la reaccion activa de cada IP.
 
 ## cep_registry
 

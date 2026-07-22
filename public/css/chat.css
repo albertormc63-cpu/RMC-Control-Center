@@ -115,6 +115,7 @@
 
 .group-chat-message {
   --chat-ip-color: #38bdf8;
+  position: relative;
   width: fit-content;
   max-width: 88%;
   margin: 0 0 11px;
@@ -157,13 +158,130 @@
   font-size: 9px;
 }
 
-.group-chat-message p {
+.group-chat-message-body {
   margin: 0;
   color: var(--rmc-text-soft);
   font-size: 12px;
   line-height: 1.38;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.group-chat-message-reactions {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-height: 24px;
+  margin-top: 7px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--rmc-border) 72%, transparent);
+}
+
+.group-chat-reaction-control {
+  position: static;
+}
+
+.group-chat-reaction-trigger,
+.group-chat-reaction-count {
+  min-height: 22px;
+  padding: 2px 5px;
+  border: 0;
+  background: transparent;
+  color: var(--rmc-muted-low);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.group-chat-reaction-trigger:hover,
+.group-chat-reaction-trigger.is-active,
+.group-chat-reaction-count:hover,
+.group-chat-reaction-count.is-active {
+  background: color-mix(in srgb, var(--chat-ip-color) 13%, transparent);
+  color: var(--chat-ip-color);
+  box-shadow: none;
+}
+
+.group-chat-reaction-picker {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: -7px;
+  z-index: 4;
+  display: flex;
+  gap: 2px;
+  width: max-content;
+  padding: 5px;
+  border: 1px solid var(--rmc-border-strong);
+  border-radius: 999px;
+  background: var(--rmc-surface-deep);
+  box-shadow: 0 7px 18px var(--rmc-shadow-panel);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(5px) scale(0.96);
+  transform-origin: bottom left;
+  visibility: hidden;
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+}
+
+.group-chat-message.is-own .group-chat-reaction-picker {
+  right: -7px;
+  left: auto;
+  transform-origin: bottom right;
+}
+
+.group-chat-reaction-control.is-open .group-chat-reaction-picker,
+.group-chat-reaction-control:focus-within .group-chat-reaction-picker {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  visibility: visible;
+}
+
+.group-chat-reaction-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 21px;
+  line-height: 1;
+  transition: background 100ms ease, transform 100ms ease;
+}
+
+.group-chat-reaction-option:hover,
+.group-chat-reaction-option:focus-visible {
+  background: var(--rmc-secondary);
+  box-shadow: none;
+  transform: translateY(-3px) scale(1.18);
+}
+
+.group-chat-reaction-summary {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.group-chat-reaction-count {
+  border: 1px solid var(--rmc-border);
+  border-radius: 999px;
+  background: var(--rmc-field);
+  color: var(--rmc-text-soft);
+}
+
+@media (hover: hover) {
+  .group-chat-reaction-control:hover .group-chat-reaction-picker {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+    visibility: visible;
+  }
 }
 
 .group-chat-status {
