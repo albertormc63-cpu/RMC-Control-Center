@@ -31,6 +31,76 @@ window.RMCComponents.dashboardView = function dashboardView() {
 
       <section class="dashboard-block">
         <div class="block-title">
+          <h3>Seguimiento operativo 27 / Rapid</h3>
+          <div class="dashboard-period-filter">
+            <label for="rapid27DashboardMonthFilter">Mes de embarque</label>
+            <input class="MonthFilter" id="rapid27DashboardMonthFilter" type="month">
+            <button id="rapid27DashboardMonthAll" class="secondary-button" type="button">Todos</button>
+            <span id="rapid27Availability" class="department-badge" data-department="default">Consultando datos</span>
+          </div>
+        </div>
+
+        <div class="summary-grid summary-grid-rapid27">
+          <div class="summary-card">
+            <span>Embarques</span>
+            <strong id="rapid27Embarques">0</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Pedidos</span>
+            <strong id="rapid27Pedidos">0</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Piezas</span>
+            <strong id="rapid27Piezas">0</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Estilos</span>
+            <strong id="rapid27Estilos">0</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Archivos listos</span>
+            <strong id="rapid27Impresion">0</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>En almacén</span>
+            <strong id="rapid27Sublimado">0</strong>
+          </div>
+        </div>
+
+        <div class="tracking-panel rapid27-flow-panel" aria-live="polite">
+          <div class="tracking-step" data-department="diseno" data-active="false">
+            <strong id="rapid27FilesFlow">Archivos: 0</strong>
+            <span>PDF encontrado o movido</span>
+          </div>
+
+          <div class="tracking-step" data-department="sublimado" data-active="false">
+            <strong id="rapid27PrintFlow">Sublimado: 0</strong>
+            <span>Cruce por WO + style + roster</span>
+          </div>
+
+          <div class="tracking-step" data-department="almacen" data-active="false">
+            <strong id="rapid27WarehouseFlow">Almacén: 0</strong>
+            <span>Cruce por WO + style</span>
+          </div>
+        </div>
+
+        <div class="chart-panel">
+          <h4>Piezas por fecha de embarque</h4>
+          <div class="chart-month-nav" aria-label="Navegacion mensual 27 Rapid">
+            <button id="rapid27DashboardMonthPrev" class="chart-nav-button" type="button" aria-label="Mes anterior 27 Rapid">&lt;</button>
+            <div id="rapid27TrackingChart" class="chart-canvas"></div>
+            <button id="rapid27DashboardMonthNext" class="chart-nav-button" type="button" aria-label="Mes siguiente 27 Rapid">&gt;</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-block">
+        <div class="block-title">
           <h3>RMCOp-Nike</h3>
           <div class="dashboard-period-filter">
             <label for="nikeMonthFilter">Mes de embarque</label>
@@ -100,7 +170,7 @@ window.RMCComponents.dashboardView = function dashboardView() {
         </div>
       </section>
 
-      <section class="dashboard-block">
+      <section id="mockupDashboardBlock" class="dashboard-block hidden">
         <div class="block-title">
           <h3>RMC MockupTool</h3>
           <div class="dashboard-period-filter">

@@ -142,6 +142,28 @@ Content-Type: application/json
 
 Reacciones permitidas: `like`, `love`, `haha`, `wow`, `sad` y `angry`. Cada IP mantiene una sola reaccion por mensaje: elegir otra la reemplaza y repetir la misma la elimina.
 
+## 27 Sports / Rapid
+
+Rutas de solo lectura sobre las tablas `rmc_opt_*` creadas por RMC Optimizador:
+
+```http
+GET /api/optimizador/rapid27/availability
+GET /api/optimizador/rapid27/summary
+GET /api/optimizador/rapid27/shipments
+GET /api/optimizador/rapid27/shipments/:shipmentKey
+GET /api/optimizador/rapid27/orders
+GET /api/optimizador/rapid27/orders/:id
+```
+
+- `availability` informa si existen las cuatro tablas requeridas y las fuentes espejo de Impresion/Sublimado.
+- `summary` devuelve pedidos, lineas, outputs, piezas, estilos, archivos listos y coincidencias operativas.
+- `shipments` agrupa por embarque normalizado y cliente, siguiendo el flujo visual de Nike-Op.
+- `shipments/:shipmentKey` devuelve los pedidos correspondientes a ese embarque/cliente.
+- `orders` conserva el agregado general por pedido.
+- `orders/:id` devuelve pedido, lineas, outputs y metadata segura de assets; acepta `shipment_key` para limitar el modal al embarque abierto y no expone rutas absolutas.
+- El cruce de Impresion usa `WO + style + roster` normalizado; el de Almacen usa `WO + style` porque la fuente de Sublimado no incluye roster.
+- Estas rutas no escriben ni refrescan las tablas del Optimizador.
+
 ## RMCOp-Nike
 
 ### Catalogo Op-Nike

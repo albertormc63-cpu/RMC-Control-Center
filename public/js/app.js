@@ -12,6 +12,7 @@ const filterTargets = [
   "mockupTable",
   "mockupItemsTable",
   "rapid27Table",
+  "rapid27OrdersTable",
   "gitCommitsTable",
   "opNikeVariantsTable"
 ];
@@ -28,6 +29,7 @@ const sortableTargets = [
   "mockupTable",
   "mockupItemsTable",
   "rapid27Table",
+  "rapid27OrdersTable",
   "registryTable",
   "tablesTable",
   "gitCommitsTable",
@@ -47,14 +49,18 @@ let dashboardData = null;
 // Cache de embarques agrupados para abrir detalle desde graficas sin nuevas rutas backend.
 let nikeRunsCache = [];
 let mockupRunsCache = [];
+let rapid27ShipmentsCache = [];
+let rapid27ActiveShipmentKey = "";
 let nikeDetailRequestId = 0;
 let mockupDetailRequestId = 0;
+let rapid27DetailRequestId = 0;
 
 // Cargas diferidas por vista para que el arranque pinte primero lo operativo.
 const lazyViewLoads = {
   registry: false,
   gitHistory: false,
-  opNikeCatalog: false
+  opNikeCatalog: false,
+  rapid27: false
 };
 
 let opNikeCatalogData = {
@@ -237,6 +243,15 @@ const opNikeDuplicateClearFields = [
   "notes"
 ];
 
+const rapid27StatusLabels = {
+  SIN_OUTPUTS: "Sin outputs",
+  EN_ALMACEN: "En almacén",
+  PARCIAL_EN_ALMACEN: "Parcial en almacén",
+  BAJADO_A_SUBLIMADO: "Bajado a Sublimado",
+  PARCIAL_EN_SUBLIMADO: "Parcial en Sublimado",
+  EN_PROCESO_DE_IMPRESION: "En proceso de impresión"
+};
+
 // Acceso corto a elementos por id para evitar repetir document.getElementById.
 function getElement(id) {
   return document.getElementById(id);
@@ -389,6 +404,12 @@ function filterRunsByMonth(runs, monthKey) {
 }
 
 function getToolMonthInput(tool, scope = "dashboard") {
+  if (tool === "rapid27") {
+    return scope === "runs"
+      ? getElement("rapid27MonthFilter")
+      : getElement("rapid27DashboardMonthFilter");
+  }
+
   if (scope === "runs") {
     return getElement(tool === "nike" ? "nikeRunsMonthFilter" : "mockupRunsMonthFilter");
   }
@@ -1602,6 +1623,11 @@ function bindShipmentBar(bar, row, options) {
   }
 
   const fechaEmbarque = options.shipmentDate ? options.shipmentDate(row) : row.label;
+  const toolLabel = options.tool === "rapid27"
+    ? "27/Rapid"
+    : options.tool === "nike"
+      ? "Nike"
+      : "MockupTool";
 
   bar.dataset.tool = options.tool;
   bar.dataset.fechaEmbarque = fechaEmbarque;
@@ -1610,10 +1636,16 @@ function bindShipmentBar(bar, row, options) {
   bar.setAttribute("tabindex", "0");
   bar.setAttribute(
     "aria-label",
-    `Abrir detalle de ${options.tool === "nike" ? "Nike" : "MockupTool"} para embarque ${fechaEmbarque}`
+    `Abrir detalle de ${toolLabel} para embarque ${fechaEmbarque}`
   );
   bar.addEventListener("dblclick", event => {
     event.preventDefault();
+
+    if (options.tool === "rapid27") {
+      navigateToRapid27ShipmentDetail(row.shipment_key || row.key).catch(error => console.error(error));
+      return;
+    }
+
     navigateToShipmentDetail(options.tool, fechaEmbarque, row.key);
   });
 }
@@ -1746,17 +1778,24 @@ function setDashboardMonth(tool, monthKey) {
     return;
   }
 
+  if (tool === "rapid27") {
+    renderRapid27DashboardPeriod(monthKey);
+    renderRapid27Shipments();
+    return;
+  }
+
   renderMockupDashboardPeriod(monthKey);
   renderMockupRunsTable();
 }
 
 function updateDashboardMonthNav(tool, monthKey) {
-  if (!dashboardData) return;
+  if (!dashboardData && tool !== "rapid27") return;
 
-  const monthlyRows = tool === "nike" ? dashboardData.nike.monthly : dashboardData.mockup.monthly;
-  const monthKeys = getDashboardMonthKeys(monthlyRows);
-  const prevButton = getElement(`${tool}MonthPrev`);
-  const nextButton = getElement(`${tool}MonthNext`);
+  const monthKeys = tool === "rapid27"
+    ? getRapid27MonthKeys()
+    : getDashboardMonthKeys(tool === "nike" ? dashboardData.nike.monthly : dashboardData.mockup.monthly);
+  const prevButton = getElement(tool === "rapid27" ? "rapid27DashboardMonthPrev" : `${tool}MonthPrev`);
+  const nextButton = getElement(tool === "rapid27" ? "rapid27DashboardMonthNext" : `${tool}MonthNext`);
   const previousMonth = [...monthKeys].reverse().find(key => key < monthKey);
   const nextMonth = monthKeys.find(key => key > monthKey);
 
@@ -1772,11 +1811,12 @@ function updateDashboardMonthNav(tool, monthKey) {
 }
 
 function moveDashboardMonth(tool, direction) {
-  if (!dashboardData) return;
+  if (!dashboardData && tool !== "rapid27") return;
 
-  const input = getElement(`${tool}MonthFilter`);
-  const monthlyRows = tool === "nike" ? dashboardData.nike.monthly : dashboardData.mockup.monthly;
-  const monthKeys = getDashboardMonthKeys(monthlyRows);
+  const input = getToolMonthInput(tool, "dashboard");
+  const monthKeys = tool === "rapid27"
+    ? getRapid27MonthKeys()
+    : getDashboardMonthKeys(tool === "nike" ? dashboardData.nike.monthly : dashboardData.mockup.monthly);
   const currentMonth = input?.value || "";
   const targetMonth = direction < 0
     ? [...monthKeys].reverse().find(key => !currentMonth || key < currentMonth)
@@ -1867,11 +1907,13 @@ function getInitialDashboardMonth(monthlyRows) {
 function bindDashboardMonthFilters() {
   const nikeInput = getElement("nikeMonthFilter");
   const mockupInput = getElement("mockupMonthFilter");
+  const rapid27Input = getElement("rapid27DashboardMonthFilter");
   const nikeRunsInput = getElement("nikeRunsMonthFilter");
   const mockupRunsInput = getElement("mockupRunsMonthFilter");
 
   nikeInput?.addEventListener("change", () => setDashboardMonth("nike", nikeInput.value));
   mockupInput?.addEventListener("change", () => setDashboardMonth("mockup", mockupInput.value));
+  rapid27Input?.addEventListener("change", () => setDashboardMonth("rapid27", rapid27Input.value));
   nikeRunsInput?.addEventListener("change", () => setDashboardMonth("nike", nikeRunsInput.value));
   mockupRunsInput?.addEventListener("change", () => setDashboardMonth("mockup", mockupRunsInput.value));
 
@@ -1879,6 +1921,8 @@ function bindDashboardMonthFilters() {
   getElement("nikeMonthNext")?.addEventListener("click", () => moveDashboardMonth("nike", 1));
   getElement("mockupMonthPrev")?.addEventListener("click", () => moveDashboardMonth("mockup", -1));
   getElement("mockupMonthNext")?.addEventListener("click", () => moveDashboardMonth("mockup", 1));
+  getElement("rapid27DashboardMonthPrev")?.addEventListener("click", () => moveDashboardMonth("rapid27", -1));
+  getElement("rapid27DashboardMonthNext")?.addEventListener("click", () => moveDashboardMonth("rapid27", 1));
 
   getElement("nikeMonthAll")?.addEventListener("click", () => {
     setDashboardMonth("nike", "");
@@ -1886,6 +1930,10 @@ function bindDashboardMonthFilters() {
 
   getElement("mockupMonthAll")?.addEventListener("click", () => {
     setDashboardMonth("mockup", "");
+  });
+
+  getElement("rapid27DashboardMonthAll")?.addEventListener("click", () => {
+    setDashboardMonth("rapid27", "");
   });
 
   getElement("nikeRunsMonthAll")?.addEventListener("click", () => {
@@ -1935,6 +1983,25 @@ async function loadDashboard() {
   setDashboardMonth("mockup", mockupMonthInput?.value || "");
 
   appendLog("Dashboard actualizado", "success");
+}
+
+async function loadRapid27DashboardData() {
+  const [summary, shipmentResponse] = await Promise.all([
+    getJSON("/api/optimizador/rapid27/summary"),
+    getJSON("/api/optimizador/rapid27/shipments")
+  ]);
+  const monthInput = getElement("rapid27DashboardMonthFilter");
+
+  rapid27ShipmentsCache = shipmentResponse.shipments || [];
+  populateRapid27ClientFilter(rapid27ShipmentsCache);
+  renderRapid27Summary(summary);
+
+  if (monthInput && !monthInput.value) {
+    monthInput.value = getInitialRapid27Month();
+  }
+
+  setDashboardMonth("rapid27", monthInput?.value || "");
+  appendLog(`Seguimiento 27/Rapid: ${formatNumber(shipmentResponse.total)} embarques cargados`, "success");
 }
 
 function renderNikeRunsTable() {
@@ -2205,29 +2272,476 @@ async function loadMockupDetail(id) {
   }
 }
 
-function loadRapid27ProvisionalPanel() {
-  const tbody = getElement("rapid27Table");
+function formatRapid27Status(value) {
+  const key = String(value || "PENDIENTE").trim().toUpperCase();
 
-  setText("rapid27Pedidos", "0");
-  setText("rapid27Registros", "0");
-  setText("rapid27Piezas", "0");
-  setText("rapid27Estilos", "0");
-  setText("rapid27Impresion", "0");
-  setText("rapid27Sublimado", "0");
+  if (rapid27StatusLabels[key]) {
+    return rapid27StatusLabels[key];
+  }
+
+  return String(value || "PENDIENTE")
+    .replaceAll("_", " ")
+    .toLocaleLowerCase("es-MX")
+    .replace(/(^|\s)\S/g, character => character.toLocaleUpperCase("es-MX"));
+}
+
+function getRapid27Department(value) {
+  const status = String(value || "");
+
+  if (/almacen/i.test(status)) return "almacen";
+  if (/sublimado/i.test(status)) return "sublimado";
+  if (/impresion|archivo/i.test(status)) return "diseno";
+  return "default";
+}
+
+function addRapid27StatusCell(row, status) {
+  const label = formatRapid27Status(status);
+  const cell = document.createElement("td");
+  const wrapper = document.createElement("div");
+  const detail = document.createElement("span");
+
+  wrapper.className = "operational-status";
+  wrapper.dataset.department = getRapid27Department(label);
+  cell.dataset.filterValue = label;
+  detail.textContent = "";
+  wrapper.append(makeDepartmentBadge(label, label), detail);
+  cell.appendChild(wrapper);
+  row.appendChild(cell);
+  return cell;
+}
+
+function getRapid27MonthFilterValue() {
+  return getElement("rapid27MonthFilter")?.value || "";
+}
+
+function getRapid27ClientFilterValue() {
+  return getElement("rapid27ClientFilter")?.value || "";
+}
+
+function filterRapid27Shipments(shipments) {
+  const monthKey = getRapid27MonthFilterValue();
+  const client = getRapid27ClientFilterValue();
+
+  return (shipments || []).filter(shipment => {
+    const matchesMonth = !monthKey || shipment.month_key === monthKey;
+    const matchesClient = !client || shipment.cliente === client;
+
+    return matchesMonth && matchesClient;
+  });
+}
+
+function populateRapid27ClientFilter(shipments) {
+  const select = getElement("rapid27ClientFilter");
+
+  if (!select) {
+    return;
+  }
+
+  const currentValue = select.value;
+  const clients = [...new Set((shipments || []).map(shipment => shipment.cliente).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "es", { numeric: true, sensitivity: "base" }));
+
+  select.innerHTML = '<option value="">Todos los clientes</option>';
+  clients.forEach(client => {
+    const option = document.createElement("option");
+    option.value = client;
+    option.textContent = client;
+    select.appendChild(option);
+  });
+
+  select.value = clients.includes(currentValue) ? currentValue : "";
+}
+
+function getRapid27MonthKeys() {
+  return [...new Set((rapid27ShipmentsCache || [])
+    .map(shipment => shipment.month_key)
+    .filter(Boolean))]
+    .sort();
+}
+
+function getInitialRapid27Month() {
+  const monthKeys = getRapid27MonthKeys();
+
+  return monthKeys.at(-1) || "";
+}
+
+function renderRapid27DashboardPeriod(monthKey) {
+  const rows = (rapid27ShipmentsCache || [])
+    .filter(shipment => !monthKey || shipment.month_key === monthKey)
+    .sort((a, b) => String(a.sort_key || "").localeCompare(String(b.sort_key || "")));
+
+  renderExecutionBarChart(
+    "rapid27TrackingChart",
+    rows,
+    {
+      title: monthKey ? `Embarques ${monthKey.slice(5, 7)}/${monthKey.slice(0, 4)}` : "Todos los embarques",
+      tool: "rapid27",
+      shipmentDate: shipment => shipment.fecha_embarque || shipment.emb || "",
+      label: shipment => shipment.fecha_embarque || shipment.emb || "",
+      value: shipment => Number(shipment.pieces || 0),
+      format: value => formatNumber(value),
+      xLabel: "Embarque",
+      yLabel: "Total de piezas"
+    }
+  );
+
+  updateDashboardMonthNav("rapid27", monthKey);
+}
+
+async function navigateToRapid27ShipmentDetail(shipmentKey) {
+  if (!shipmentKey) {
+    return;
+  }
+
+  const shouldLoad = !lazyViewLoads.rapid27;
+
+  if (shouldLoad) {
+    lazyViewLoads.rapid27 = true;
+  }
+
+  switchView("rapid27-view");
+
+  if (shouldLoad) {
+    await loadRapid27Data();
+  }
+
+  await showRapid27Shipment(shipmentKey);
+}
+
+function setRapid27Flow(summary) {
+  const flows = [
+    ["rapid27FilesFlow", "Archivos", summary.files_ready, "diseno"],
+    ["rapid27PrintFlow", "Sublimado", summary.print_matched_outputs, "sublimado"],
+    ["rapid27WarehouseFlow", "Almacén", summary.sublimation_matched_outputs, "almacen"]
+  ];
+
+  flows.forEach(([id, label, count]) => {
+    const title = getElement(id);
+    const step = title?.closest(".tracking-step");
+
+    if (title) title.textContent = `${label}: ${formatNumber(count)}`;
+    if (step) step.dataset.active = String(Number(count || 0) > 0);
+  });
+}
+
+function renderRapid27Summary(summary) {
+  setText("rapid27Embarques", formatNumber(summary.shipments));
+  setText("rapid27Pedidos", formatNumber(summary.orders));
+  setText("rapid27Piezas", formatNumber(summary.pieces));
+  setText("rapid27Estilos", formatNumber(summary.styles));
+  setText("rapid27Impresion", formatNumber(summary.files_ready));
+  setText("rapid27Sublimado", formatNumber(summary.sublimation_matched_outputs));
+  setText("rapid27UpdatedAt", summary.updated_at ? `Actualizado: ${summary.updated_at}` : "");
+  setRapid27Flow(summary);
+
+  const availability = getElement("rapid27Availability");
+
+  if (availability) {
+    availability.textContent = summary.available ? "Datos conectados" : "Tablas no disponibles";
+    availability.dataset.department = summary.available ? "almacen" : "default";
+  }
+}
+
+function renderRapid27Shipments() {
+  const tbody = getElement("rapid27Table");
+  const shipments = filterRapid27Shipments(rapid27ShipmentsCache);
+  const monthKey = getRapid27MonthFilterValue();
+  const client = getRapid27ClientFilterValue();
 
   if (!tbody) {
     return;
   }
 
   tbody.innerHTML = "";
-  addEmptyTableRow(
-    tbody,
-    "Pendiente de conectar registros 27 Sports / Rapid.",
-    8
-  );
+
+  if (!shipments.length) {
+    const message = monthKey || client
+      ? "Sin embarques 27/Rapid para los filtros seleccionados."
+      : "No hay embarques registrados en rmc_opt_order_lines.";
+    addEmptyTableRow(tbody, message, 9);
+  }
+
+  shipments.forEach(shipment => {
+    const row = document.createElement("tr");
+
+    addCell(row, shipment.fecha_embarque || shipment.emb || "");
+    addCell(row, shipment.year || "");
+    addCell(row, shipment.cliente || "");
+    addCell(row, formatNumber(shipment.order_count));
+    addCell(row, formatNumber(shipment.pieces));
+    addCell(row, formatNumber(shipment.styles));
+    addCell(row, `${formatNumber(shipment.files_ready)}/${formatNumber(shipment.outputs)}`);
+    addRapid27StatusCell(row, shipment.operational_status);
+    addButtonCell(row, "Ver", () => showRapid27Shipment(shipment.shipment_key));
+    row.dataset.shipmentKey = shipment.shipment_key;
+    row.dataset.client = shipment.cliente || "";
+    row.dataset.monthKey = shipment.month_key || "";
+    row.addEventListener("dblclick", () => showRapid27Shipment(shipment.shipment_key));
+    tbody.appendChild(row);
+  });
+
   refreshTableFilter("rapid27Table");
   updateSortIndicators("rapid27Table");
-  appendLog("27 Sports / Rapid: panel provisional listo", "info");
+}
+
+function renderRapid27ShipmentFlow(shipment) {
+  const container = getElement("rapid27ShipmentFlowSummary");
+
+  if (!container) {
+    return;
+  }
+
+  const stages = [
+    ["diseno", "Impresion", Math.max(0, shipment.outputs - shipment.print_matched_outputs - shipment.sublimation_matched_outputs), "En proceso"],
+    ["sublimado", "Sublimado", shipment.print_matched_outputs, "Bajado / parcial"],
+    ["almacen", "Almacen", shipment.sublimation_matched_outputs, "Liberado a linea"]
+  ].filter(([, , count]) => Number(count || 0) > 0);
+
+  container.textContent = "";
+  container.classList.toggle("hidden", stages.length === 0);
+
+  if (!stages.length) {
+    return;
+  }
+
+  const label = document.createElement("span");
+  label.className = "compact-flow-label";
+  label.textContent = "Circulacion activa";
+  container.appendChild(label);
+
+  stages.forEach(([department, labelText, count, detailText]) => {
+    const item = document.createElement("div");
+    const title = document.createElement("strong");
+    const detail = document.createElement("span");
+
+    item.className = "tracking-step compact-tracking-step";
+    item.dataset.department = department;
+    item.dataset.active = "true";
+    title.textContent = `${labelText}: ${formatNumber(count)}`;
+    detail.textContent = detailText;
+    item.append(title, detail);
+    container.appendChild(item);
+  });
+}
+
+function renderRapid27ShipmentDetail(data) {
+  const { shipment, orders } = data;
+  const tbody = getElement("rapid27OrdersTable");
+
+  setText(
+    "rapid27ShipmentInfo",
+    `${shipment.cliente || "Sin cliente"} | ${shipment.fecha_embarque || shipment.emb || "Sin emb"} | ${formatNumber(shipment.order_count)} pedidos | ${formatNumber(shipment.pieces)} piezas | ${formatRapid27Status(shipment.operational_status)}`
+  );
+  renderRapid27ShipmentFlow(shipment);
+
+  tbody.innerHTML = "";
+
+  if (!orders.length) {
+    addEmptyTableRow(tbody, "Este embarque no tiene pedidos vinculados.", 7);
+  }
+
+  orders.forEach(order => {
+    const row = document.createElement("tr");
+
+    addCell(row, order.roster || "");
+    addCell(row, order.nombre_pedido || "");
+    addCell(row, formatNumber(order.pieces || order.listed_pieces));
+    addCell(row, formatNumber(order.styles));
+    addCell(row, `${formatNumber(order.files_ready)}/${formatNumber(order.outputs)}`);
+    addRapid27StatusCell(row, order.operational_status);
+    addButtonCell(row, "Ver", () => showRapid27OrderModal(order.id, order.shipment_key));
+    row.dataset.orderId = order.id;
+    row.addEventListener("dblclick", () => showRapid27OrderModal(order.id, order.shipment_key));
+    tbody.appendChild(row);
+  });
+
+  refreshTableFilter("rapid27OrdersTable");
+  updateSortIndicators("rapid27OrdersTable");
+}
+
+async function showRapid27Shipment(shipmentKey) {
+  const requestId = ++rapid27DetailRequestId;
+  const section = getElement("rapid27DetailSection");
+  const tbody = getElement("rapid27OrdersTable");
+
+  rapid27ActiveShipmentKey = shipmentKey;
+  section.classList.remove("hidden");
+  section.setAttribute("aria-busy", "true");
+  setText("rapid27ShipmentInfo", "Cargando detalle de embarque...");
+  getElement("rapid27ShipmentFlowSummary")?.classList.add("hidden");
+  tbody.innerHTML = "";
+  addLoadingTableRow(tbody, "Cargando pedidos del embarque...", 7);
+  setDetailToolsLoading("rapid27OrdersTable", true);
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  try {
+    const data = await getJSON(`/api/optimizador/rapid27/shipments/${encodeURIComponent(shipmentKey)}`);
+
+    if (requestId !== rapid27DetailRequestId) {
+      return;
+    }
+
+    renderRapid27ShipmentDetail(data);
+    appendLog(`Embarque 27/Rapid cargado: ${data.shipment.fecha_embarque || data.shipment.emb}`, "success");
+  } catch (error) {
+    if (requestId === rapid27DetailRequestId) {
+      setText("rapid27ShipmentInfo", error.message || "No se pudo cargar el embarque");
+      tbody.innerHTML = "";
+      addEmptyTableRow(tbody, error.message, 7);
+      appendLog(error.message || "No se pudo cargar el embarque 27/Rapid", "error");
+    }
+  } finally {
+    if (requestId === rapid27DetailRequestId) {
+      section.removeAttribute("aria-busy");
+      setDetailToolsLoading("rapid27OrdersTable", false);
+      refreshTableFilter("rapid27OrdersTable");
+    }
+  }
+}
+
+function renderRapid27ModalTracking(order) {
+  const status = getElement("rapid27ModalTrackingStatus");
+  const summary = getElement("rapid27ModalTrackingSummary");
+  const matches = getElement("rapid27ModalTrackingMatches");
+  const pending = Math.max(0, Number(order.outputs || 0) - Number(order.print_matched_outputs || 0) - Number(order.sublimation_matched_outputs || 0));
+
+  if (status) {
+    const label = formatRapid27Status(order.operational_status);
+    status.textContent = label;
+    status.className = "department-badge";
+    status.dataset.department = getRapid27Department(label);
+  }
+
+  if (summary) {
+    summary.textContent = [
+      `${formatNumber(order.outputs)} outputs`,
+      `${formatNumber(order.files_ready)} archivos listos`,
+      `${formatNumber(order.print_matched_outputs)} bajados a Sublimado`,
+      `${formatNumber(order.sublimation_matched_outputs)} en Almacen`
+    ].join(" | ");
+  }
+
+  if (!matches) {
+    return;
+  }
+
+  matches.textContent = "";
+  [
+    ["diseno", "Impresion", pending, "Sin coincidencia activa en Sublimado"],
+    ["sublimado", "Sublimado", order.print_matched_outputs, "Coincidencia en reporte de impresion"],
+    ["almacen", "Almacen", order.sublimation_matched_outputs, "Liberado a linea"]
+  ].filter(([, , count]) => Number(count || 0) > 0)
+    .forEach(([department, titleText, count, detailText]) => {
+      const item = document.createElement("div");
+      const title = document.createElement("strong");
+      const detail = document.createElement("span");
+
+      item.className = "tracking-match";
+      item.dataset.department = department;
+      title.textContent = `${titleText}: ${formatNumber(count)}`;
+      detail.textContent = detailText;
+      item.append(title, detail);
+      matches.appendChild(item);
+    });
+}
+
+function renderRapid27OrderModal(data) {
+  const { order, outputs } = data;
+  const tbody = getElement("rapid27PiecesTable");
+  const estadoLabel = formatRapid27Status(order.operational_status);
+
+  setText("rapid27ModalTitle", order.nombre_pedido || order.roster || "27 Sports / Rapid");
+  setText("rapid27ModalCliente", order.cliente || "N/D");
+  setText("rapid27ModalEmb", order.fecha_embarque || order.emb || "N/D");
+  setText("rapid27ModalRoster", order.roster || "N/D");
+  setText("rapid27ModalPedido", order.nombre_pedido || "Sin nombre");
+  setText("rapid27ModalPiezas", formatNumber(order.pieces || order.listed_pieces));
+  setText("rapid27ModalEstado", estadoLabel);
+  getElement("rapid27ModalEstado").className = "department-badge";
+  getElement("rapid27ModalEstado").dataset.department = getRapid27Department(estadoLabel);
+  renderRapid27ModalTracking(order);
+
+  tbody.innerHTML = "";
+
+  if (!outputs.length) {
+    addEmptyTableRow(tbody, "Este pedido no tiene piezas de roster para el embarque.", 9);
+  }
+
+  outputs.forEach(output => {
+    const row = document.createElement("tr");
+    const player = [output.first_name, output.last_name].filter(Boolean).join(" ");
+
+    addCell(row, output.wo || "");
+    addCell(row, output.style_output || output.style_base || output.style_roster || "");
+    addCell(row, output.subdesign || output.color_or_descriptor || "");
+    addCell(row, output.size || "");
+    addCell(row, player);
+    addCell(row, output.player_number || "");
+    addCell(row, formatNumber(output.qty));
+    addDepartmentStatusCell(row, formatRapid27Status(output.file_status));
+    addRapid27StatusCell(row, output.computed_tracking_status);
+    tbody.appendChild(row);
+  });
+}
+
+async function showRapid27OrderModal(orderId, shipmentKey = rapid27ActiveShipmentKey) {
+  const modal = getElement("rapid27OrderModal");
+  const tbody = getElement("rapid27PiecesTable");
+  const url = new URL(`/api/optimizador/rapid27/orders/${encodeURIComponent(orderId)}`, window.location.origin);
+
+  if (shipmentKey) {
+    url.searchParams.set("shipment_key", shipmentKey);
+  }
+
+  setText("rapid27ModalTitle", "Cargando pedido...");
+  setText("rapid27ModalCliente", "");
+  setText("rapid27ModalEmb", "");
+  setText("rapid27ModalRoster", "");
+  setText("rapid27ModalPedido", "");
+  setText("rapid27ModalPiezas", "");
+  setText("rapid27ModalEstado", "");
+  setText("rapid27ModalTrackingStatus", "Consultando");
+  setText("rapid27ModalTrackingSummary", "Consultando fuentes de producción...");
+  getElement("rapid27ModalTrackingMatches").textContent = "";
+  tbody.innerHTML = "";
+  addLoadingTableRow(tbody, "Cargando piezas del pedido...", 9);
+  modal.showModal();
+
+  try {
+    const data = await getJSON(`${url.pathname}${url.search}`);
+    renderRapid27OrderModal(data);
+    appendLog(`Pedido 27/Rapid cargado: ${data.order.roster || orderId}`, "success");
+  } catch (error) {
+    setText("rapid27ModalTitle", "No se pudo cargar el pedido");
+    tbody.innerHTML = "";
+    addEmptyTableRow(tbody, error.message || "No se pudo cargar el pedido.", 9);
+    appendLog(error.message || "No se pudo cargar el pedido 27/Rapid", "error");
+  }
+}
+
+async function loadRapid27Data() {
+  const tbody = getElement("rapid27Table");
+
+  tbody.innerHTML = "";
+  addLoadingTableRow(tbody, "Cargando embarques 27/Rapid...", 9);
+
+  const [summary, shipmentResponse] = await Promise.all([
+    getJSON("/api/optimizador/rapid27/summary"),
+    getJSON("/api/optimizador/rapid27/shipments")
+  ]);
+
+  rapid27ShipmentsCache = shipmentResponse.shipments || [];
+  const dashboardMonthInput = getElement("rapid27DashboardMonthFilter");
+
+  if (dashboardMonthInput && !dashboardMonthInput.value) {
+    dashboardMonthInput.value = getInitialRapid27Month();
+  }
+
+  populateRapid27ClientFilter(rapid27ShipmentsCache);
+  renderRapid27Summary(summary);
+  renderRapid27DashboardPeriod(dashboardMonthInput?.value || getInitialRapid27Month());
+  renderRapid27Shipments();
+  appendLog(`27/Rapid conectado: ${formatNumber(shipmentResponse.total)} embarques`, "success");
 }
 
 // Carga CEP Registry y el conteo de tablas SQLite conocidas.
@@ -2932,6 +3446,19 @@ async function saveOpNikeFamily() {
 }
 
 function loadViewData(viewId) {
+  if (viewId === "rapid27-view" && !lazyViewLoads.rapid27) {
+    lazyViewLoads.rapid27 = true;
+    loadRapid27Data().catch(error => {
+      lazyViewLoads.rapid27 = false;
+      console.error(error);
+      const tbody = getElement("rapid27Table");
+      tbody.innerHTML = "";
+      addEmptyTableRow(tbody, error.message || "No se pudo cargar 27/Rapid.", 9);
+      refreshTableFilter("rapid27Table");
+      appendLog(error.message || "No se pudo cargar 27/Rapid", "error");
+    });
+  }
+
   if (viewId === "opnike-catalog-view" && !lazyViewLoads.opNikeCatalog) {
     lazyViewLoads.opNikeCatalog = true;
     loadOpNikeCatalog().catch(error => {
@@ -3127,6 +3654,7 @@ function bindLogControls() {
 function bindDetailControls() {
   const hideNikeDetail = getElement("hideNikeDetail");
   const hideMockupDetail = getElement("hideMockupDetail");
+  const hideRapid27Detail = getElement("hideRapid27Detail");
 
   if (hideNikeDetail) {
     hideNikeDetail.addEventListener("click", () => {
@@ -3141,6 +3669,54 @@ function bindDetailControls() {
       appendLog("Detalle MockupTool oculto", "info");
     });
   }
+
+  if (hideRapid27Detail) {
+    hideRapid27Detail.addEventListener("click", () => {
+      getElement("rapid27DetailSection").classList.add("hidden");
+      appendLog("Detalle 27/Rapid oculto", "info");
+    });
+  }
+}
+
+function bindRapid27Controls() {
+  const clientFilter = getElement("rapid27ClientFilter");
+  const monthFilter = getElement("rapid27MonthFilter");
+  const monthAll = getElement("rapid27MonthAll");
+  const tools = document.querySelector('.table-tools[data-filter-target="rapid27Table"]');
+
+  clientFilter?.addEventListener("change", renderRapid27Shipments);
+  monthFilter?.addEventListener("change", renderRapid27Shipments);
+  monthAll?.addEventListener("click", () => {
+    if (monthFilter) {
+      monthFilter.value = "";
+    }
+
+    renderRapid27Shipments();
+  });
+  tools?.querySelector(".table-clear")?.addEventListener("click", () => {
+    if (clientFilter) {
+      clientFilter.value = "";
+    }
+
+    if (monthFilter) {
+      monthFilter.value = "";
+    }
+
+    renderRapid27Shipments();
+  });
+}
+
+function bindRapid27OrderModal() {
+  const modal = getElement("rapid27OrderModal");
+  const closeButton = getElement("closeRapid27OrderModal");
+
+  if (!modal || !closeButton) {
+    return;
+  }
+
+  closeButton.addEventListener("click", () => {
+    modal.close();
+  });
 }
 
 function bindGitCommitControls() {
@@ -4023,15 +4599,16 @@ async function init() {
   bindOpNikeCatalogControls();
   bindNikeItemModal();
   bindMockupItemModal();
+  bindRapid27Controls();
+  bindRapid27OrderModal();
   bindDashboardMonthFilters();
   bindTableFilters();
   bindTableSorting();
   bindExcelFilterMenuClose();
-  loadRapid27ProvisionalPanel();
-
   try {
     await Promise.all([
       loadDashboard(),
+      loadRapid27DashboardData(),
       loadRuns(),
       loadMockupRuns()
     ]);

@@ -39,6 +39,8 @@ Tabla mensual:
 
 ## Dashboard RMC MockupTool
 
+Temporalmente oculto en el Dashboard principal porque no es esencial para el seguimiento operativo diario. La vista `Maquetas RMC Nike` sigue disponible desde el menu lateral.
+
 Cards:
 
 - Ejecuciones
@@ -60,18 +62,18 @@ Tabla mensual:
 - Plantillas
 - Faltantes
 
-## Panel provisional 27 Sports / Rapid
+## Panel 27 Sports / Rapid
 
-La UI incluye una vista provisional `27 Sports / Rapid` separada de Nike.
+La UI incluye una vista `Panel 27 / Rapid` separada de Nike y en modo lectura sobre las tablas `rmc_opt_*`.
 
 Estado actual:
 
-- Cards de pedidos, registros, piezas, estilos, impresion y sublimado en cero.
-- Tabla preparada para futuros embarques/pedidos.
-- Sin endpoint propio ni lectura de tablas operativas.
+- Cards de embarques, pedidos, piezas, estilos, archivos listos y outputs detectados en Almacen.
+- Tabla principal agrupada por embarque y cliente, con filtro por mes y por cliente `27 Sports` / `Rapid`.
+- `Ver` abre el detalle del embarque con la tabla `Pedidos 27 Sports / Rapid`.
+- La tabla del detalle usa columnas `Roster`, `Nombre Pedido`, `Piezas`, `Estilos`, `Archivos`, `Estado` y `Detalle`.
+- `Ver` en un pedido abre un modal con las piezas/outputs del roster y tracking por area.
 - No registra produccion ni modifica datos CEP.
-
-La integracion real debe esperar contrato de lectura, tablas producidas fuera de RMCCC y rutas de consulta documentadas.
 
 ## Agrupacion por embarque
 
@@ -87,6 +89,12 @@ MockupTool:
 - Si falta, se usa `fecha`.
 - El ano viene de `fecha` o del prefijo del `id`.
 
+27 Sports / Rapid:
+
+- `emb` de `rmc_opt_order_lines` tiene prioridad.
+- El ano viene de `roster_year` o de fechas internas del pedido.
+- El agrupado se calcula por embarque normalizado y cliente.
+
 El detalle y los reportes deben usar todos los runs del grupo.
 
 ## Graficas
@@ -97,6 +105,7 @@ Tipos actuales:
 
 - Line chart diario para Nike.
 - Bar chart por ejecucion para MockupTool.
+- Bar chart por embarque para 27 Sports / Rapid.
 
 No se usa libreria externa.
 
@@ -119,6 +128,8 @@ Tablas con filtro:
 - `mockupItemsTable`
 
 `runsTable` y `mockupTable` tambien se filtran por mes de embarque. El selector mensual del Dashboard y el selector mensual local de cada tabla comparten el mismo estado por herramienta.
+
+El bloque `Seguimiento operativo 27 / Rapid` vive en el Dashboard y usa filtro mensual propio. El panel `Panel 27 / Rapid` conserva la tabla principal y el detalle por embarque/pedido.
 
 Tablas con sort:
 

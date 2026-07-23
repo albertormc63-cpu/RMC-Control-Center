@@ -26,7 +26,23 @@ rmc_mockuptool_runs
 rmc_mockuptool_items
 rmc_chat_messages
 rmc_chat_reactions
+rmc_opt_orders
+rmc_opt_order_lines
+rmc_opt_roster_outputs
+rmc_opt_assets
 ```
+
+## Tracking 27 Sports / Rapid
+
+Las tablas `rmc_opt_orders`, `rmc_opt_order_lines`, `rmc_opt_roster_outputs` y `rmc_opt_assets` son producidas por RMC Optimizador. Control Center las consume en modo lectura para el panel `Panel 27 / Rapid`.
+
+El tracking operativo se enriquece con las tablas espejo `rmc_print_sublimation_log` y `rmc_sublimation_output_log`. Un archivo encontrado/movido no implica por si solo que ya fue reportado por Impresion o Almacen.
+
+La vista agrupa por `emb` normalizado desde `rmc_opt_order_lines` y por `cliente` desde `rmc_opt_orders`. El detalle de embarque limita los pedidos y outputs a las lineas de esa fecha de embarque.
+
+El estado operativo sigue la prioridad visual de Nike-Op: `En almacen`, parcial en almacen, `Bajado a Sublimado`, parcial en Sublimado y `En proceso de impresion`. La columna `Archivos` queda separada para indicar archivos encontrados/movidos.
+
+RMCCC no crea, migra, refresca ni corrige las tablas `rmc_opt_*`.
 
 ## rmc_chat_messages
 

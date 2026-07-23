@@ -82,7 +82,7 @@ Desktop:
 - Logo centrado arriba.
 - Botones por grupos: Dashboard, Herramientas Nike, Herramienta 27 Sports / Rapid, Reportes, Sistema.
 - `Herramientas Nike` contiene `Pedidos RMC Nike` y `Maquetas RMC Nike`.
-- `Herramienta 27 Sports / Rapid` muestra un panel provisional sin integracion operativa real todavia.
+- `Herramienta 27 Sports / Rapid` muestra el resumen y detalle de las tablas de tracking producidas por RMC Optimizador.
 - Debajo de `SISTEMA` se muestra el selector de tema `Dark / Light`.
 - Debajo del selector se muestra `Acceder` como entrada provisional para futura autenticacion y permisos.
 - `Catalogo Op-Nike` vive en `SISTEMA` y pide PIN temporal antes de abrir la pantalla.
@@ -131,7 +131,8 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 
 - Dashboard general.
 - Dashboard RMCOp-Nike.
-- Dashboard RMC MockupTool.
+- Seguimiento operativo 27 / Rapid con cards, flujo y grafica por embarque.
+- Dashboard RMC MockupTool oculto temporalmente en la pantalla principal.
 - Contenedores de graficas.
 - Tablas mensuales.
 
@@ -178,10 +179,12 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 
 `rapid27View.js`:
 
-- Panel provisional 27 Sports / Rapid.
-- Cards de pedidos, registros, piezas, estilos, impresion y sublimado.
-- Tabla preparada para embarques/pedidos futuros.
-- No consulta ni escribe tablas operativas de 27 Sports / Rapid mientras no exista contrato de lectura.
+- Panel de solo lectura 27 Sports / Rapid.
+- Tabla principal agrupada por embarque y cliente, con filtro por mes y filtro de cliente.
+- `Ver` abre el detalle del embarque con la tabla `Pedidos 27 Sports / Rapid`.
+- La tabla del detalle muestra `Roster`, `Nombre Pedido`, `Piezas`, `Estilos`, `Archivos`, `Estado` y `Detalle`.
+- `Ver` en un pedido abre un modal tipo Nike con resumen, tracking por area y piezas/outputs del roster.
+- Consulta `rmc_opt_orders`, `rmc_opt_order_lines`, `rmc_opt_roster_outputs` y `rmc_opt_assets`; no escribe ni refresca esas tablas.
 
 `registryView.js`:
 
