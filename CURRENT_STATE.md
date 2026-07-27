@@ -21,7 +21,7 @@ Excepcion chat LAN: el chat grupal escribe solamente las tablas auxiliares `rmc_
 - `RMCOp-Nike`: pedidos, piezas, items, commits, archivos de produccion y reportes Excel.
 - `RMC MockupTool`: maquetas/mockups generados, faltantes, items y reportes Excel.
 - Sincronizacion externa inicial: reporte de impresores `Reporte de Impresion y Reposiciones.xlsx` hacia `rmc_print_sublimation_log`.
-- Sincronizacion externa de Sublimado: `PRODUCCION SUBLIMADO3.xlsb` hacia `rmc_sublimation_output_log`, leyendo `A1:M20000`.
+- Sincronizacion externa de Sublimado: `PRODUCCION SUBLIMADO  2026.xlsb` hacia `rmc_sublimation_output_log`, leyendo `A1:M20000`.
 - Polling automatico de fuentes externas activas por `mtime`/`size`, ejecutado en worker hijo levantado por el server, con mensajes separados para `Impresores Excel` y `Sublimado Excel`, incluso cuando no hay cambios de archivo.
 - Panel 27 / Rapid en modo lectura sobre `rmc_opt_orders`, `rmc_opt_order_lines`, `rmc_opt_roster_outputs` y `rmc_opt_assets`, con cruce operativo contra Impresion y Sublimado.
 

@@ -44,6 +44,25 @@ function findHeaderIndex(headers, candidates, fallbackIndex) {
   return index >= 0 ? index : fallbackIndex;
 }
 
+function resolveWorkbookSheetName(workbook, configuredName) {
+  if (workbook.SheetNames.includes(configuredName)) {
+    return configuredName;
+  }
+
+  const normalizedName = cleanValue(configuredName);
+  const matchingName = workbook.SheetNames.find((sheetName) => {
+    return cleanValue(sheetName) === normalizedName;
+  });
+
+  if (matchingName) {
+    return matchingName;
+  }
+
+  throw new Error(
+    `No existe la hoja "${configuredName}". Hojas disponibles: ${workbook.SheetNames.join(", ")}`
+  );
+}
+
 function makeHash(payload) {
   return crypto
     .createHash("sha256")
@@ -142,13 +161,7 @@ function readPrintSublimationExcel(source) {
 
   try {
     const { workbook, stat } = excel;
-    const sheetName = source.sheet_name;
-
-    if (!workbook.SheetNames.includes(sheetName)) {
-      throw new Error(
-        `No existe la hoja "${sheetName}". Hojas disponibles: ${workbook.SheetNames.join(", ")}`
-      );
-    }
+    const sheetName = resolveWorkbookSheetName(workbook, source.sheet_name);
 
     const sheet = workbook.Sheets[sheetName];
 
@@ -271,13 +284,10 @@ function readSublimationOutputExcel(source) {
 
   try {
     const { workbook, stat } = excel;
-    const sheetName = source.sheet_name || "LIBERADO A LINEA";
-
-    if (!workbook.SheetNames.includes(sheetName)) {
-      throw new Error(
-        `No existe la hoja "${sheetName}". Hojas disponibles: ${workbook.SheetNames.join(", ")}`
-      );
-    }
+    const sheetName = resolveWorkbookSheetName(
+      workbook,
+      source.sheet_name || "LIBERADO A LINEA"
+    );
 
     const sheet = workbook.Sheets[sheetName];
     const MAX_ROWS_TO_SCAN = 20000;

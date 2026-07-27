@@ -65,7 +65,7 @@ El archivo es un reporte anual. Actualmente contiene todos los registros del ano
 - Area: Sublimado
 - Tipo: `sublimation_output_excel`
 - Archivo real:
-  `/Volumes/Carpeta de sublimado/PRODUCCION SUBLIMADO3.xlsb`
+  `/Volumes/Carpeta de sublimado/PRODUCCION SUBLIMADO  2026.xlsb`
 - Hoja:
   `LIBERADO A LINEA`
 - Encabezados reales:
@@ -414,6 +414,7 @@ Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagn
   - Para Sublimado lee solo rango `A1:M20000`.
   - Valida hoja `Impresión - Sublimado 2026`.
   - Valida hoja `LIBERADO A LINEA`.
+  - Tolera espacios al inicio o final del nombre real de la hoja en Excel.
   - Lee encabezados desde fila 3.
   - Lee datos desde fila 4.
   - Ignora filas sin `Work Order`.
