@@ -4,7 +4,12 @@ window.RMCComponents = window.RMCComponents || {};
 window.RMCComponents.exportsView = function exportsView() {
   return `
     <section id="exports-view" class="view">
-      <h2>Exportaciones</h2>
+      <div class="view-header">
+        <h2>Exportaciones</h2>
+        <button class="secondary-button settings-back-button" type="button" data-view="system-settings-view">
+          Volver a Ajustes
+        </button>
+      </div>
       <p>Los reportes Excel de Nike se descargan desde cada ejecucion.</p>
     </section>
   `;
@@ -15,6 +20,9 @@ window.RMCComponents.registryView = function registryView() {
     <section id="registry-view" class="view">
       <div class="view-header">
         <h2>CEP Registry</h2>
+        <button class="secondary-button settings-back-button" type="button" data-view="system-settings-view">
+          Volver a Ajustes
+        </button>
       </div>
 
       <div class="registry-grid">

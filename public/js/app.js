@@ -60,8 +60,12 @@ const lazyViewLoads = {
   registry: false,
   gitHistory: false,
   opNikeCatalog: false,
-  rapid27: false
+  rapid27: false,
+  pollingRoutes: false
 };
+
+let pollingSourcesCache = [];
+let pollingSelectedSourceId = null;
 
 let opNikeCatalogData = {
   templateRoot: "",
@@ -947,12 +951,22 @@ function switchView(viewId) {
     return;
   }
 
+  const systemViewIds = new Set([
+    "system-settings-view",
+    "opnike-catalog-view",
+    "polling-routes-view",
+    "exports-view",
+    "registry-view",
+    "git-history-view"
+  ]);
+
   document.querySelectorAll(".view").forEach(view => {
     view.classList.toggle("active-view", view.id === viewId);
   });
 
   document.querySelectorAll(".menu-item").forEach(button => {
-    button.classList.toggle("active", button.dataset.view === viewId);
+    const isSystemMenu = button.dataset.view === "system-settings-view" && systemViewIds.has(viewId);
+    button.classList.toggle("active", button.dataset.view === viewId || isSystemMenu);
   });
 
   closeSidebar();
@@ -2820,6 +2834,257 @@ async function loadGitCommits() {
   appendLog(`Historial de desarrollo: ${formatNumber(data.commits?.length || 0)} commits cargados`, "success");
 }
 
+function getPollingSourceTypeLabel(sourceType) {
+  if (sourceType === "print_sublimation_excel") {
+    return "Impresion / Reposiciones";
+  }
+
+  if (sourceType === "sublimation_output_excel") {
+    return "Sublimado / Liberado a linea";
+  }
+
+  return sourceType || "Fuente externa";
+}
+
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+
+  if (!bytes) {
+    return "0 B";
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getPollingSelectedSource() {
+  return pollingSourcesCache.find(source => Number(source.id) === Number(pollingSelectedSourceId)) || null;
+}
+
+function setPollingMessage(message, type = "") {
+  const element = getElement("pollingSourceMessage");
+
+  if (!element) {
+    return;
+  }
+
+  element.textContent = message || "";
+  element.className = `form-message span-2 ${type ? `form-message-${type}` : ""}`.trim();
+}
+
+function renderPollingSourceCards() {
+  const container = getElement("pollingSourcesCards");
+
+  if (!container) {
+    return;
+  }
+
+  container.textContent = "";
+
+  if (!pollingSourcesCache.length) {
+    const empty = document.createElement("section");
+    empty.className = "summary-card polling-source-card";
+    empty.textContent = "No hay fuentes externas registradas.";
+    container.appendChild(empty);
+    return;
+  }
+
+  pollingSourcesCache.forEach(source => {
+    const button = document.createElement("button");
+    const title = document.createElement("strong");
+    const meta = document.createElement("span");
+    const pathLine = document.createElement("small");
+    const status = document.createElement("small");
+    const isSelected = Number(source.id) === Number(pollingSelectedSourceId);
+    const isActive = Number(source.active) === 1;
+    const exists = Boolean(source.file_exists);
+
+    button.type = "button";
+    button.className = "polling-source-card";
+    button.dataset.sourceId = source.id;
+    button.dataset.selected = String(isSelected);
+    button.dataset.status = exists ? "ok" : "missing";
+    title.textContent = source.name || `Fuente ${source.id}`;
+    meta.textContent = `${source.area || "Sin area"} | ${getPollingSourceTypeLabel(source.source_type)}`;
+    pathLine.textContent = source.file_path || "Sin ruta";
+    status.textContent = [
+      isActive ? "Activa" : "Inactiva",
+      exists ? `Archivo disponible (${formatBytes(source.file_size_bytes)})` : "Archivo no disponible",
+      source.last_status ? `Ultima: ${source.last_status}` : ""
+    ].filter(Boolean).join(" | ");
+
+    button.append(title, meta, pathLine, status);
+    button.addEventListener("click", () => {
+      selectPollingSource(source.id);
+    });
+    container.appendChild(button);
+  });
+}
+
+function fillPollingSourceForm(source) {
+  const form = getElement("pollingSourceForm");
+
+  if (!form) {
+    return;
+  }
+
+  const hasSource = Boolean(source);
+  form.querySelectorAll("input, button").forEach(control => {
+    if (control.dataset.view) {
+      return;
+    }
+
+    control.disabled = !hasSource;
+  });
+
+  getElement("pollingSourceId").value = source?.id || "";
+  getElement("pollingSourceName").value = source?.name || "";
+  getElement("pollingSourceArea").value = source?.area || "";
+  getElement("pollingSourceType").value = getPollingSourceTypeLabel(source?.source_type);
+  getElement("pollingSourcePath").value = source?.file_path || "";
+  getElement("pollingSourceSheet").value = source?.sheet_name || "";
+  getElement("pollingSourceActive").checked = Number(source?.active || 0) === 1;
+
+  if (hasSource) {
+    const fileStatus = source.file_exists
+      ? `Archivo disponible: ${formatBytes(source.file_size_bytes)}`
+      : "Archivo no disponible o volumen no montado.";
+    setPollingMessage(fileStatus, source.file_exists ? "success" : "warning");
+  } else {
+    setPollingMessage("Selecciona una fuente para editar.");
+  }
+}
+
+function renderPollingRuns(runs = []) {
+  const tbody = getElement("pollingRunsTable");
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML = "";
+
+  if (!runs.length) {
+    addEmptyTableRow(tbody, "Sin corridas registradas para esta fuente.", 7);
+    return;
+  }
+
+  runs.forEach(run => {
+    const row = document.createElement("tr");
+    addCell(row, run.id);
+    addCell(row, run.status || "");
+    addCell(row, run.started_at || "");
+    addCell(row, formatNumber(run.rows_valid));
+    addCell(row, formatNumber(run.rows_inserted));
+    addCell(row, formatNumber(run.rows_updated));
+    addCell(row, formatNumber(run.rows_missing));
+    tbody.appendChild(row);
+  });
+}
+
+async function loadPollingRuns(sourceId) {
+  if (!sourceId) {
+    renderPollingRuns([]);
+    return;
+  }
+
+  const data = await getJSON(`/api/sync/sources/${encodeURIComponent(sourceId)}/runs`);
+  renderPollingRuns(data.runs || []);
+}
+
+function selectPollingSource(sourceId) {
+  pollingSelectedSourceId = Number(sourceId);
+  const source = getPollingSelectedSource();
+
+  renderPollingSourceCards();
+  fillPollingSourceForm(source);
+  loadPollingRuns(sourceId).catch(error => {
+    console.error(error);
+    renderPollingRuns([]);
+    appendLog(error.message || "No se pudo cargar historial de polling", "error");
+  });
+}
+
+async function loadPollingSources(options = {}) {
+  const data = await getJSON("/api/sync/sources");
+  pollingSourcesCache = data.sources || [];
+
+  if (!pollingSourcesCache.some(source => Number(source.id) === Number(pollingSelectedSourceId))) {
+    pollingSelectedSourceId = pollingSourcesCache[0]?.id || null;
+  }
+
+  renderPollingSourceCards();
+  fillPollingSourceForm(getPollingSelectedSource());
+  await loadPollingRuns(pollingSelectedSourceId);
+
+  if (!options.silent) {
+    appendLog(`Fuentes de polling cargadas: ${formatNumber(pollingSourcesCache.length)}`, "success");
+  }
+}
+
+async function savePollingSource(event) {
+  event.preventDefault();
+
+  const sourceId = Number(getElement("pollingSourceId")?.value || 0);
+
+  if (!sourceId) {
+    setPollingMessage("Selecciona una fuente antes de guardar.", "warning");
+    return;
+  }
+
+  const payload = {
+    name: getElement("pollingSourceName").value,
+    area: getElement("pollingSourceArea").value,
+    file_path: getElement("pollingSourcePath").value,
+    sheet_name: getElement("pollingSourceSheet").value,
+    active: getElement("pollingSourceActive").checked ? 1 : 0
+  };
+
+  setPollingMessage("Guardando ruta...");
+
+  const result = await sendJSON(`/api/sync/sources/${encodeURIComponent(sourceId)}`, {
+    method: "PUT",
+    body: payload
+  });
+
+  const index = pollingSourcesCache.findIndex(source => Number(source.id) === sourceId);
+
+  if (index >= 0) {
+    pollingSourcesCache[index] = result.source;
+  }
+
+  renderPollingSourceCards();
+  fillPollingSourceForm(result.source);
+  appendLog(`Ruta de polling guardada: ${result.source.name}`, "success");
+}
+
+async function runSelectedPollingSource() {
+  const sourceId = Number(getElement("pollingSourceId")?.value || 0);
+
+  if (!sourceId) {
+    setPollingMessage("Selecciona una fuente antes de sincronizar.", "warning");
+    return;
+  }
+
+  setPollingMessage("Ejecutando sincronizacion manual...");
+
+  const result = await sendJSON(`/api/sync/sources/${encodeURIComponent(sourceId)}/run`, {
+    method: "POST",
+    body: {}
+  });
+
+  await loadPollingSources({ silent: true });
+  setPollingMessage(`Sync lista: ${formatNumber(result.summary?.rows_valid)} filas validas.`, "success");
+  appendLog(`Polling manual ${result.source?.name || sourceId}: ${formatNumber(result.summary?.rows_valid)} filas validas`, "success");
+}
+
 function getOpNikeVariantForm() {
   return getElement("opNikeVariantForm");
 }
@@ -3485,6 +3750,16 @@ function loadViewData(viewId) {
       appendLog(error.message || "No se pudo cargar historial de desarrollo", "error");
     });
   }
+
+  if (viewId === "polling-routes-view" && !lazyViewLoads.pollingRoutes) {
+    lazyViewLoads.pollingRoutes = true;
+    loadPollingSources().catch(error => {
+      lazyViewLoads.pollingRoutes = false;
+      console.error(error);
+      setPollingMessage(error.message || "No se pudieron cargar fuentes de polling", "warning");
+      appendLog(error.message || "No se pudieron cargar fuentes de polling", "error");
+    });
+  }
 }
 
 // Conecta los botones del sidebar con las vistas internas.
@@ -3492,6 +3767,43 @@ function bindNavigation() {
   document.querySelectorAll(".menu-item[data-view]").forEach(button => {
     button.addEventListener("click", () => {
       switchView(button.dataset.view);
+    });
+  });
+}
+
+function bindSettingsControls() {
+  document.addEventListener("click", event => {
+    const button = event.target.closest("[data-view]");
+
+    if (!button || button.classList.contains("menu-item")) {
+      return;
+    }
+
+    event.preventDefault();
+    switchView(button.dataset.view);
+  });
+
+  getElement("pollingSourceForm")?.addEventListener("submit", event => {
+    savePollingSource(event).catch(error => {
+      console.error(error);
+      setPollingMessage(error.message || "No se pudo guardar la fuente.", "warning");
+      appendLog(error.message || "No se pudo guardar fuente de polling", "error");
+    });
+  });
+
+  getElement("btnRefreshPollingSources")?.addEventListener("click", () => {
+    loadPollingSources().catch(error => {
+      console.error(error);
+      setPollingMessage(error.message || "No se pudieron cargar fuentes.", "warning");
+      appendLog(error.message || "No se pudieron cargar fuentes de polling", "error");
+    });
+  });
+
+  getElement("btnRunPollingSource")?.addEventListener("click", () => {
+    runSelectedPollingSource().catch(error => {
+      console.error(error);
+      setPollingMessage(error.message || "No se pudo ejecutar la sincronizacion.", "warning");
+      appendLog(error.message || "No se pudo ejecutar polling manual", "error");
     });
   });
 }
@@ -4589,6 +4901,7 @@ async function init() {
   }
 
   bindNavigation();
+  bindSettingsControls();
   bindSidebarControls();
   bindThemeControls();
   bindAccessControls();

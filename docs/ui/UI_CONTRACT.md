@@ -70,7 +70,7 @@ Se sirven desde `/assets/...`.
 - `tables.css`: tablas, filtros, sort, botones de tabla y estado de carga.
 - `details.css`: paneles de detalle, modales, tracking y recursos.
 - `catalog.css`: pantalla de Catalogo Op-Nike.
-- `system.css`: utilidades globales, log compacto y footer.
+- `system.css`: ajustes de Sistema, utilidades globales, log compacto y footer.
 - `chat.css`: widget flotante del chat grupal LAN.
 - `responsive.css`: media queries y ajustes mobile.
 
@@ -80,12 +80,13 @@ Desktop:
 
 - Sidebar fijo en layout grid.
 - Logo centrado arriba.
-- Botones por grupos: Dashboard, Herramientas Nike, Herramienta 27 Sports / Rapid, Reportes, Sistema.
+- Botones por grupos: Dashboard, Herramientas Nike, Herramienta 27 Sports / Rapid y Sistema.
 - `Herramientas Nike` contiene `Pedidos RMC Nike` y `Maquetas RMC Nike`.
 - `Herramienta 27 Sports / Rapid` muestra el resumen y detalle de las tablas de tracking producidas por RMC Optimizador.
+- `Sistema` contiene `Ajustes` como hub tipo dashboard. Las opciones secundarias de sistema no se agregan directamente al sidebar.
 - Debajo de `SISTEMA` se muestra el selector de tema `Dark / Light`.
 - Debajo del selector se muestra `Acceder` como entrada provisional para futura autenticacion y permisos.
-- `Catalogo Op-Nike` vive en `SISTEMA` y pide PIN temporal antes de abrir la pantalla.
+- `Catalogo Op-Nike` vive en `Sistema / Ajustes` y pide PIN temporal antes de abrir la pantalla.
 
 Mobile:
 
@@ -153,7 +154,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 
 `opNikeCatalogView.js`:
 
-- Pantalla `Catalogo Op-Nike` bajo `SISTEMA`.
+- Pantalla `Catalogo Op-Nike` bajo `Sistema / Ajustes`.
 - Acceso protegido por PIN temporal `290497` mientras no exista autenticacion formal.
 - Tabla de variantes/diseños desde `rmc_nike_style_variants`.
 - Formulario de alta/edicion de variantes, aliases y reglas de ruta/nombre.
@@ -164,6 +165,16 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Boton `Activar` deshabilitado hasta que la validacion permita `active`.
 - Preview de ruta esperada, nombre final, tokens usados y estado de archivo.
 - No acepta JavaScript editable por usuario; usa patrones y estrategias controladas.
+
+`systemSettingsView.js`:
+
+- Pantalla `Sistema / Ajustes` como hub de cards.
+- Cards hacia `Catalogo Op-Nike (Variantes)`, `Ajuste de Rutas Polling`, `Exportaciones`, `CEP Registry` e `Historial de desarrollo`.
+- Cada vista abierta desde una card de Ajustes muestra boton `Volver a Ajustes` en el encabezado.
+- Pantalla `Ajuste de Rutas Polling` para editar fuentes existentes de `rmc_external_sources`.
+- El formulario permite cambiar nombre, area, ruta de archivo, hoja y activo/inactivo.
+- Muestra estado de archivo disponible/no disponible y ultimas corridas de sync.
+- Incluye accion `Sincronizar ahora` usando `POST /api/sync/sources/:id/run`.
 
 `mockupView.js`:
 

@@ -11,7 +11,8 @@
   }
 
   .catalog-admin-grid,
-  .catalog-family-grid {
+  .catalog-family-grid,
+  .settings-editor-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -98,7 +99,9 @@
   .summary-grid-nike,
   .summary-grid-mockup,
   .summary-grid-rapid27,
-  .rapid27-flow-panel {
+  .rapid27-flow-panel,
+  .settings-card-grid,
+  .polling-source-grid {
     grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
 }
@@ -140,7 +143,13 @@
   }
 
   .catalog-form fieldset,
-  .catalog-family-form {
+  .catalog-family-form,
+  .polling-form {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-card-grid,
+  .polling-source-grid {
     grid-template-columns: 1fr;
   }
 

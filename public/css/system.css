@@ -3,6 +3,134 @@
 }
 
 /* =========================================================
+   Sistema / Ajustes
+   Hub compacto para no extender el sidebar con cada modulo nuevo.
+   ========================================================= */
+.settings-intro {
+  margin-bottom: 0;
+  color: var(--rmc-muted);
+  font-size: 12px;
+}
+
+.settings-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.settings-nav-card,
+.polling-source-card {
+  display: grid;
+  gap: 7px;
+  width: 100%;
+  min-height: 118px;
+  padding: 12px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+  color: var(--rmc-text);
+  text-align: left;
+}
+
+.settings-nav-card:hover,
+.polling-source-card:hover,
+.polling-source-card[data-selected="true"] {
+  border-color: color-mix(in srgb, var(--rmc-primary) 70%, var(--rmc-border));
+  background: color-mix(in srgb, var(--rmc-primary) 14%, var(--rmc-surface-soft));
+  box-shadow: none;
+}
+
+.settings-card-kicker,
+.polling-source-card span,
+.polling-source-card small {
+  color: var(--rmc-muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.settings-nav-card strong,
+.polling-source-card strong {
+  color: var(--rmc-text);
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.settings-nav-card small,
+.polling-source-card small {
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-transform: none;
+}
+
+.polling-source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.polling-source-card[data-status="missing"] {
+  border-color: color-mix(in srgb, var(--rmc-log-warning) 50%, var(--rmc-border));
+}
+
+.settings-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.95fr) minmax(420px, 1.05fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.settings-back-button {
+  width: auto;
+  padding: 6px 10px;
+}
+
+.polling-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.polling-form label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.polling-form input {
+  width: 100%;
+  padding: 8px 9px;
+}
+
+.polling-form input[readonly] {
+  color: var(--rmc-muted);
+}
+
+.polling-form .span-2 {
+  grid-column: 1 / -1;
+}
+
+.polling-active-label {
+  grid-column: 1 / -1;
+}
+
+.form-message-success {
+  color: var(--rmc-log-success);
+}
+
+.form-message-warning {
+  color: var(--rmc-log-warning);
+}
+
+/* =========================================================
    Log compacto
    Se colapsa por defecto para liberar espacio del dashboard.
    ========================================================= */

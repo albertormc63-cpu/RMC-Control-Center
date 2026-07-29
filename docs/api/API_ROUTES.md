@@ -106,6 +106,41 @@ GET /api/git-commits/summary
 
 Devuelve conteo y ultimo commit por herramienta.
 
+## Sincronizacion externa
+
+```http
+GET /api/sync/sources
+```
+
+Lista fuentes externas registradas en `rmc_external_sources`. Incluye ruta, hoja, estado activo, ultima sync y estado de archivo disponible/no disponible para mostrar en UI.
+
+```http
+PUT /api/sync/sources/:id
+Content-Type: application/json
+
+{
+  "name": "Sublimado Excel",
+  "area": "Sublimado",
+  "file_path": "/Volumes/Carpeta de sublimado/PRODUCCION SUBLIMADO  2026.xlsb",
+  "sheet_name": "LIBERADO A LINEA",
+  "active": 1
+}
+```
+
+Actualiza solamente fuentes soportadas de polling externo. Si cambia `file_path` o `sheet_name`, limpia `last_mtime_ms`, `last_size_bytes` y `last_error` para que el worker vuelva a detectar el archivo.
+
+```http
+POST /api/sync/sources/:id/run
+```
+
+Ejecuta sincronizacion manual de una fuente activa soportada.
+
+```http
+GET /api/sync/sources/:id/runs
+```
+
+Devuelve las ultimas 20 corridas de una fuente.
+
 ## Chat grupal LAN
 
 ```http

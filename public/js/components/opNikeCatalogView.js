@@ -9,7 +9,12 @@ window.RMCComponents.opNikeCatalogView = function opNikeCatalogView() {
           <h2>Catalogo Op-Nike</h2>
           <p id="opNikeCatalogRoot" class="catalog-root">Raiz de plantillas pendiente de cargar</p>
         </div>
-        <button id="opNikeRefreshCatalog" class="secondary-button" type="button">Actualizar</button>
+        <div class="detail-actions">
+          <button class="secondary-button settings-back-button" type="button" data-view="system-settings-view">
+            Volver a Ajustes
+          </button>
+          <button id="opNikeRefreshCatalog" class="secondary-button" type="button">Actualizar</button>
+        </div>
       </div>
 
       <div class="catalog-admin-grid">

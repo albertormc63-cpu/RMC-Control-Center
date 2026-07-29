@@ -429,8 +429,10 @@ Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagn
 
 - `src/routes/sync.routes.js`
   - `GET /api/sync/sources`
+  - `PUT /api/sync/sources/:id`
   - `POST /api/sync/sources/:id/run`
   - `GET /api/sync/sources/:id/runs`
+  - Permite editar ruta, hoja, nombre, area y activo/inactivo de fuentes soportadas desde `Sistema / Ajustes / Ajuste de Rutas Polling`.
 
 ### Archivos modificados
 
@@ -462,6 +464,22 @@ Uso:
 ```bash
 curl http://localhost:3000/api/sync/sources
 ```
+
+### Editar ruta de fuente externa
+
+```http
+PUT /api/sync/sources/:id
+```
+
+Uso:
+
+```bash
+curl -X PUT http://localhost:3000/api/sync/sources/2 \
+  -H "Content-Type: application/json" \
+  -d '{"file_path":"/Volumes/Carpeta de sublimado/PRODUCCION SUBLIMADO  2026.xlsb","sheet_name":"LIBERADO A LINEA","active":1}'
+```
+
+La ruta escribe solamente `rmc_external_sources`. Si cambia `file_path` o `sheet_name`, limpia `last_mtime_ms`, `last_size_bytes` y `last_error` para que el polling vuelva a detectar el archivo.
 
 ### Ejecutar sync manual
 

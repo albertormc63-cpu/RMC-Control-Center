@@ -59,6 +59,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `GET /api/git-commits/:tool_key`
 - `GET /api/git-commits/summary`
 - `GET /api/sync/sources`
+- `PUT /api/sync/sources/:id`
 - `POST /api/sync/sources/:id/run`
 - `GET /api/sync/sources/:id/runs`
 - `GET /api/chat/messages`
@@ -84,7 +85,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/routes/reports.routes.js`: Excel Nike y MockupTool.
 - `src/routes/files.routes.js`: view/download con validacion bajo `RMC_FILE_ROOT`.
 - `src/routes/gitCommits.routes.js`: historial tecnico centralizado de commits del RMC Control System.
-- `src/routes/sync.routes.js`: fuentes externas y sincronizacion manual.
+- `src/routes/sync.routes.js`: fuentes externas, ajuste de rutas de polling y sincronizacion manual.
 - `src/routes/chat.routes.js`: lectura y envio del chat grupal LAN.
 - `src/routes/rapid27.routes.js`: resumen, embarques, pedidos y detalle de solo lectura para 27/Rapid.
 - `src/services/nikeGroups.js`: agrupacion Nike por fecha de embarque y ano.
@@ -148,7 +149,11 @@ No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop
 
 Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/configuracion Op-Nike. Antes de permitir `opnike_rule_status = active`, RMCCC valida campos obligatorios y mantiene `draft`, `shadow`, `active` e `inactive`.
 
-`Catalogo Op-Nike` vive bajo `Sistema` y usa PIN temporal para administracion en LAN. Default actual: `290497`, configurable por `RMC_OPNIKE_ADMIN_PIN`.
+`Sistema` muestra `Ajustes` como hub tipo dashboard para no extender el sidebar. Desde ahi se abre `Catalogo Op-Nike`, `Ajuste de Rutas Polling`, Exportaciones, CEP Registry e Historial de desarrollo.
+
+`Catalogo Op-Nike` vive bajo `Sistema / Ajustes` y usa PIN temporal para administracion en LAN. Default actual: `290497`, configurable por `RMC_OPNIKE_ADMIN_PIN`.
+
+`Ajuste de Rutas Polling` edita `rmc_external_sources` para cambiar nombre, area, ruta de archivo, hoja y estado activo de fuentes externas soportadas. Si cambia ruta u hoja, limpia `last_mtime_ms` y `last_size_bytes` para que el worker detecte la siguiente lectura.
 
 ## Reglas operativas vigentes
 

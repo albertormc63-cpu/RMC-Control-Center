@@ -44,25 +44,9 @@ window.RMCComponents.sidebar = function sidebar() {
       </section>
 
       <section class="menu-group">
-        <h3>REPORTES</h3>
-        <button class="menu-item" type="button" data-view="exports-view">
-          <span>Exportaciones</span>
-          <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
-        </button>
-      </section>
-
-      <section class="menu-group">
         <h3>SISTEMA</h3>
-        <button class="menu-item" type="button" data-view="opnike-catalog-view">
-          <span>Catalogo Op-Nike</span>
-          <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
-        </button>
-        <button class="menu-item" type="button" data-view="registry-view">
-          <span>CEP Registry</span>
-          <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
-        </button>
-        <button class="menu-item" type="button" data-view="git-history-view">
-          <span>Historial de desarrollo</span>
+        <button class="menu-item" type="button" data-view="system-settings-view">
+          <span>Ajustes</span>
           <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
         </button>
 
@@ -87,7 +71,12 @@ window.RMCComponents.sidebar = function sidebar() {
 window.RMCComponents.gitHistoryView = function gitHistoryView() {
   return `
     <section id="git-history-view" class="view">
-      <h2>Historial de desarrollo</h2>
+      <div class="view-header">
+        <h2>Historial de desarrollo</h2>
+        <button class="secondary-button settings-back-button" type="button" data-view="system-settings-view">
+          Volver a Ajustes
+        </button>
+      </div>
 
       <div class="table-tools" data-filter-target="gitCommitsTable">
         <input class="table-search" type="search" placeholder="Filtrar commits">
@@ -237,6 +226,8 @@ window.RMCComponents.renderApp = function renderApp(root) {
         ${window.RMCComponents.dashboardView()}
         ${window.RMCComponents.nikeView()}
         ${window.RMCComponents.opNikeCatalogView()}
+        ${window.RMCComponents.systemSettingsView()}
+        ${window.RMCComponents.pollingRoutesView()}
         ${window.RMCComponents.mockupView()}
         ${window.RMCComponents.rapid27View()}
         ${window.RMCComponents.exportsView()}
