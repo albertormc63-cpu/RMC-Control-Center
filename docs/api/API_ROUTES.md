@@ -141,6 +141,67 @@ GET /api/sync/sources/:id/runs
 
 Devuelve las ultimas 20 corridas de una fuente.
 
+```http
+GET /api/sync/operator-databases
+```
+
+Lista BDs de operador detectadas bajo la raiz configurada de `RMCOp-NIKE/ASSETS/BD`. Solo devuelve carpetas que tienen `RMC_CEP.sqlite`.
+
+Respuesta:
+
+```json
+{
+  "ok": true,
+  "root": "/Volumes/Fullsize/PATRONES ACOMODADOS PARA ROLLO/NIKE LACROSSE/RMCOp-NIKE/ASSETS/BD",
+  "databases": [
+    {
+      "operator": "ANTONIO",
+      "db_path": "/Volumes/.../ANTONIO/RMC_CEP.sqlite"
+    },
+    {
+      "operator": "THANIA",
+      "db_path": "/Volumes/.../THANIA/RMC_CEP.sqlite"
+    }
+  ]
+}
+```
+
+```http
+POST /api/sync/operator-databases/optimizador/run
+Content-Type: application/json
+X-RMC-OPNIKE-PIN: 290497
+
+{
+  "operators": ["THANIA"]
+}
+```
+
+Ejecuta consolidacion manual de BDs SQLite por operador para RMC Optimizador. Usa snapshots temporales, no copia IDs fuente y audita la procedencia en `rmc_sync_record_map`.
+
+Respuesta conceptual:
+
+```json
+{
+  "ok": true,
+  "source_type": "operator_sqlite_rmc_optimizador",
+  "operators": ["THANIA"],
+  "totals": {
+    "rowsRead": 303,
+    "rowsInserted": 303,
+    "rowsUnchanged": 0,
+    "rowsSkipped": 0,
+    "conflicts": 0,
+    "errors": 0,
+    "byTable": {
+      "orders": 31,
+      "lines": 38,
+      "outputs": 107,
+      "assets": 127
+    }
+  }
+}
+```
+
 ## Chat grupal LAN
 
 ```http

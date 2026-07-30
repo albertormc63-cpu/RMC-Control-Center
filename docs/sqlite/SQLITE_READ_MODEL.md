@@ -36,13 +36,15 @@ rmc_opt_assets
 
 Las tablas `rmc_opt_orders`, `rmc_opt_order_lines`, `rmc_opt_roster_outputs` y `rmc_opt_assets` son producidas por RMC Optimizador. Control Center las consume en modo lectura para el panel `Panel 27 / Rapid`.
 
+Excepcion documentada: la sincronizacion manual de BDs por operador puede consolidar registros de RMC Optimizador hacia estas tablas en la BD central. La consolidacion no copia IDs fuente; genera IDs centrales nuevos y audita procedencia en `rmc_sync_record_map`.
+
 El tracking operativo se enriquece con las tablas espejo `rmc_print_sublimation_log` y `rmc_sublimation_output_log`. Un archivo encontrado/movido no implica por si solo que ya fue reportado por Impresion o Almacen.
 
 La vista agrupa por `emb` normalizado desde `rmc_opt_order_lines` y por `cliente` desde `rmc_opt_orders`. El detalle de embarque limita los pedidos y outputs a las lineas de esa fecha de embarque.
 
 El estado operativo sigue la prioridad visual de Nike-Op: `En almacen`, parcial en almacen, `Bajado a Sublimado`, parcial en Sublimado y `En proceso de impresion`. La columna `Archivos` queda separada para indicar archivos encontrados/movidos.
 
-RMCCC no crea, migra, refresca ni corrige las tablas `rmc_opt_*`.
+RMCCC no corrige la logica interna de RMC Optimizador. Solo consolida `rmc_opt_*` desde BDs por operador cuando se ejecuta la sync manual protegida por PIN.
 
 ## rmc_chat_messages
 

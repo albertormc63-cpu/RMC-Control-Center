@@ -660,6 +660,203 @@ Parcial: si
 Este registro corresponde a una bajada parcial a Sublimado.
 ```
 
+## Consolidacion Nike por operador
+
+Objetivo operativo:
+
+```text
+BD SQLite por operador -> snapshot temporal -> BD central RMCCC
+```
+
+Cada estacion de RMCOp-Nike escribe solo en su propia SQLite. RMCCC consolida esas BDs hacia la central y evita que varias estaciones escriban directo sobre la misma SQLite compartida.
+
+Fuente raiz actual:
+
+```text
+/Volumes/Fullsize/PATRONES ACOMODADOS PARA ROLLO/NIKE LACROSSE/RMCOp-NIKE/ASSETS/BD
+```
+
+El script detecta subcarpetas de operador con `RMC_CEP.sqlite`, por ejemplo:
+
+- `THANIA/RMC_CEP.sqlite`
+- `ANTONIO/RMC_CEP.sqlite`
+
+Cada BD fuente debe tener `rmc_operator_db_meta` con `key = operator_code`. El codigo se normaliza y se usa para prefijar runs:
+
+```text
+THANIA-20260729-101530
+ANTONIO-20260729-101530
+```
+
+Fuente externa registrada:
+
+```text
+source_type = operator_sqlite_rmcop_nike
+app_name = RMCOp-Nike
+operator_code = THANIA / ANTONIO / ...
+```
+
+Tablas importadas por ahora:
+
+- `rmcop_nike_runs`
+- `rmcop_nike_items`
+
+No se importa el `id` autoincremental de `rmcop_nike_items`; SQLite central asigna un id nuevo. RMC Optimizador y RMC MockupTool quedan fuera de esta primera implementacion, pero el mapa de auditoria deja columnas genericas para extender `source_table` y `central_table`.
+
+### `rmc_sync_record_map`
+
+Tabla auxiliar de auditoria para saber que registro fuente ya fue procesado y con que resultado.
+
+Campos principales:
+
+- `id`
+- `source_id`
+- `source_operator`
+- `source_table`
+- `source_pk`
+- `source_run_id`
+- `central_table`
+- `central_pk`
+- `central_run_id`
+- `natural_key`
+- `row_hash`
+- `sync_status`
+- `conflict_reason`
+- `first_synced_at`
+- `last_synced_at`
+
+Indices importantes:
+
+- `UNIQUE(source_id, source_table, source_pk)`
+- indice por `natural_key`
+- indice por `sync_status`
+
+Estados usados:
+
+- `INSERTADO`: registro fuente inserto o actualizado por este sync en la central.
+- `YA_EXISTE`: item completado equivalente ya estaba en la central.
+- `CONFLICTO_CLAVE`: la misma `clave` completada existe con path o datos distintos.
+- `CONFLICTO_PATH`: el mismo `path` completado existe con otra clave o datos sospechosos.
+- `ERROR`: fallo puntual al intentar insertar el registro.
+- `OMITIDO`: registro no importado por condicion estructural, por ejemplo run central ausente.
+
+Reglas de deduplicacion de items completados:
+
+- Si existe la misma `clave` con `estado = 'Completado'` y `path`/datos equivalentes, no inserta y marca `YA_EXISTE`.
+- Si existe la misma `clave` pero apunta a otro `path` o datos sospechosos, marca `CONFLICTO_CLAVE` y no inserta.
+- Si existe el mismo `path` con otra `clave`, marca `CONFLICTO_PATH` y no inserta.
+- Si el registro fuente ya fue insertado antes y su `row_hash` no cambio, marca la corrida como sin cambios.
+- Si el registro fuente ya fue insertado antes y cambio, actualiza el item central mapeado; no crea un segundo item.
+
+El script crea snapshots temporales antes de leer una BD de operador. Primero intenta usar backup transaccional de SQLite; en entornos con permisos restringidos puede requerir ejecutar el comando fuera del sandbox para acceder a `/Volumes`.
+
+Uso recomendado:
+
+```bash
+node scripts/sync-operator-nike-databases.js --discover-only
+node scripts/sync-operator-nike-databases.js --dry-run --operators=THANIA,ANTONIO
+node scripts/sync-operator-nike-databases.js --operators=THANIA,ANTONIO
+```
+
+Opciones:
+
+- `--root=/ruta`: cambia la raiz de BDs por operador.
+- `--central=/ruta/RMC_CEP.sqlite`: usa una central alterna, util para pruebas en `/tmp`.
+- `--operators=THANIA,ANTONIO`: limita operadores.
+- `--dry-run`: copia la central a temporal y ejecuta la consolidacion ahi; no modifica la central real.
+- `--keep-temp`: conserva la copia temporal generada por `--dry-run` para inspeccion.
+- `--discover-only`: solo lista fuentes detectadas.
+- `--verbose`: imprime errores puntuales de items.
+
+## Consolidacion Optimizador por operador
+
+Objetivo operativo:
+
+```text
+BD SQLite por operador -> snapshot temporal -> rmc_opt_* central
+```
+
+Esta consolidacion cubre RMC Optimizador para 27 Sports / Rapid. Las BDs de operadores no se modifican. La BD central recibe registros nuevos con IDs autoincrementales propios y guarda la procedencia en `rmc_sync_record_map`.
+
+Fuente externa registrada:
+
+```text
+source_type = operator_sqlite_rmc_optimizador
+app_name = RMC Optimizador
+operator_code = THANIA / ANTONIO / ...
+```
+
+Tablas importadas:
+
+- `rmc_opt_orders`
+- `rmc_opt_order_lines`
+- `rmc_opt_roster_outputs`
+- `rmc_opt_assets`
+
+Regla de IDs:
+
+- No se copia ningun `id` de la BD del operador.
+- `rmc_opt_orders.id`, `rmc_opt_order_lines.id`, `rmc_opt_roster_outputs.id` y `rmc_opt_assets.id` se generan nuevos en la central.
+- Las relaciones `order_id`, `line_id` y `output_id` se remapean durante la corrida usando `rmc_sync_record_map`.
+
+Llaves de deduplicacion:
+
+- `rmc_opt_orders`: `cliente + roster`.
+- `rmc_opt_order_lines`: `order_id central + wo + style_lista`.
+- `rmc_opt_roster_outputs`: `tracking_key`.
+- `rmc_opt_assets`: `asset_type + path`.
+
+Estados de auditoria:
+
+- `INSERTADO`: el registro fuente creo o actualizo un registro central administrado por este sync.
+- `YA_EXISTE`: el registro ya existia en central por llave natural; no se modifica.
+- `CONFLICTO_CLAVE`: la llave natural ya existe, pero los datos operativos no se ven equivalentes.
+- `ERROR`: fallo puntual de insercion/actualizacion.
+- `OMITIDO`: no se encontro el padre central requerido para remapear la fila.
+
+Endpoint manual protegido por PIN:
+
+```http
+POST /api/sync/operator-databases/optimizador/run
+```
+
+Body:
+
+```json
+{
+  "operators": ["THANIA"],
+  "pin": "290497"
+}
+```
+
+UI:
+
+- En `Sistema / Ajustes`, seccion `BD`.
+- Muestra un dropdown de BDs detectadas por `GET /api/sync/operator-databases`.
+- Solo lista subcarpetas existentes bajo `RMCOp-NIKE/ASSETS/BD` que tienen `RMC_CEP.sqlite`.
+- Usa el mismo PIN temporal del Catalogo Op-Nike.
+- Muestra conteos de leidos, insertados, sin cambios, omitidos y conflictos.
+
+Uso recomendado por consola:
+
+```bash
+node scripts/sync-operator-optimizer-databases.js --discover-only
+node scripts/sync-operator-optimizer-databases.js --dry-run --operators=THANIA
+node scripts/sync-operator-optimizer-databases.js --operators=THANIA
+```
+
+Validacion observada contra THANIA en dry-run:
+
+```text
+orders: 31
+lines: 38
+outputs: 107
+assets: 127
+total: 303
+conflicts: 0
+errors: 0
+```
+
 ## Polling automatico
 
 Implementado para fuentes activas con:
@@ -710,6 +907,8 @@ node --check src/services/syncPoller.js
 node --check src/routes/sync.routes.js
 node --check src/routes/nike.routes.js
 node --check src/server.js
+node --check scripts/sync-operator-nike-databases.js
+node --check scripts/sync-operator-optimizer-databases.js
 ```
 
 Pruebas manuales:
@@ -719,6 +918,8 @@ node scripts/preview-print-source.js 1
 node scripts/sync-print-source.js 1
 node scripts/preview-sublimation-source.js
 node scripts/sync-sublimation-source.js
+node scripts/sync-operator-nike-databases.js --dry-run --operators=THANIA,ANTONIO
+node scripts/sync-operator-optimizer-databases.js --dry-run --operators=THANIA
 curl -X POST http://localhost:3000/api/sync/sources/1/run
 curl http://localhost:3000/api/nike/items/167/print-sublimation
 ```

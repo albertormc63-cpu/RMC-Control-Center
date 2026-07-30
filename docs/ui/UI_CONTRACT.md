@@ -170,6 +170,9 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 
 - Pantalla `Sistema / Ajustes` como hub de cards.
 - Cards hacia `Catalogo Op-Nike (Variantes)`, `Ajuste de Rutas Polling`, `Exportaciones`, `CEP Registry` e `Historial de desarrollo`.
+- Seccion `BD` debajo del hub para ejecutar sincronizacion manual de BDs SQLite por operador de RMC Optimizador.
+- El operador se elige desde un dropdown poblado por `GET /api/sync/operator-databases`; no se captura como texto libre.
+- La accion de `BD` pide el mismo PIN temporal del Catalogo Op-Nike y llama `POST /api/sync/operator-databases/optimizador/run`.
 - Cada vista abierta desde una card de Ajustes muestra boton `Volver a Ajustes` en el encabezado.
 - Pantalla `Ajuste de Rutas Polling` para editar fuentes existentes de `rmc_external_sources`.
 - El formulario permite cambiar nombre, area, ruta de archivo, hoja y activo/inactivo.

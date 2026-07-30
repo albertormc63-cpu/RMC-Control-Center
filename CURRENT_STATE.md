@@ -10,7 +10,7 @@ Panel interno Node/Express para visualizar herramientas CEP de RMC en LAN. El fr
 
 El Control Center debe seguir siendo consumidor/visualizador de datos operativos. No registra produccion nueva, no corrige items y no escribe las tablas operativas de RMCOp-Nike ni RMC MockupTool.
 
-Excepcion documentada: el modulo de sincronizacion externa escribe tablas auxiliares propias de RMCCC para espejear Exceles compartidos, como `rmc_external_sources`, `rmc_sync_runs`, `rmc_print_sublimation_log` y `rmc_sublimation_output_log`. Ver `docs/sqlite/database-sync.md`.
+Excepcion documentada: el modulo de sincronizacion externa escribe tablas auxiliares propias de RMCCC para espejear Exceles compartidos y auditar consolidaciones, como `rmc_external_sources`, `rmc_sync_runs`, `rmc_sync_record_map`, `rmc_print_sublimation_log` y `rmc_sublimation_output_log`. Ver `docs/sqlite/database-sync.md`.
 
 Excepcion Op-Nike: la pantalla `Catalogo Op-Nike` administra `rmc_nike_style_families` y `rmc_nike_style_variants` para configurar familias, variantes, aliases y reglas de ruta/nombre. No escribe runs ni items de produccion.
 
@@ -22,6 +22,8 @@ Excepcion chat LAN: el chat grupal escribe solamente las tablas auxiliares `rmc_
 - `RMC MockupTool`: maquetas/mockups generados, faltantes, items y reportes Excel.
 - Sincronizacion externa inicial: reporte de impresores `Reporte de Impresion y Reposiciones.xlsx` hacia `rmc_print_sublimation_log`.
 - Sincronizacion externa de Sublimado: `PRODUCCION SUBLIMADO  2026.xlsb` hacia `rmc_sublimation_output_log`, leyendo `A1:M20000`.
+- Sincronizacion Nike por operador: BDs `RMC_CEP.sqlite` por operador bajo `RMCOp-NIKE/ASSETS/BD`, registradas como `operator_sqlite_rmcop_nike`, consolidadas con prefijo de operador en `run_id` y auditadas en `rmc_sync_record_map`.
+- Sincronizacion Optimizador por operador: BDs `RMC_CEP.sqlite` por operador bajo `RMCOp-NIKE/ASSETS/BD`, registradas como `operator_sqlite_rmc_optimizador`, consolidadas hacia `rmc_opt_*` con IDs centrales nuevos y auditoria en `rmc_sync_record_map`.
 - Polling automatico de fuentes externas activas por `mtime`/`size`, ejecutado en worker hijo levantado por el server, con mensajes separados para `Impresores Excel` y `Sublimado Excel`, incluso cuando no hay cambios de archivo.
 - Panel 27 / Rapid en modo lectura sobre `rmc_opt_orders`, `rmc_opt_order_lines`, `rmc_opt_roster_outputs` y `rmc_opt_assets`, con cruce operativo contra Impresion y Sublimado.
 
@@ -62,6 +64,8 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `PUT /api/sync/sources/:id`
 - `POST /api/sync/sources/:id/run`
 - `GET /api/sync/sources/:id/runs`
+- `GET /api/sync/operator-databases`
+- `POST /api/sync/operator-databases/optimizador/run`
 - `GET /api/chat/messages`
 - `POST /api/chat/messages`
 - `GET /api/chat/reactions`
@@ -95,6 +99,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/services/opNikeCatalog.js`: validacion y preview de reglas del catalogo Op-Nike.
 - `src/services/gitCommits.js`: consultas de `rmc_git_commits`.
 - `src/services/printSublimationSync.js`: lectura/sync del Excel de impresores.
+- `src/services/operatorOptimizerSync.js`: consolidacion manual de tablas `rmc_opt_*` desde BDs por operador hacia la central, con snapshot temporal, remapeo de IDs y auditoria.
 - `src/services/syncPoller.js`: polling automatico de fuentes externas activas, con timers apagables para correr en worker.
 - `src/services/chatMessages.js`: esquema auxiliar, validacion, persistencia e IP del chat.
 - `src/services/rapid27Tracking.js`: normalizacion de embarques, agregados y cruces operativos de las tablas `rmc_opt_*`.
@@ -110,6 +115,8 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `scripts/register-print-source.js`: registra la fuente del Excel de impresores.
 - `scripts/preview-print-source.js`: lee Excel sin guardar, para diagnostico.
 - `scripts/sync-print-source.js`: ejecuta sync real por consola.
+- `scripts/sync-operator-nike-databases.js`: consolida BDs SQLite por operador de RMCOp-Nike hacia la BD central, con snapshots temporales, dry-run, prefijo de `run_id`, dedupe por `clave`/`path` y auditoria en `rmc_sync_record_map`.
+- `scripts/sync-operator-optimizer-databases.js`: consolida `rmc_opt_orders`, `rmc_opt_order_lines`, `rmc_opt_roster_outputs` y `rmc_opt_assets` desde BDs SQLite por operador hacia la BD central sin copiar IDs fuente.
 - `scripts/check-print-duplicates.js`: diagnostica duplicados de `natural_key` y `row_hash`.
 
 ## Tablas leidas
@@ -140,12 +147,13 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_sync_runs`
 - `rmc_print_sublimation_log`
 - `rmc_sublimation_output_log`
+- `rmc_sync_record_map`
 - `rmc_nike_style_families`
 - `rmc_nike_style_variants`
 - `rmc_chat_messages`
 - `rmc_chat_reactions`
 
-No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop_nike_runs`, `rmc_mockuptool_items` o `rmc_mockuptool_runs` salvo instruccion explicita y documentada.
+No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop_nike_runs`, `rmc_mockuptool_items` o `rmc_mockuptool_runs` salvo instruccion explicita y documentada. Excepcion documentada: la sincronizacion Optimizador por operador puede insertar/actualizar `rmc_opt_*` en la BD central usando IDs centrales nuevos y mapa de auditoria; no modifica BDs de operadores ni la logica interna de RMC Optimizador.
 
 Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/configuracion Op-Nike. Antes de permitir `opnike_rule_status = active`, RMCCC valida campos obligatorios y mantiene `draft`, `shadow`, `active` e `inactive`.
 

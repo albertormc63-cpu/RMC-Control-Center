@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS rmc_external_sources (
     source_type TEXT NOT NULL,
     file_path TEXT NOT NULL,
     sheet_name TEXT,
+    operator_code TEXT,
+    app_name TEXT,
 
     active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
 
@@ -147,6 +149,34 @@ CREATE TABLE IF NOT EXISTS rmc_sublimation_output_log (
         ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS rmc_sync_record_map (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    source_id INTEGER NOT NULL,
+    source_operator TEXT NOT NULL,
+    source_table TEXT NOT NULL,
+    source_pk TEXT NOT NULL,
+    source_run_id TEXT,
+
+    central_table TEXT NOT NULL,
+    central_pk TEXT,
+    central_run_id TEXT,
+
+    natural_key TEXT,
+    row_hash TEXT,
+    sync_status TEXT NOT NULL,
+    conflict_reason TEXT,
+
+    first_synced_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_synced_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (source_id)
+        REFERENCES rmc_external_sources (id)
+        ON DELETE CASCADE,
+
+    UNIQUE(source_id, source_table, source_pk)
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_print_sublimation_natural_key
 ON rmc_print_sublimation_log (source_id, natural_key);
 
@@ -185,6 +215,18 @@ ON rmc_sync_runs (source_id);
 
 CREATE INDEX IF NOT EXISTS idx_external_sources_type
 ON rmc_external_sources (source_type);
+
+CREATE INDEX IF NOT EXISTS idx_external_sources_operator_app
+ON rmc_external_sources (source_type, operator_code, app_name);
+
+CREATE INDEX IF NOT EXISTS idx_sync_record_map_source
+ON rmc_sync_record_map (source_id, source_table, source_pk);
+
+CREATE INDEX IF NOT EXISTS idx_sync_record_map_natural_key
+ON rmc_sync_record_map (natural_key);
+
+CREATE INDEX IF NOT EXISTS idx_sync_record_map_status
+ON rmc_sync_record_map (sync_status);
 `);
 
 function ensureColumn(tableName, columnName, columnDefinition) {
@@ -197,6 +239,8 @@ function ensureColumn(tableName, columnName, columnDefinition) {
 }
 
 ensureColumn("rmc_sublimation_output_log", "hora_sale_almacen", "TEXT");
+ensureColumn("rmc_external_sources", "operator_code", "TEXT");
+ensureColumn("rmc_external_sources", "app_name", "TEXT");
 
 const tables = db.prepare(`
   SELECT name
@@ -205,6 +249,7 @@ const tables = db.prepare(`
   AND name IN (
     'rmc_external_sources',
     'rmc_sync_runs',
+    'rmc_sync_record_map',
     'rmc_print_sublimation_log',
     'rmc_sublimation_output_log'
   )

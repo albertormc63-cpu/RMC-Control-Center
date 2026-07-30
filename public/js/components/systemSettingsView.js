@@ -42,6 +42,35 @@ window.RMCComponents.systemSettingsView = function systemSettingsView() {
           <small>Commits importados por herramienta RMC.</small>
         </button>
       </div>
+
+      <section class="detail-panel database-sync-panel">
+        <div class="detail-header">
+          <div>
+            <h3>BD</h3>
+            <p class="settings-intro">Consolidacion manual de BDs SQLite por operador hacia la central.</p>
+          </div>
+        </div>
+
+        <form id="operatorDbSyncForm" class="operator-db-sync-form">
+          <label>
+            BD operador
+            <select id="operatorDbSyncOperator" autocomplete="off">
+              <option value="">Cargando BDs...</option>
+            </select>
+          </label>
+
+          <label>
+            PIN
+            <input id="operatorDbSyncPin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN de administracion">
+          </label>
+
+          <button id="btnRunOperatorDbSync" type="submit">Sincronizar BD</button>
+
+          <p id="operatorDbSyncMessage" class="form-message"></p>
+        </form>
+
+        <div id="operatorDbSyncSummary" class="operator-db-sync-summary"></div>
+      </section>
     </section>
   `;
 };

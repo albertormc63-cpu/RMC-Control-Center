@@ -61,11 +61,13 @@ const lazyViewLoads = {
   gitHistory: false,
   opNikeCatalog: false,
   rapid27: false,
-  pollingRoutes: false
+  pollingRoutes: false,
+  operatorDatabases: false
 };
 
 let pollingSourcesCache = [];
 let pollingSelectedSourceId = null;
+let operatorDatabasesCache = [];
 
 let opNikeCatalogData = {
   templateRoot: "",
@@ -835,7 +837,13 @@ async function sendJSON(url, options = {}) {
     "Content-Type": "application/json"
   };
 
-  if (url.startsWith("/api/nike/catalog") && method !== "GET") {
+  if (
+    method !== "GET" &&
+    (
+      url.startsWith("/api/nike/catalog") ||
+      url.startsWith("/api/sync/operator-databases")
+    )
+  ) {
     const pin = getStoredOpNikePin();
 
     if (pin) {
@@ -2868,6 +2876,140 @@ function getPollingSelectedSource() {
   return pollingSourcesCache.find(source => Number(source.id) === Number(pollingSelectedSourceId)) || null;
 }
 
+function setOperatorDbSyncMessage(message, type = "") {
+  const element = getElement("operatorDbSyncMessage");
+
+  if (!element) {
+    return;
+  }
+
+  element.textContent = message || "";
+  element.className = `form-message ${type ? `form-message-${type}` : ""}`.trim();
+}
+
+function renderOperatorDbSyncSummary(result) {
+  const container = getElement("operatorDbSyncSummary");
+
+  if (!container) {
+    return;
+  }
+
+  const totals = result?.totals || {};
+  const stats = [
+    ["Operadores", (result?.operators || []).join(", ") || "0"],
+    ["Leidos", formatNumber(totals.rowsRead)],
+    ["Insertados", formatNumber(totals.rowsInserted)],
+    ["Sin cambios", formatNumber(totals.rowsUnchanged)],
+    ["Omitidos", formatNumber(totals.rowsSkipped)],
+    ["Conflictos", formatNumber(totals.conflicts)]
+  ];
+
+  container.textContent = "";
+
+  stats.forEach(([label, value]) => {
+    const item = document.createElement("div");
+    const title = document.createElement("span");
+    const count = document.createElement("strong");
+
+    item.className = "operator-db-sync-stat";
+    title.textContent = label;
+    count.textContent = value;
+    item.append(title, count);
+    container.appendChild(item);
+  });
+}
+
+function renderOperatorDatabaseOptions() {
+  const select = getElement("operatorDbSyncOperator");
+
+  if (!select) {
+    return;
+  }
+
+  const currentValue = select.value;
+  select.innerHTML = "";
+
+  if (!operatorDatabasesCache.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Sin BDs detectadas";
+    select.appendChild(option);
+    select.disabled = true;
+    return;
+  }
+
+  operatorDatabasesCache.forEach(database => {
+    const option = document.createElement("option");
+    option.value = database.operator;
+    option.textContent = database.operator;
+    option.title = database.db_path || "";
+    select.appendChild(option);
+  });
+
+  select.disabled = false;
+  select.value = operatorDatabasesCache.some(database => database.operator === currentValue)
+    ? currentValue
+    : operatorDatabasesCache[0].operator;
+}
+
+async function loadOperatorDatabases(options = {}) {
+  const data = await getJSON("/api/sync/operator-databases");
+  operatorDatabasesCache = data.databases || [];
+  renderOperatorDatabaseOptions();
+
+  if (!options.silent) {
+    appendLog(`BDs de operador detectadas: ${formatNumber(operatorDatabasesCache.length)}`, "success");
+  }
+}
+
+async function runOperatorDatabaseSync(event) {
+  event.preventDefault();
+
+  const selectedOperator = String(getElement("operatorDbSyncOperator")?.value || "").trim();
+  const pinInput = getElement("operatorDbSyncPin");
+  const pin = String(pinInput?.value || getStoredOpNikePin() || "").trim();
+  const button = getElement("btnRunOperatorDbSync");
+
+  if (!selectedOperator) {
+    setOperatorDbSyncMessage("Selecciona una BD de operador.", "warning");
+    return;
+  }
+
+  if (!pin) {
+    setOperatorDbSyncMessage("Ingresa el PIN de administracion.", "warning");
+    pinInput?.focus();
+    return;
+  }
+
+  setStoredOpNikePin(pin);
+  setOperatorDbSyncMessage("Sincronizando BDs de operador...");
+
+  if (button) {
+    button.disabled = true;
+  }
+
+  try {
+    const result = await sendJSON("/api/sync/operator-databases/optimizador/run", {
+      method: "POST",
+      body: {
+        pin,
+        operators: [selectedOperator]
+      }
+    });
+
+    renderOperatorDbSyncSummary(result);
+    setOperatorDbSyncMessage(
+      `Sync lista: ${formatNumber(result.totals?.rowsInserted)} insertados, ${formatNumber(result.totals?.rowsUnchanged)} sin cambios.`,
+      result.totals?.conflicts ? "warning" : "success"
+    );
+    appendLog(`Sync BD Optimizador: ${selectedOperator} | ${formatNumber(result.totals?.rowsInserted)} insertados`, "success");
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 function setPollingMessage(message, type = "") {
   const element = getElement("pollingSourceMessage");
 
@@ -3760,6 +3902,16 @@ function loadViewData(viewId) {
       appendLog(error.message || "No se pudieron cargar fuentes de polling", "error");
     });
   }
+
+  if (viewId === "system-settings-view" && !lazyViewLoads.operatorDatabases) {
+    lazyViewLoads.operatorDatabases = true;
+    loadOperatorDatabases().catch(error => {
+      lazyViewLoads.operatorDatabases = false;
+      console.error(error);
+      setOperatorDbSyncMessage(error.message || "No se pudieron detectar BDs de operador", "warning");
+      appendLog(error.message || "No se pudieron detectar BDs de operador", "error");
+    });
+  }
 }
 
 // Conecta los botones del sidebar con las vistas internas.
@@ -3781,6 +3933,14 @@ function bindSettingsControls() {
 
     event.preventDefault();
     switchView(button.dataset.view);
+  });
+
+  getElement("operatorDbSyncForm")?.addEventListener("submit", event => {
+    runOperatorDatabaseSync(event).catch(error => {
+      console.error(error);
+      setOperatorDbSyncMessage(error.message || "No se pudo sincronizar la BD.", "warning");
+      appendLog(error.message || "No se pudo sincronizar BD de operador", "error");
+    });
   });
 
   getElement("pollingSourceForm")?.addEventListener("submit", event => {

@@ -130,6 +130,73 @@
   color: var(--rmc-log-warning);
 }
 
+.database-sync-panel {
+  margin-top: 12px;
+}
+
+.operator-db-sync-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, 0.7fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.operator-db-sync-form label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.operator-db-sync-form input,
+.operator-db-sync-form select {
+  width: 100%;
+  padding: 8px 9px;
+}
+
+.operator-db-sync-form button {
+  min-height: 35px;
+  white-space: nowrap;
+}
+
+.operator-db-sync-form .form-message {
+  grid-column: 1 / -1;
+}
+
+.operator-db-sync-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.operator-db-sync-summary:empty {
+  display: none;
+}
+
+.operator-db-sync-stat {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+}
+
+.operator-db-sync-stat span {
+  color: var(--rmc-muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.operator-db-sync-stat strong {
+  color: var(--rmc-text);
+  font-size: 16px;
+}
+
 /* =========================================================
    Log compacto
    Se colapsa por defecto para liberar espacio del dashboard.

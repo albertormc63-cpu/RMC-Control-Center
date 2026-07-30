@@ -101,8 +101,17 @@
   .summary-grid-rapid27,
   .rapid27-flow-panel,
   .settings-card-grid,
-  .polling-source-grid {
+  .polling-source-grid,
+  .operator-db-sync-summary {
     grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+
+  .operator-db-sync-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .operator-db-sync-form button {
+    grid-column: 1 / -1;
   }
 }
 
@@ -144,12 +153,14 @@
 
   .catalog-form fieldset,
   .catalog-family-form,
-  .polling-form {
+  .polling-form,
+  .operator-db-sync-form {
     grid-template-columns: 1fr;
   }
 
   .settings-card-grid,
-  .polling-source-grid {
+  .polling-source-grid,
+  .operator-db-sync-summary {
     grid-template-columns: 1fr;
   }
 

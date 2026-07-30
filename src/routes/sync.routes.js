@@ -6,11 +6,38 @@ const {
   SUPPORTED_SOURCE_TYPES,
   syncPrintSublimationSource
 } = require("../services/printSublimationSync");
+const {
+  DEFAULT_OPERATOR_DB_ROOT,
+  discoverOperatorDatabases,
+  syncOperatorOptimizerDatabases
+} = require("../services/operatorOptimizerSync");
 
 const router = express.Router();
+const OP_NIKE_ADMIN_PIN = String(process.env.RMC_OPNIKE_ADMIN_PIN || "290497");
 
 function cleanText(value) {
   return String(value || "").trim();
+}
+
+function getRequestPin(req) {
+  return String(
+    req.get("X-RMC-OPNIKE-PIN") ||
+    req.body?.pin ||
+    ""
+  ).trim();
+}
+
+function requireSyncPin(req, res, next) {
+  if (getRequestPin(req) === OP_NIKE_ADMIN_PIN) {
+    next();
+    return;
+  }
+
+  res.status(401).json({
+    ok: false,
+    error: "PIN requerido",
+    message: "PIN invalido o ausente para sincronizar BDs de operador"
+  });
 }
 
 function getSourceFileStatus(filePath) {
@@ -50,6 +77,42 @@ function serializeSource(source) {
     ...getSourceFileStatus(source.file_path)
   };
 }
+
+router.post("/operator-databases/optimizador/run", requireSyncPin, async (req, res, next) => {
+  try {
+    const payload = req.body || {};
+    const operators = Array.isArray(payload.operators)
+      ? payload.operators
+      : cleanText(payload.operators);
+    const root = cleanText(payload.root) || undefined;
+    const result = await syncOperatorOptimizerDatabases(db, {
+      root,
+      operators
+    });
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/operator-databases", (req, res, next) => {
+  try {
+    const root = cleanText(req.query.root) || DEFAULT_OPERATOR_DB_ROOT;
+    const sources = discoverOperatorDatabases(root);
+
+    res.json({
+      ok: true,
+      root,
+      databases: sources.map((source) => ({
+        operator: source.operator,
+        db_path: source.dbPath
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get("/sources", (req, res, next) => {
   try {
