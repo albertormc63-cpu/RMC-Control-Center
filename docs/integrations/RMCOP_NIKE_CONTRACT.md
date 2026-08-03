@@ -14,6 +14,8 @@ Tablas:
 
 `RMC Control Center` mantiene una pantalla administrativa acotada para el catalogo Op-Nike. Esa pantalla puede crear y editar familias/variantes/reglas en `rmc_nike_style_families` y `rmc_nike_style_variants`, pero no escribe runs ni items de produccion.
 
+RMCCC puede registrar bajas auxiliares de items cancelados en `rmc_nike_item_cancellations`. Esa tabla no pertenece a RMCOp-Nike y solo filtra visualizaciones/reportes del Control Center.
+
 ## Agrupacion operativa
 
 Las ejecuciones se agrupan por:
@@ -22,6 +24,8 @@ Las ejecuciones se agrupan por:
 - Ano derivado de `created_at` o del prefijo del `id`.
 
 El listado `/api/nike/runs` devuelve embarques agrupados, no runs aislados. El detalle `/api/nike/runs/:id` toma un run de muestra y devuelve todos los items de runs que comparten embarque y ano.
+
+Los items con baja activa en `rmc_nike_item_cancellations` se excluyen de conteos, detalles y Excel.
 
 ## Campos de runs consumidos
 
@@ -123,3 +127,4 @@ Columnas:
 - Control Center no crea runs ni items Nike.
 - Control Center no corrige errores de Nike.
 - Control Center no define reglas internas de RMCOp-Nike; solo consume su salida registrada.
+- Las bajas auxiliares de RMCCC no borran ni modifican `rmcop_nike_items`.

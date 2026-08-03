@@ -104,7 +104,10 @@ window.RMCComponents.rapid27View = function rapid27View() {
             <span class="modal-eyebrow">Detalle de pedido</span>
             <h3 id="rapid27ModalTitle">27 Sports / Rapid</h3>
           </div>
-          <button id="closeRapid27OrderModal" class="secondary-button" type="button">Cerrar</button>
+          <div class="modal-actions">
+            <button id="rapid27CancelOrderButton" class="danger-button" type="button">Dar de baja</button>
+            <button id="closeRapid27OrderModal" class="secondary-button" type="button">Cerrar</button>
+          </div>
         </div>
 
         <div class="nike-item-summary">

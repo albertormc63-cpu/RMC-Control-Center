@@ -94,7 +94,10 @@ window.RMCComponents.nikeView = function nikeView() {
           <div>
             <span class="modal-eyebrow">Detalle de item</span>
           </div>
-          <button id="closeNikeItemModal" class="secondary-button" type="button">Cerrar</button>
+          <div class="modal-actions">
+            <button id="nikeCancelItemButton" class="danger-button" type="button">Dar de baja</button>
+            <button id="closeNikeItemModal" class="secondary-button" type="button">Cerrar</button>
+          </div>
         </div>
 
         <div class="nike-item-summary">

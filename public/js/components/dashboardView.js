@@ -8,6 +8,78 @@ window.RMCComponents.dashboardView = function dashboardView() {
 
       <section class="dashboard-block">
         <div class="block-title">
+          <h3>RMCOp-Nike</h3>
+          <div class="dashboard-period-filter">
+            <label for="nikeMonthFilter">Mes de embarque</label>
+            <input class="MonthFilter" id="nikeMonthFilter" type="month">
+            <button id="nikeMonthAll" class="secondary-button" type="button">Todos</button>
+          </div>
+        </div>
+
+        <div class="summary-grid summary-grid-nike">
+          <div class="summary-card">
+            <span>Ejecuciones</span>
+            <strong id="nikeRuns">0</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Pedidos</span>
+            <strong id="nikePedidos">0</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Registros</span>
+            <strong id="nikeRegistros">0</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Piezas</span>
+            <strong id="nikePiezas">0</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Estilos</span>
+            <strong id="nikeEstilos">0</strong>
+          </div>
+
+          <div class="summary-card">
+            <span>Tiempo Promedio</span>
+            <strong id="nikeAvgTime">00:00:00</strong>
+          </div>
+        </div>
+
+        <div class="chart-panel">
+          <h4>Piezas por fecha de embarque</h4>
+          <div class="chart-month-nav" aria-label="Navegacion mensual Nike">
+            <button id="nikeMonthPrev" class="chart-nav-button" type="button" aria-label="Mes anterior Nike">&lt;</button>
+            <div id="nikeTimeChart" class="chart-canvas"></div>
+            <button id="nikeMonthNext" class="chart-nav-button" type="button" aria-label="Mes siguiente Nike">&gt;</button>
+          </div>
+        </div>
+
+        <div class="dashboard-table-panel">
+          <h4>Resumen mensual Nike</h4>
+          <div class="table-wrap">
+            <table class="compact-table">
+              <thead>
+                <tr>
+                  <th>Mes/Año</th>
+                  <th>Ejecuciones</th>
+                  <th>Pedidos</th>
+                  <th>Piezas</th>
+                  <th>Tiempo prom.</th>
+                  <th>Errores</th>
+                </tr>
+              </thead>
+              <tbody id="nikeMonthlyTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!--- 
+      <section class="dashboard-block">
+        <div class="block-title">
           <h3>General</h3>
         </div>
 
@@ -28,6 +100,7 @@ window.RMCComponents.dashboardView = function dashboardView() {
           </div>
         </div>
       </section>
+      Bloque de seguimiento operativo 27 Rapid -->
 
       <section class="dashboard-block">
         <div class="block-title">
@@ -95,77 +168,6 @@ window.RMCComponents.dashboardView = function dashboardView() {
             <button id="rapid27DashboardMonthPrev" class="chart-nav-button" type="button" aria-label="Mes anterior 27 Rapid">&lt;</button>
             <div id="rapid27TrackingChart" class="chart-canvas"></div>
             <button id="rapid27DashboardMonthNext" class="chart-nav-button" type="button" aria-label="Mes siguiente 27 Rapid">&gt;</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="dashboard-block">
-        <div class="block-title">
-          <h3>RMCOp-Nike</h3>
-          <div class="dashboard-period-filter">
-            <label for="nikeMonthFilter">Mes de embarque</label>
-            <input class="MonthFilter" id="nikeMonthFilter" type="month">
-            <button id="nikeMonthAll" class="secondary-button" type="button">Todos</button>
-          </div>
-        </div>
-
-        <div class="summary-grid summary-grid-nike">
-          <div class="summary-card">
-            <span>Ejecuciones</span>
-            <strong id="nikeRuns">0</strong>
-          </div>
-
-          <div class="summary-card">
-            <span>Pedidos</span>
-            <strong id="nikePedidos">0</strong>
-          </div>
-
-          <div class="summary-card">
-            <span>Registros</span>
-            <strong id="nikeRegistros">0</strong>
-          </div>
-
-          <div class="summary-card">
-            <span>Piezas</span>
-            <strong id="nikePiezas">0</strong>
-          </div>
-
-          <div class="summary-card">
-            <span>Estilos</span>
-            <strong id="nikeEstilos">0</strong>
-          </div>
-
-          <div class="summary-card">
-            <span>Tiempo Promedio</span>
-            <strong id="nikeAvgTime">00:00:00</strong>
-          </div>
-        </div>
-
-        <div class="chart-panel">
-          <h4>Piezas por fecha de embarque</h4>
-          <div class="chart-month-nav" aria-label="Navegacion mensual Nike">
-            <button id="nikeMonthPrev" class="chart-nav-button" type="button" aria-label="Mes anterior Nike">&lt;</button>
-            <div id="nikeTimeChart" class="chart-canvas"></div>
-            <button id="nikeMonthNext" class="chart-nav-button" type="button" aria-label="Mes siguiente Nike">&gt;</button>
-          </div>
-        </div>
-
-        <div class="dashboard-table-panel">
-          <h4>Resumen mensual Nike</h4>
-          <div class="table-wrap">
-            <table class="compact-table">
-              <thead>
-                <tr>
-                  <th>Mes/Año</th>
-                  <th>Ejecuciones</th>
-                  <th>Pedidos</th>
-                  <th>Piezas</th>
-                  <th>Tiempo prom.</th>
-                  <th>Errores</th>
-                </tr>
-              </thead>
-              <tbody id="nikeMonthlyTable"></tbody>
-            </table>
           </div>
         </div>
       </section>

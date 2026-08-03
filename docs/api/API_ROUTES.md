@@ -240,7 +240,7 @@ Reacciones permitidas: `like`, `love`, `haha`, `wow`, `sad` y `angry`. Cada IP m
 
 ## 27 Sports / Rapid
 
-Rutas de solo lectura sobre las tablas `rmc_opt_*` creadas por RMC Optimizador:
+Rutas de lectura sobre las tablas `rmc_opt_*` creadas por RMC Optimizador:
 
 ```http
 GET /api/optimizador/rapid27/availability
@@ -259,6 +259,18 @@ GET /api/optimizador/rapid27/orders/:id
 - `orders/:id` devuelve pedido, lineas, outputs y metadata segura de assets; acepta `shipment_key` para limitar el modal al embarque abierto y no expone rutas absolutas.
 - El cruce de Impresion usa `WO + style + roster` normalizado; el de Almacen usa `WO + style` porque la fuente de Sublimado no incluye roster.
 - Estas rutas no escriben ni refrescan las tablas del Optimizador.
+
+```http
+POST /api/optimizador/rapid27/orders/:id/cancel
+Content-Type: application/json
+
+{
+  "shipment_key": "2026-07-27|Rapid",
+  "reason": "Cancelado desde modal 27/Rapid"
+}
+```
+
+Registra una baja auxiliar en `rmc_rapid27_order_cancellations` por pedido y embarque. No borra ni modifica `rmc_opt_*`; los resumenes, embarques, detalle y modal filtran las bajas activas para que no se muestren ni cuenten.
 
 ## RMCOp-Nike
 
@@ -297,7 +309,7 @@ Query params:
 - `page`: pagina, default `1`.
 - `limit`: limite entre `10` y `200`, default `100`.
 
-Devuelve ejecuciones agrupadas por `fecha_embarque` y ano:
+Devuelve ejecuciones agrupadas por `fecha_embarque` y ano. Los conteos excluyen items Nike dados de baja en `rmc_nike_item_cancellations`:
 
 ```json
 {
@@ -324,6 +336,17 @@ Devuelve el embarque Nike al que pertenece `:id`, consolidando todos los runs de
 - `items`
 
 Si no existe responde `404`.
+
+```http
+POST /api/nike/items/:id/cancel
+Content-Type: application/json
+
+{
+  "reason": "Cancelado desde modal Nike"
+}
+```
+
+Registra una baja auxiliar del item Nike. No borra ni modifica `rmcop_nike_items`; dashboard, embarques, detalle y reportes Excel excluyen bajas activas.
 
 ## RMC MockupTool
 
@@ -368,7 +391,7 @@ Si no existe responde `404`.
 GET /api/reports/nike/:id/excel
 ```
 
-Genera Excel Nike para todos los items del grupo de embarque.
+Genera Excel Nike para todos los items activos del grupo de embarque, excluyendo bajas auxiliares.
 
 ```http
 GET /api/reports/mockup/:id/excel

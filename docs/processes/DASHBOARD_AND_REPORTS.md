@@ -1,5 +1,9 @@
 # Dashboard y Reportes
 
+## Orden visual del Dashboard
+
+El Dashboard muestra primero `RMCOp-Nike`, despues el resumen `General` y despues `Seguimiento operativo 27 / Rapid`.
+
 ## Dashboard general
 
 `GET /api/dashboard` mezcla metricas de Registry, Nike, MockupTool y commits Nike.
@@ -73,6 +77,7 @@ Estado actual:
 - `Ver` abre el detalle del embarque con la tabla `Pedidos 27 Sports / Rapid`.
 - La tabla del detalle usa columnas `Roster`, `Nombre Pedido`, `Piezas`, `Estilos`, `Archivos`, `Estado` y `Detalle`.
 - `Ver` en un pedido abre un modal con las piezas/outputs del roster y tracking por area.
+- El modal permite dar de baja pedidos cancelados; la baja se guarda en tabla auxiliar y se filtra de cards, embarques y detalles.
 - No registra produccion ni modifica datos CEP.
 
 ## Agrupacion por embarque
@@ -152,6 +157,7 @@ Al abrir `Ver`:
 - Hay filtros, sort y boton de ocultar.
 - La tabla detalle muestra `Tipo` para separar genericas, personalizadas o manuales.
 - Los archivos se abren con endpoints `/api/files/nike/...`.
+- El modal permite dar de baja un item cancelado; se guarda en `rmc_nike_item_cancellations` y se excluye de dashboard, embarques, detalles y Excel.
 
 ## Detalle MockupTool
 

@@ -12,6 +12,10 @@ La conexion actual usa `better-sqlite3` y `fileMustExist: true`.
 
 El chat grupal LAN es un modulo auxiliar propio de RMCCC. Crea y escribe solamente `rmc_chat_messages` y `rmc_chat_reactions`; no modifica datos operativos de ningun CEP.
 
+El detalle Nike permite bajas auxiliares de items cancelados en `rmc_nike_item_cancellations`. Esa tabla solo oculta y descuenta registros dentro de RMCCC; no borra ni modifica `rmcop_nike_items`.
+
+El panel 27 Sports / Rapid permite bajas auxiliares de pedidos cancelados en `rmc_rapid27_order_cancellations`. Esa tabla solo oculta y descuenta registros dentro de RMCCC; no borra ni modifica `rmc_opt_*`.
+
 ## Tablas leidas
 
 ```text
@@ -26,6 +30,8 @@ rmc_mockuptool_runs
 rmc_mockuptool_items
 rmc_chat_messages
 rmc_chat_reactions
+rmc_nike_item_cancellations
+rmc_rapid27_order_cancellations
 rmc_opt_orders
 rmc_opt_order_lines
 rmc_opt_roster_outputs
@@ -41,6 +47,8 @@ Excepcion documentada: la sincronizacion manual de BDs por operador puede consol
 El tracking operativo se enriquece con las tablas espejo `rmc_print_sublimation_log` y `rmc_sublimation_output_log`. Un archivo encontrado/movido no implica por si solo que ya fue reportado por Impresion o Almacen.
 
 La vista agrupa por `emb` normalizado desde `rmc_opt_order_lines` y por `cliente` desde `rmc_opt_orders`. El detalle de embarque limita los pedidos y outputs a las lineas de esa fecha de embarque.
+
+Las bajas activas en `rmc_rapid27_order_cancellations` se aplican por `order_id + shipment_key`. Los resumenes, embarques, detalles y modal excluyen esas lineas, outputs y assets para que pedidos cancelados no se muestren ni cuenten.
 
 El estado operativo sigue la prioridad visual de Nike-Op: `En almacen`, parcial en almacen, `Bajado a Sublimado`, parcial en Sublimado y `En proceso de impresion`. La columna `Archivos` queda separada para indicar archivos encontrados/movidos.
 
@@ -154,6 +162,8 @@ Uso:
 - Export Excel Nike.
 - Resolucion de archivos de maqueta/plantilla mediante servicios.
 - Presentacion de equipo para versiones All Star mediante catalogo de variantes.
+
+Las bajas activas en `rmc_nike_item_cancellations` se aplican por `item_id`. Dashboard, embarques, detalles y reportes Excel excluyen esos items para que pedidos cancelados no se muestren ni cuenten.
 
 ## rmc_nike_style_variants
 

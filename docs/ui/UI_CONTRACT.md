@@ -150,6 +150,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Columna `Tipo` entre `Variante` y `Talla` para filtrar `Generica`, `Personalizada` o `Manual`.
 - Filtros por columna tipo Excel en la tabla de detalle.
 - Herramienta por item.
+- El modal permite `Dar de baja` un item cancelado por cliente; registra una baja auxiliar y el item deja de mostrarse y contar en Nike.
 - Boton ocultar detalle.
 
 `opNikeCatalogView.js`:
@@ -193,11 +194,12 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 
 `rapid27View.js`:
 
-- Panel de solo lectura 27 Sports / Rapid.
+- Panel de lectura 27 Sports / Rapid sobre `rmc_opt_*`, con bajas auxiliares propias de RMCCC.
 - Tabla principal agrupada por embarque y cliente, con filtro por mes y filtro de cliente.
 - `Ver` abre el detalle del embarque con la tabla `Pedidos 27 Sports / Rapid`.
 - La tabla del detalle muestra `Roster`, `Nombre Pedido`, `Piezas`, `Estilos`, `Archivos`, `Estado` y `Detalle`.
 - `Ver` en un pedido abre un modal tipo Nike con resumen, tracking por area y piezas/outputs del roster.
+- El modal permite `Dar de baja` un pedido cancelado por cliente; registra la baja auxiliar y el pedido deja de mostrarse y contar en 27/Rapid.
 - Consulta `rmc_opt_orders`, `rmc_opt_order_lines`, `rmc_opt_roster_outputs` y `rmc_opt_assets`; no escribe ni refresca esas tablas.
 
 `registryView.js`:

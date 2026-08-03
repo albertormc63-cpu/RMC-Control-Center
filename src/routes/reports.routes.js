@@ -3,8 +3,14 @@ const ExcelJS = require("exceljs");
 const db = require("../db");
 const { getMockupRunGroup } = require("../services/mockupGroups");
 const { getNikeRunGroup } = require("../services/nikeGroups");
+const {
+  activeNikeItemWhere,
+  ensureNikeCancellationSchema
+} = require("../services/nikeCancellations");
 
 const router = express.Router();
+
+ensureNikeCancellationSchema(db);
 
 // Exporta los items de una ejecucion Nike en Excel para revision externa.
 router.get("/nike/:id/excel", async (req, res) => {
@@ -39,8 +45,9 @@ router.get("/nike/:id/excel", async (req, res) => {
         error,
         tiempo,
         clave
-      FROM rmcop_nike_items
-      WHERE run_id IN (${group.runIds.map(() => "?").join(",")})
+      FROM rmcop_nike_items i
+      WHERE i.run_id IN (${group.runIds.map(() => "?").join(",")})
+        AND ${activeNikeItemWhere("i")}
       ORDER BY run_id, equipo, style, talla
     `).all(...group.runIds);
 

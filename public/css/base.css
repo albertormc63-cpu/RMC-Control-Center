@@ -101,6 +101,18 @@ select:focus-visible {
   box-shadow: none;
 }
 
+.danger-button {
+  border-color: var(--rmc-log-error);
+  background: transparent;
+  color: var(--rmc-log-error);
+}
+
+.danger-button:hover {
+  background: var(--rmc-log-error);
+  color: var(--rmc-text);
+  box-shadow: none;
+}
+
 input,
 select,
 textarea {

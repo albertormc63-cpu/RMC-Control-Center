@@ -1,6 +1,8 @@
 const express = require("express");
 const db = require("../db");
 const {
+  cancelOrder,
+  ensureRapid27Schema,
   getAvailability,
   getSummary,
   getShipments,
@@ -11,11 +13,23 @@ const {
 
 const router = express.Router();
 
+ensureRapid27Schema(db);
+
 function sendError(res, error, label) {
   res.status(error.status || 500).json({
     error: label,
     message: error.message
   });
+}
+
+function getClientIp(req) {
+  const ip = String(req.socket?.remoteAddress || req.ip || "").trim();
+
+  if (!ip || ip === "::1") {
+    return "127.0.0.1";
+  }
+
+  return ip.startsWith("::ffff:") ? ip.slice(7) : ip;
 }
 
 router.get("/availability", (req, res) => {
@@ -63,6 +77,21 @@ router.get("/orders/:id", (req, res) => {
     }));
   } catch (error) {
     sendError(res, error, "No se pudo leer el detalle 27/Rapid");
+  }
+});
+
+router.post("/orders/:id/cancel", (req, res) => {
+  try {
+    const result = cancelOrder(db, {
+      orderId: req.params.id,
+      shipmentKey: req.body?.shipment_key,
+      reason: req.body?.reason,
+      cancelledBy: getClientIp(req)
+    });
+
+    res.status(201).json(result);
+  } catch (error) {
+    sendError(res, error, "No se pudo dar de baja el pedido 27/Rapid");
   }
 });
 

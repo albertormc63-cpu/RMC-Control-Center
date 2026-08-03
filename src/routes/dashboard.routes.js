@@ -1,7 +1,13 @@
 const express = require("express");
 const db = require("../db");
+const {
+  activeNikeItemWhere,
+  ensureNikeCancellationSchema
+} = require("../services/nikeCancellations");
 
 const router = express.Router();
+
+ensureNikeCancellationSchema(db);
 
 // Convierte duraciones tipo HH:MM:SS a segundos para poder promediar y graficar.
 function durationToSeconds(value) {
@@ -277,33 +283,76 @@ router.get("/", (req, res) => {
     const nikeRuns = safeGet(() => db.prepare(`
       SELECT
         COUNT(*) AS total,
-        COALESCE(SUM(pedidos), 0) AS pedidos,
-        COALESCE(SUM(piezas), 0) AS piezas,
-        COALESCE(SUM(estilos), 0) AS estilos,
         COALESCE(SUM(ok), 0) AS ok,
         COALESCE(SUM(errores), 0) AS errores
       FROM rmcop_nike_runs
-    `).get(), { total: 0, pedidos: 0, piezas: 0, estilos: 0, ok: 0, errores: 0 });
+    `).get(), { total: 0, ok: 0, errores: 0 });
 
     const nikeItems = safeGet(() => db.prepare(`
       SELECT 
         COUNT(*) AS registros,
+        COUNT(DISTINCT COALESCE(NULLIF(TRIM(ship_order), ''), NULLIF(TRIM(wo), ''), CAST(id AS TEXT))) AS pedidos,
         COALESCE(SUM(piezas), 0) AS piezas,
+        COUNT(DISTINCT CASE
+          WHEN TRIM(COALESCE(style, '')) <> ''
+          THEN UPPER(TRIM(style))
+        END) AS estilos,
         SUM(CASE WHEN error IS NOT NULL AND TRIM(error) != '' THEN 1 ELSE 0 END) AS errores
-      FROM rmcop_nike_items
-    `).get(), { registros: 0, piezas: 0, errores: 0 });
+      FROM rmcop_nike_items i
+      WHERE ${activeNikeItemWhere("i")}
+    `).get(), { registros: 0, pedidos: 0, piezas: 0, estilos: 0, errores: 0 });
 
     const nikeRecentRuns = safeAll(() => db.prepare(`
-      SELECT id, created_at, fecha_embarque, tiempo, piezas, pedidos, errores
-      FROM rmcop_nike_runs
-      ORDER BY id DESC
+      WITH active_items AS (
+        SELECT
+          i.run_id,
+          COUNT(*) AS registros,
+          COUNT(DISTINCT COALESCE(NULLIF(TRIM(i.ship_order), ''), NULLIF(TRIM(i.wo), ''), CAST(i.id AS TEXT))) AS pedidos,
+          COALESCE(SUM(i.piezas), 0) AS piezas,
+          SUM(CASE WHEN i.error IS NOT NULL AND TRIM(i.error) != '' THEN 1 ELSE 0 END) AS errores
+        FROM rmcop_nike_items i
+        WHERE ${activeNikeItemWhere("i")}
+        GROUP BY i.run_id
+      )
+      SELECT
+        r.id,
+        r.created_at,
+        r.fecha_embarque,
+        r.tiempo,
+        COALESCE(ai.piezas, 0) AS piezas,
+        COALESCE(ai.pedidos, 0) AS pedidos,
+        COALESCE(ai.errores, 0) AS errores
+      FROM rmcop_nike_runs r
+      LEFT JOIN active_items ai ON ai.run_id = r.id
+      WHERE COALESCE(ai.registros, 0) > 0
+      ORDER BY r.id DESC
       LIMIT 12
     `).all(), []).reverse();
 
     const nikeDailyRuns = safeAll(() => db.prepare(`
-      SELECT id, created_at, fecha_embarque, tiempo, piezas, pedidos, errores
-      FROM rmcop_nike_runs
-      ORDER BY id ASC
+      WITH active_items AS (
+        SELECT
+          i.run_id,
+          COUNT(*) AS registros,
+          COUNT(DISTINCT COALESCE(NULLIF(TRIM(i.ship_order), ''), NULLIF(TRIM(i.wo), ''), CAST(i.id AS TEXT))) AS pedidos,
+          COALESCE(SUM(i.piezas), 0) AS piezas,
+          SUM(CASE WHEN i.error IS NOT NULL AND TRIM(i.error) != '' THEN 1 ELSE 0 END) AS errores
+        FROM rmcop_nike_items i
+        WHERE ${activeNikeItemWhere("i")}
+        GROUP BY i.run_id
+      )
+      SELECT
+        r.id,
+        r.created_at,
+        r.fecha_embarque,
+        r.tiempo,
+        COALESCE(ai.piezas, 0) AS piezas,
+        COALESCE(ai.pedidos, 0) AS pedidos,
+        COALESCE(ai.errores, 0) AS errores
+      FROM rmcop_nike_runs r
+      LEFT JOIN active_items ai ON ai.run_id = r.id
+      WHERE COALESCE(ai.registros, 0) > 0
+      ORDER BY r.id ASC
     `).all(), []);
 
     const nikeDurationSeconds = nikeRecentRuns
@@ -366,12 +415,12 @@ router.get("/", (req, res) => {
       registry,
       nike: {
         runs: nikeRuns.total,
-        pedidos: nikeRuns.pedidos,
+        pedidos: nikeItems.pedidos,
         registros: nikeItems.registros,
         piezas: nikeItems.piezas,
-        estilos: nikeRuns.estilos,
+        estilos: nikeItems.estilos,
         ok: nikeRuns.ok,
-        errores: nikeRuns.errores + (nikeItems.errores || 0),
+        errores: nikeItems.errores || 0,
         promedioTiempo: secondsToDuration(avgNikeSeconds),
         daily: buildNikeDaily(nikeDailyRuns),
         monthly: buildNikeMonthly(nikeDailyRuns),

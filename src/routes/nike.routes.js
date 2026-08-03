@@ -6,9 +6,26 @@ const {
   TOOL_SQL,
   getNikeRunGroup
 } = require("../services/nikeGroups");
+const {
+  activeNikeItemWhere,
+  cancelNikeItem,
+  ensureNikeCancellationSchema
+} = require("../services/nikeCancellations");
 const { attachNikeFilePaths } = require("../services/nikeFiles");
 
 const router = express.Router();
+
+ensureNikeCancellationSchema(db);
+
+function getClientIp(req) {
+  const ip = String(req.socket?.remoteAddress || req.ip || "").trim();
+
+  if (!ip || ip === "::1") {
+    return "127.0.0.1";
+  }
+
+  return ip.startsWith("::ffff:") ? ip.slice(7) : ip;
+}
 
 function buildPrintSublimationState(summary) {
   if (Number(summary?.sublimationOutputCount || 0) > 0) {
@@ -213,17 +230,29 @@ router.get("/runs", (req, res) => {
           COALESCE(pedidos, 0) AS pedidos,
           COALESCE(piezas, 0) AS piezas
         FROM rmcop_nike_runs
+      ),
+      active_items AS (
+        SELECT
+          i.run_id,
+          COUNT(*) AS registros,
+          COUNT(DISTINCT COALESCE(NULLIF(TRIM(i.ship_order), ''), NULLIF(TRIM(i.wo), ''), CAST(i.id AS TEXT))) AS pedidos,
+          COALESCE(SUM(i.piezas), 0) AS piezas
+        FROM rmcop_nike_items i
+        WHERE ${activeNikeItemWhere("i")}
+        GROUP BY i.run_id
       )
       SELECT
-        fecha_embarque,
-        run_year,
-        MAX(id) AS sample_run_id,
+        nr.fecha_embarque,
+        nr.run_year,
+        MAX(nr.id) AS sample_run_id,
         COUNT(*) AS run_count,
-        SUM(pedidos) AS pedidos,
-        SUM(piezas) AS piezas
-      FROM normalized_runs
-      GROUP BY fecha_embarque, run_year
-      ORDER BY MAX(id) DESC
+        COALESCE(SUM(ai.pedidos), 0) AS pedidos,
+        COALESCE(SUM(ai.piezas), 0) AS piezas
+      FROM normalized_runs nr
+      LEFT JOIN active_items ai ON ai.run_id = nr.id
+      GROUP BY nr.fecha_embarque, nr.run_year
+      HAVING COALESCE(SUM(ai.registros), 0) > 0
+      ORDER BY MAX(nr.id) DESC
       LIMIT ?
       OFFSET ?
     `).all(limit, offset);
@@ -251,8 +280,9 @@ router.get("/runs/:id", (req, res) => {
 
     const rawItems = db.prepare(`
       SELECT *
-      FROM rmcop_nike_items
-      WHERE run_id IN (${group.runIds.map(() => "?").join(",")})
+      FROM rmcop_nike_items i
+      WHERE i.run_id IN (${group.runIds.map(() => "?").join(",")})
+        AND ${activeNikeItemWhere("i")}
       ORDER BY run_id, equipo, style, talla
     `).all(...group.runIds);
     const printSummaryByWorkOrder = getPrintSublimationSummariesByWorkOrder(
@@ -306,8 +336,10 @@ router.get("/runs/:id", (req, res) => {
       groupDate: group.embarkDate,
       runCount: group.groupRuns.length,
       herramienta: group.herramienta,
-      totalPedidos: group.pedidos,
-      totalPieces: group.piezas,
+      totalPedidos: new Set(items
+        .map(item => String(item.ship_order || item.wo || item.id || "").trim())
+        .filter(Boolean)).size,
+      totalPieces: items.reduce((total, item) => total + Number(item.piezas || 0), 0),
       year: group.year,
       runIds: group.runIds,
       items
@@ -355,11 +387,27 @@ router.get("/items/:id/print-sublimation", (req, res) => {
         fecha_embarque,
         roster,
         path
-      FROM rmcop_nike_items
-      WHERE id = ?
+      FROM rmcop_nike_items i
+      WHERE i.id = ?
+        AND ${activeNikeItemWhere("i")}
     `).get(itemId);
 
     if (!item) {
+      const cancelledItem = db.prepare(`
+        SELECT 1
+        FROM rmcop_nike_items i
+        WHERE i.id = ?
+          AND NOT ${activeNikeItemWhere("i")}
+      `).get(itemId);
+
+      if (cancelledItem) {
+        res.status(410).json({
+          error: "Item Nike dado de baja",
+          message: "Este item Nike ya fue dado de baja"
+        });
+        return;
+      }
+
       res.status(404).json({
         error: "Item Nike no encontrado"
       });
@@ -568,6 +616,23 @@ router.get("/items/:id/print-sublimation", (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: "No se pudo consultar impresión/sublimado para el item Nike",
+      message: error.message
+    });
+  }
+});
+
+router.post("/items/:id/cancel", (req, res) => {
+  try {
+    const result = cancelNikeItem(db, {
+      itemId: req.params.id,
+      reason: req.body?.reason,
+      cancelledBy: getClientIp(req)
+    });
+
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({
+      error: error.status ? error.message : "No se pudo dar de baja el item Nike",
       message: error.message
     });
   }

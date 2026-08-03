@@ -6,6 +6,8 @@ const REQUIRED_TABLES = [
   "rmc_opt_roster_outputs",
   "rmc_opt_assets"
 ];
+const CANCELLATION_TABLE = "rmc_rapid27_order_cancellations";
+const MAX_CANCELLATION_REASON_LENGTH = 240;
 
 const MONTHS_ES = {
   ene: "01",
@@ -43,6 +45,25 @@ function tableExists(db, tableName) {
     WHERE type = 'table'
       AND name = ?
   `).get(tableName));
+}
+
+function ensureRapid27Schema(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ${CANCELLATION_TABLE} (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      shipment_key TEXT NOT NULL,
+      reason TEXT NOT NULL DEFAULT '',
+      cancelled_by TEXT NOT NULL DEFAULT '',
+      cancelled_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      is_active INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      UNIQUE(order_id, shipment_key)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_rmc_rapid27_order_cancellations_active
+      ON ${CANCELLATION_TABLE} (is_active, order_id, shipment_key);
+  `);
 }
 
 function getAvailability(db) {
@@ -211,6 +232,42 @@ function makeShipmentKey(shipment, cliente) {
   return `${shipment.date_key}|${String(cliente || "").trim()}`;
 }
 
+function makeCancellationKey(orderId, shipmentKey) {
+  return `${Number(orderId)}|${String(shipmentKey || "").trim()}`;
+}
+
+function getActiveCancellationMap(db) {
+  if (!tableExists(db, CANCELLATION_TABLE)) {
+    return new Map();
+  }
+
+  const rows = db.prepare(`
+    SELECT order_id, shipment_key, reason, cancelled_by, cancelled_at
+    FROM ${CANCELLATION_TABLE}
+    WHERE is_active = 1
+  `).all();
+
+  return new Map(rows.map(row => [makeCancellationKey(row.order_id, row.shipment_key), row]));
+}
+
+function hasActiveCancellation(db, orderId, shipmentKey) {
+  if (!tableExists(db, CANCELLATION_TABLE)) {
+    return false;
+  }
+
+  return Boolean(db.prepare(`
+    SELECT 1
+    FROM ${CANCELLATION_TABLE}
+    WHERE order_id = ?
+      AND shipment_key = ?
+      AND is_active = 1
+  `).get(Number(orderId), String(shipmentKey || "").trim()));
+}
+
+function isLineCancelled(line, cancellationMap) {
+  return cancellationMap.has(makeCancellationKey(line.order_id, line.shipment_key));
+}
+
 function isFileReady(status) {
   return ["ENCONTRADO", "MOVIDO"].includes(String(status || "").trim().toUpperCase());
 }
@@ -273,9 +330,10 @@ function deriveOutputStatus(output) {
   return "EN_PROCESO_DE_IMPRESION";
 }
 
-function getContext(db) {
+function getContext(db, options = {}) {
   const availability = assertAvailable(db);
   const { printMatch, sublimationMatch } = operationalSelects(availability, "ro");
+  const cancellationMap = getActiveCancellationMap(db);
 
   const orders = db.prepare(`
     SELECT id, cliente, roster, roster_year, nombre_pedido,
@@ -306,7 +364,7 @@ function getContext(db) {
       shipment,
       shipment_key: makeShipmentKey(shipment, order.cliente)
     };
-  });
+  }).filter(line => options.includeCancelled || !isLineCancelled(line, cancellationMap));
 
   const lineById = new Map(lines.map(line => [Number(line.id), line]));
 
@@ -356,7 +414,7 @@ function getContext(db) {
       print_match: Number(output.print_match || 0),
       sublimation_match: Number(output.sublimation_match || 0)
     };
-  });
+  }).filter(output => options.includeCancelled || lineById.has(Number(output.line_id)));
 
   const outputsByLineId = new Map();
   const outputsByOrderId = new Map();
@@ -376,6 +434,7 @@ function getContext(db) {
 
   return {
     availability,
+    cancellations: cancellationMap,
     orders,
     orderById,
     lines,
@@ -387,28 +446,47 @@ function getContext(db) {
 }
 
 function getSummary(db) {
-  const availability = assertAvailable(db);
-  const { printMatch, sublimationMatch } = operationalSelects(availability);
+  const context = getContext(db);
+  const orderIds = new Set();
+  const shipmentValues = new Set();
+  const styleValues = new Set();
 
-  const summary = db.prepare(`
-    SELECT
-      (SELECT COUNT(*) FROM rmc_opt_orders) AS orders,
-      (SELECT COUNT(DISTINCT emb) FROM rmc_opt_order_lines WHERE TRIM(COALESCE(emb, '')) <> '') AS shipments,
-      (SELECT COUNT(*) FROM rmc_opt_order_lines) AS lines,
-      (SELECT COUNT(*) FROM rmc_opt_roster_outputs) AS outputs,
-      (SELECT COALESCE(SUM(qty), 0) FROM rmc_opt_roster_outputs) AS pieces,
-      (SELECT COUNT(DISTINCT UPPER(TRIM(COALESCE(style_output, style_base, style_roster, ''))))
-       FROM rmc_opt_roster_outputs
-       WHERE TRIM(COALESCE(style_output, style_base, style_roster, '')) <> '') AS styles,
-      (SELECT COUNT(*)
-       FROM rmc_opt_roster_outputs
-       WHERE UPPER(TRIM(COALESCE(file_status, ''))) IN ('ENCONTRADO', 'MOVIDO')) AS files_ready,
-      (SELECT COUNT(*) FROM rmc_opt_roster_outputs ro WHERE ${printMatch}) AS print_matched_outputs,
-      (SELECT COUNT(*) FROM rmc_opt_roster_outputs ro WHERE ${sublimationMatch}) AS sublimation_matched_outputs,
-      (SELECT MAX(updated_at) FROM rmc_opt_orders) AS updated_at
-  `).get();
+  context.lines.forEach(line => {
+    orderIds.add(Number(line.order_id));
 
-  return { ...availability, ...summary };
+    if (String(line.emb || "").trim()) {
+      shipmentValues.add(String(line.emb).trim());
+    }
+  });
+
+  context.outputs.forEach(output => {
+    const style = String(output.style_output || output.style_base || output.style_roster || "").trim().toUpperCase();
+
+    if (style) {
+      styleValues.add(style);
+    }
+  });
+
+  const updatedAt = context.orders
+    .filter(order => orderIds.has(Number(order.id)))
+    .map(order => order.updated_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1) || null;
+
+  return {
+    ...context.availability,
+    orders: orderIds.size,
+    shipments: shipmentValues.size,
+    lines: context.lines.length,
+    outputs: context.outputs.length,
+    pieces: context.outputs.reduce((total, output) => total + Number(output.qty || 0), 0),
+    styles: styleValues.size,
+    files_ready: context.outputs.filter(output => isFileReady(output.file_status)).length,
+    print_matched_outputs: context.outputs.reduce((total, output) => total + Number(output.print_match || 0), 0),
+    sublimation_matched_outputs: context.outputs.reduce((total, output) => total + Number(output.sublimation_match || 0), 0),
+    updated_at: updatedAt
+  };
 }
 
 function getShipments(db) {
@@ -534,6 +612,10 @@ function getOrders(db) {
     const aggregate = createAggregate();
     const lines = context.lines.filter(line => Number(line.order_id) === Number(order.id));
 
+    if (!lines.length) {
+      return;
+    }
+
     lines.forEach(line => {
       aggregate.lines += 1;
       aggregate.listed_pieces += Number(line.pcs_lista || 0);
@@ -576,6 +658,13 @@ function getOrderDetail(db, orderId, options = {}) {
     if (Number(line.order_id) !== id) return false;
     return !shipmentKey || line.shipment_key === shipmentKey;
   });
+
+  if (shipmentKey && !lines.length && hasActiveCancellation(db, id, shipmentKey)) {
+    const error = new Error("Este pedido ya fue dado de baja para el embarque seleccionado");
+    error.status = 410;
+    throw error;
+  }
+
   const lineIds = new Set(lines.map(line => Number(line.id)));
   const outputs = (context.outputsByOrderId.get(id) || []).filter(output => {
     return !shipmentKey || lineIds.has(Number(output.line_id));
@@ -623,11 +712,89 @@ function getOrderDetail(db, orderId, options = {}) {
   };
 }
 
+function normalizeCancellationReason(value) {
+  return String(value || "").replace(/\r\n?/g, "\n").trim().slice(0, MAX_CANCELLATION_REASON_LENGTH);
+}
+
+function cancelOrder(db, options = {}) {
+  ensureRapid27Schema(db);
+
+  const orderId = Number(options.orderId);
+  const shipmentKey = String(options.shipmentKey || "").trim();
+  const reason = normalizeCancellationReason(options.reason);
+  const cancelledBy = String(options.cancelledBy || "").trim();
+
+  if (!Number.isInteger(orderId) || orderId < 1) {
+    const error = new Error("ID de pedido 27/Rapid invalido");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!shipmentKey) {
+    const error = new Error("Falta el embarque del pedido a dar de baja");
+    error.status = 400;
+    throw error;
+  }
+
+  const context = getContext(db, { includeCancelled: true });
+  const order = context.orderById.get(orderId);
+
+  if (!order) {
+    const error = new Error("Pedido 27/Rapid no encontrado");
+    error.status = 404;
+    throw error;
+  }
+
+  const shipmentLines = context.lines.filter(line => {
+    return Number(line.order_id) === orderId && line.shipment_key === shipmentKey;
+  });
+
+  if (!shipmentLines.length) {
+    const error = new Error("El pedido no tiene lineas vinculadas a este embarque");
+    error.status = 404;
+    throw error;
+  }
+
+  db.prepare(`
+    INSERT INTO ${CANCELLATION_TABLE}
+      (order_id, shipment_key, reason, cancelled_by, cancelled_at, is_active, updated_at)
+    VALUES
+      (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT(order_id, shipment_key) DO UPDATE SET
+      reason = excluded.reason,
+      cancelled_by = excluded.cancelled_by,
+      cancelled_at = excluded.cancelled_at,
+      is_active = 1,
+      updated_at = excluded.updated_at
+  `).run(orderId, shipmentKey, reason, cancelledBy);
+
+  const cancellation = db.prepare(`
+    SELECT id, order_id, shipment_key, reason, cancelled_by, cancelled_at, is_active
+    FROM ${CANCELLATION_TABLE}
+    WHERE order_id = ?
+      AND shipment_key = ?
+  `).get(orderId, shipmentKey);
+
+  return {
+    ok: true,
+    order: {
+      id: orderId,
+      cliente: order.cliente || "",
+      roster: order.roster || "",
+      nombre_pedido: order.nombre_pedido || "",
+      shipment_key: shipmentKey
+    },
+    cancellation
+  };
+}
+
 module.exports = {
+  ensureRapid27Schema,
   getAvailability,
   getSummary,
   getShipments,
   getShipmentDetail,
   getOrders,
-  getOrderDetail
+  getOrderDetail,
+  cancelOrder
 };

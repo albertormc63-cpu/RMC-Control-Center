@@ -25,7 +25,9 @@ Excepcion chat LAN: el chat grupal escribe solamente las tablas auxiliares `rmc_
 - Sincronizacion Nike por operador: BDs `RMC_CEP.sqlite` por operador bajo `RMCOp-NIKE/ASSETS/BD`, registradas como `operator_sqlite_rmcop_nike`, consolidadas con prefijo de operador en `run_id` y auditadas en `rmc_sync_record_map`.
 - Sincronizacion Optimizador por operador: BDs `RMC_CEP.sqlite` por operador bajo `RMCOp-NIKE/ASSETS/BD`, registradas como `operator_sqlite_rmc_optimizador`, consolidadas hacia `rmc_opt_*` con IDs centrales nuevos y auditoria en `rmc_sync_record_map`.
 - Polling automatico de fuentes externas activas por `mtime`/`size`, ejecutado en worker hijo levantado por el server, con mensajes separados para `Impresores Excel` y `Sublimado Excel`, incluso cuando no hay cambios de archivo.
+- Bajas auxiliares de items Nike cancelados por cliente en `rmc_nike_item_cancellations`; no borran ni modifican `rmcop_nike_items`.
 - Panel 27 / Rapid en modo lectura sobre `rmc_opt_orders`, `rmc_opt_order_lines`, `rmc_opt_roster_outputs` y `rmc_opt_assets`, con cruce operativo contra Impresion y Sublimado.
+- Bajas auxiliares de pedidos 27 / Rapid cancelados por cliente en `rmc_rapid27_order_cancellations`; no borran ni modifican `rmc_opt_*`.
 
 MockupTool es complemento visual de RMCOp-Nike: genera maquetas/mockups, no plantillas/archivos que entran a produccion.
 
@@ -40,6 +42,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `GET /api/nike/runs`
 - `GET /api/nike/runs/:id`
 - `GET /api/nike/items/:id/print-sublimation`
+- `POST /api/nike/items/:id/cancel`
 - `GET /api/nike/catalog`
 - `POST /api/nike/catalog/unlock`
 - `POST /api/nike/catalog/families`
@@ -76,6 +79,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `GET /api/optimizador/rapid27/shipments/:shipmentKey`
 - `GET /api/optimizador/rapid27/orders`
 - `GET /api/optimizador/rapid27/orders/:id`
+- `POST /api/optimizador/rapid27/orders/:id/cancel`
 
 ## Codigo principal
 
@@ -83,7 +87,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/syncWorker.js`: proceso hijo de polling/sync externo iniciado automaticamente por el server.
 - `src/db.js`: conexion SQLite por `RMC_DB_PATH`.
 - `src/routes/dashboard.routes.js`: metricas generales, Registry y conteo de tablas.
-- `src/routes/nike.routes.js`: listado y detalle agrupado de Nike; tambien endpoint item -> impresion/sublimado.
+- `src/routes/nike.routes.js`: listado, detalle agrupado, baja auxiliar de Nike y endpoint item -> impresion/sublimado.
 - `src/routes/nikeCatalog.routes.js`: administracion acotada del catalogo Op-Nike.
 - `src/routes/mockup.routes.js`: listado y detalle agrupado de MockupTool.
 - `src/routes/reports.routes.js`: Excel Nike y MockupTool.
@@ -91,8 +95,9 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/routes/gitCommits.routes.js`: historial tecnico centralizado de commits del RMC Control System.
 - `src/routes/sync.routes.js`: fuentes externas, ajuste de rutas de polling y sincronizacion manual.
 - `src/routes/chat.routes.js`: lectura y envio del chat grupal LAN.
-- `src/routes/rapid27.routes.js`: resumen, embarques, pedidos y detalle de solo lectura para 27/Rapid.
+- `src/routes/rapid27.routes.js`: resumen, embarques, pedidos, detalle y baja auxiliar para 27/Rapid.
 - `src/services/nikeGroups.js`: agrupacion Nike por fecha de embarque y ano.
+- `src/services/nikeCancellations.js`: tabla auxiliar y filtro de bajas de items Nike.
 - `src/services/mockupGroups.js`: agrupacion MockupTool por fecha de embarque y ano.
 - `src/services/nikeFiles.js`: paths de maqueta/plantilla para items Nike.
 - `src/services/rmcFileResolver.js`: validacion segura y relocalizacion de archivos movidos dentro de `/Volumes/Fullsize`.
@@ -102,7 +107,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/services/operatorOptimizerSync.js`: consolidacion manual de tablas `rmc_opt_*` desde BDs por operador hacia la central, con snapshot temporal, remapeo de IDs y auditoria.
 - `src/services/syncPoller.js`: polling automatico de fuentes externas activas, con timers apagables para correr en worker.
 - `src/services/chatMessages.js`: esquema auxiliar, validacion, persistencia e IP del chat.
-- `src/services/rapid27Tracking.js`: normalizacion de embarques, agregados y cruces operativos de las tablas `rmc_opt_*`.
+- `src/services/rapid27Tracking.js`: normalizacion de embarques, agregados, cruces operativos de las tablas `rmc_opt_*` y filtro por bajas auxiliares.
 - `public/js/app.js`: carga de APIs, render, filtros, sort y graficas SVG.
 - `public/js/components/`: componentes HTML sin imports ni bundler.
 
@@ -136,6 +141,8 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_sublimation_output_log`
 - `rmc_chat_messages`
 - `rmc_chat_reactions`
+- `rmc_nike_item_cancellations`
+- `rmc_rapid27_order_cancellations`
 - `rmc_opt_orders`
 - `rmc_opt_order_lines`
 - `rmc_opt_roster_outputs`
@@ -152,6 +159,8 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_nike_style_variants`
 - `rmc_chat_messages`
 - `rmc_chat_reactions`
+- `rmc_nike_item_cancellations`
+- `rmc_rapid27_order_cancellations`
 
 No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop_nike_runs`, `rmc_mockuptool_items` o `rmc_mockuptool_runs` salvo instruccion explicita y documentada. Excepcion documentada: la sincronizacion Optimizador por operador puede insertar/actualizar `rmc_opt_*` en la BD central usando IDs centrales nuevos y mapa de auditoria; no modifica BDs de operadores ni la logica interna de RMC Optimizador.
 
@@ -181,7 +190,9 @@ Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/co
 - La tabla `Detalle Nike` muestra estado operativo por area: `En proceso de impresion`, `Bajado a Sublimado` o `Parcial en Sublimado`.
 - Si una pieza aparece activa en `rmc_sublimation_output_log`, el estado operativo se presenta como `En almacen`.
 - El modal de item Nike muestra tracking tipo historial por area consumiendo `GET /api/nike/items/:id/print-sublimation`.
+- El modal de item Nike permite `Dar de baja` un registro cancelado; la baja se guarda en tabla auxiliar y se descuenta de dashboard, embarques, detalles y Excel.
 - El Dashboard principal muestra `Seguimiento operativo 27 / Rapid` con cards, flujo y grafica por embarque; el bloque Dashboard de MockupTool queda oculto temporalmente porque no es esencial para seguimiento operativo.
+- El modal de pedido 27 / Rapid permite `Dar de baja` un pedido cancelado; la baja se guarda en tabla auxiliar y se descuenta de cards, embarques y detalles.
 
 ## Pendientes inmediatos conocidos
 

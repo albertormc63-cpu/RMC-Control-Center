@@ -48,9 +48,12 @@ let dashboardData = null;
 
 // Cache de embarques agrupados para abrir detalle desde graficas sin nuevas rutas backend.
 let nikeRunsCache = [];
+let nikeActiveRunId = "";
+let nikeModalContext = null;
 let mockupRunsCache = [];
 let rapid27ShipmentsCache = [];
 let rapid27ActiveShipmentKey = "";
+let rapid27ModalContext = null;
 let nikeDetailRequestId = 0;
 let mockupDetailRequestId = 0;
 let rapid27DetailRequestId = 0;
@@ -2096,6 +2099,7 @@ async function loadRunDetail(id) {
   const runInfo = getElement("runInfo");
   const tbody = getElement("itemsTable");
 
+  nikeActiveRunId = id;
   showDetailLoading("detailSection", "runInfo", "itemsTable", "Cargando detalle Nike...", 11);
 
   try {
@@ -2667,10 +2671,28 @@ function renderRapid27ModalTracking(order) {
     });
 }
 
+function setRapid27CancelButtonState(isEnabled, label = "Dar de baja") {
+  const button = getElement("rapid27CancelOrderButton");
+
+  if (!button) {
+    return;
+  }
+
+  button.disabled = !isEnabled;
+  button.textContent = label;
+}
+
 function renderRapid27OrderModal(data) {
   const { order, outputs } = data;
   const tbody = getElement("rapid27PiecesTable");
   const estadoLabel = formatRapid27Status(order.operational_status);
+
+  rapid27ModalContext = {
+    orderId: order.id,
+    shipmentKey: order.shipment_key,
+    roster: order.roster || "",
+    nombrePedido: order.nombre_pedido || ""
+  };
 
   setText("rapid27ModalTitle", order.nombre_pedido || order.roster || "27 Sports / Rapid");
   setText("rapid27ModalCliente", order.cliente || "N/D");
@@ -2681,6 +2703,7 @@ function renderRapid27OrderModal(data) {
   setText("rapid27ModalEstado", estadoLabel);
   getElement("rapid27ModalEstado").className = "department-badge";
   getElement("rapid27ModalEstado").dataset.department = getRapid27Department(estadoLabel);
+  setRapid27CancelButtonState(Boolean(order.id && order.shipment_key));
   renderRapid27ModalTracking(order);
 
   tbody.innerHTML = "";
@@ -2706,6 +2729,61 @@ function renderRapid27OrderModal(data) {
   });
 }
 
+async function refreshRapid27AfterCancellation(shipmentKey) {
+  await loadRapid27Data();
+
+  if (!shipmentKey || !getElement("rapid27DetailSection")) {
+    return;
+  }
+
+  const stillVisible = rapid27ShipmentsCache.some(shipment => shipment.shipment_key === shipmentKey);
+
+  if (stillVisible) {
+    await showRapid27Shipment(shipmentKey);
+    return;
+  }
+
+  getElement("rapid27DetailSection").classList.add("hidden");
+  rapid27ActiveShipmentKey = "";
+}
+
+async function cancelRapid27CurrentOrder() {
+  const context = rapid27ModalContext;
+
+  if (!context?.orderId || !context.shipmentKey) {
+    appendLog("No hay pedido 27/Rapid seleccionado para dar de baja", "warning");
+    return;
+  }
+
+  const label = context.nombrePedido || context.roster || `pedido ${context.orderId}`;
+  const confirmed = window.confirm(
+    `Dar de baja ${label}?\n\nNo se borrara de la base operativa; solo dejara de mostrarse y contar en 27/Rapid.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setRapid27CancelButtonState(false, "Dando de baja...");
+
+  try {
+    await sendJSON(`/api/optimizador/rapid27/orders/${encodeURIComponent(context.orderId)}/cancel`, {
+      body: {
+        shipment_key: context.shipmentKey,
+        reason: "Cancelado desde modal 27/Rapid"
+      }
+    });
+
+    getElement("rapid27OrderModal")?.close();
+    rapid27ModalContext = null;
+    appendLog(`Pedido 27/Rapid dado de baja: ${label}`, "success");
+    await refreshRapid27AfterCancellation(context.shipmentKey);
+  } catch (error) {
+    setRapid27CancelButtonState(true);
+    appendLog(error.message || "No se pudo dar de baja el pedido 27/Rapid", "error");
+  }
+}
+
 async function showRapid27OrderModal(orderId, shipmentKey = rapid27ActiveShipmentKey) {
   const modal = getElement("rapid27OrderModal");
   const tbody = getElement("rapid27PiecesTable");
@@ -2715,6 +2793,7 @@ async function showRapid27OrderModal(orderId, shipmentKey = rapid27ActiveShipmen
     url.searchParams.set("shipment_key", shipmentKey);
   }
 
+  rapid27ModalContext = null;
   setText("rapid27ModalTitle", "Cargando pedido...");
   setText("rapid27ModalCliente", "");
   setText("rapid27ModalEmb", "");
@@ -2725,6 +2804,7 @@ async function showRapid27OrderModal(orderId, shipmentKey = rapid27ActiveShipmen
   setText("rapid27ModalTrackingStatus", "Consultando");
   setText("rapid27ModalTrackingSummary", "Consultando fuentes de producción...");
   getElement("rapid27ModalTrackingMatches").textContent = "";
+  setRapid27CancelButtonState(false);
   tbody.innerHTML = "";
   addLoadingTableRow(tbody, "Cargando piezas del pedido...", 9);
   modal.showModal();
@@ -2734,6 +2814,7 @@ async function showRapid27OrderModal(orderId, shipmentKey = rapid27ActiveShipmen
     renderRapid27OrderModal(data);
     appendLog(`Pedido 27/Rapid cargado: ${data.order.roster || orderId}`, "success");
   } catch (error) {
+    rapid27ModalContext = null;
     setText("rapid27ModalTitle", "No se pudo cargar el pedido");
     tbody.innerHTML = "";
     addEmptyTableRow(tbody, error.message || "No se pudo cargar el pedido.", 9);
@@ -4181,6 +4262,7 @@ function bindRapid27Controls() {
 function bindRapid27OrderModal() {
   const modal = getElement("rapid27OrderModal");
   const closeButton = getElement("closeRapid27OrderModal");
+  const cancelButton = getElement("rapid27CancelOrderButton");
 
   if (!modal || !closeButton) {
     return;
@@ -4188,6 +4270,13 @@ function bindRapid27OrderModal() {
 
   closeButton.addEventListener("click", () => {
     modal.close();
+  });
+
+  cancelButton?.addEventListener("click", () => {
+    cancelRapid27CurrentOrder().catch(error => {
+      console.error(error);
+      appendLog(error.message || "No se pudo dar de baja el pedido 27/Rapid", "error");
+    });
   });
 }
 
@@ -4459,6 +4548,64 @@ async function loadNikePrintSublimationTracking(itemId) {
   }
 }
 
+function setNikeCancelButtonState(isEnabled, label = "Dar de baja") {
+  const button = getElement("nikeCancelItemButton");
+
+  if (!button) {
+    return;
+  }
+
+  button.disabled = !isEnabled;
+  button.textContent = label;
+}
+
+async function refreshNikeAfterCancellation(runId) {
+  await Promise.all([
+    loadRuns(),
+    loadDashboard()
+  ]);
+
+  if (runId) {
+    await loadRunDetail(runId);
+  }
+}
+
+async function cancelNikeCurrentItem() {
+  const context = nikeModalContext;
+
+  if (!context?.itemId) {
+    appendLog("No hay item Nike seleccionado para dar de baja", "warning");
+    return;
+  }
+
+  const label = context.nombre || context.wo || `item ${context.itemId}`;
+  const confirmed = window.confirm(
+    `Dar de baja ${label}?\n\nNo se borrara de la base operativa; solo dejara de mostrarse y contar en Nike.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setNikeCancelButtonState(false, "Dando de baja...");
+
+  try {
+    await sendJSON(`/api/nike/items/${encodeURIComponent(context.itemId)}/cancel`, {
+      body: {
+        reason: "Cancelado desde modal Nike"
+      }
+    });
+
+    getElement("nikeItemModal")?.close();
+    nikeModalContext = null;
+    appendLog(`Item Nike dado de baja: ${label}`, "success");
+    await refreshNikeAfterCancellation(context.runId || nikeActiveRunId);
+  } catch (error) {
+    setNikeCancelButtonState(true);
+    appendLog(error.message || "No se pudo dar de baja el item Nike", "error");
+  }
+}
+
 function showNikeItemModal(item) {
   const modal = getElement("nikeItemModal");
   const roster = getElement("nikeItemRoster");
@@ -4485,6 +4632,14 @@ function showNikeItemModal(item) {
   if (!modal || !roster || !wo || !equipo || !variante || !style || !size || !numero || !tool || !runId || !status || !maqueta || !maquetaDownload || !plantilla || !plantillaDownload || !excel || !excelPreview || !excelCopy) {
     return;
   }
+
+  nikeModalContext = {
+    itemId: item.id,
+    runId: item.run_id,
+    wo: item.wo || "",
+    nombre: item.nombre || ""
+  };
+  setNikeCancelButtonState(Boolean(item.id));
 
   const operationalState = getNikeOperationalState(item);
   const pdfFile = item.pdfFile || {
@@ -4586,6 +4741,7 @@ function showNikeItemModal(item) {
 function bindNikeItemModal() {
   const modal = getElement("nikeItemModal");
   const closeButton = getElement("closeNikeItemModal");
+  const cancelButton = getElement("nikeCancelItemButton");
   const maquetaLink = getElement("nikeItemMaqueta");
   const maquetaDownload = getElement("nikeItemMaquetaDownload");
   const plantillaLink = getElement("nikeItemPlantilla");
@@ -4600,6 +4756,13 @@ function bindNikeItemModal() {
 
   closeButton.addEventListener("click", () => {
     modal.close();
+  });
+
+  cancelButton?.addEventListener("click", () => {
+    cancelNikeCurrentItem().catch(error => {
+      console.error(error);
+      appendLog(error.message || "No se pudo dar de baja el item Nike", "error");
+    });
   });
 
   [maquetaLink, maquetaDownload, plantillaLink, plantillaDownload, excelLink, excelPreview].forEach(link => {
