@@ -62,6 +62,72 @@ Estructura conceptual:
 }
 ```
 
+## Produccion diaria
+
+```http
+POST /api/production/schedule/upload?line_groups=27sports,rapid
+Content-Type: application/octet-stream
+X-RMC-FILE-NAME: 529945%20Production%20Schedule%20Book%20%5BRML%5D.xlsm
+```
+
+Carga el Excel diario desde la pantalla `Produccion diaria / Examinar Excel`. El servidor guarda una copia activa en `data/daily-production/current-schedule.xlsm`, valida que pueda leerse como `Production Schedule Book` y devuelve el resumen filtrado. La carpeta `data/` no se versiona.
+
+```http
+GET /api/production/daily
+```
+
+Devuelve el resumen del dia para la pantalla de proyeccion `Produccion diaria`.
+
+- Piezas totales: lee la copia activa cargada con `schedule/upload`, hoja `ProdSched`, filtra `Sew Unit` y `To DC` vacio, y suma `WO Eaches`.
+- Impresas: suma piezas de la lista diaria cuyo `Work Order` ya aparece activo en `rmc_print_sublimation_log`.
+- Sublimadas: suma piezas de la lista diaria cuyo `Work Order` ya aparece activo en `rmc_sublimation_output_log`.
+- Terminadas: queda como etapa pendiente hasta registrar una fuente Costura/Final.
+
+Query params:
+
+- `date`: opcional, formato `YYYY-MM-DD`; por default usa el dia local `America/Mexico_City`.
+- `line_groups`: opcional, lista separada por comas. Valores: `27sports`, `rapid`, `lat`, `nike`. Default: `27sports,rapid`.
+
+Respuesta conceptual:
+
+```json
+{
+  "ok": true,
+  "date": {
+    "iso": "2026-08-03",
+    "display": "3/8/26"
+  },
+  "generated_at_display": "03/08/2026, 09:30:00",
+  "schedule": {
+    "available": true,
+    "sheet_name": "ProdSched",
+    "total_rows": 154,
+    "total_pieces": 1495,
+    "selected_line_groups": ["27sports", "rapid"]
+  },
+  "stages": {
+    "printed": {
+      "label": "Impresas",
+      "available": true,
+      "pieces": 860,
+      "source": {}
+    },
+    "sublimated": {
+      "label": "Sublimadas",
+      "available": true,
+      "pieces": 661,
+      "source": {}
+    },
+    "finished": {
+      "label": "Terminadas",
+      "available": false,
+      "pieces": null,
+      "pending_reason": "Pendiente de Excel/Fuente Costura-Final"
+    }
+  }
+}
+```
+
 ## CEP Registry
 
 ```http
@@ -113,6 +179,22 @@ GET /api/sync/sources
 ```
 
 Lista fuentes externas registradas en `rmc_external_sources`. Incluye ruta, hoja, estado activo, ultima sync y estado de archivo disponible/no disponible para mostrar en UI.
+
+```http
+POST /api/sync/sources
+Content-Type: application/json
+
+{
+  "name": "Reporte de Impresion y Reposiciones",
+  "area": "Diseno / Impresion",
+  "source_type": "print_sublimation_excel",
+  "file_path": "/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposiciones.xlsx",
+  "sheet_name": "Impresión - Sublimado 2026",
+  "active": 1
+}
+```
+
+Registra una fuente nueva en `rmc_external_sources` solamente para tipos soportados por el worker: `print_sublimation_excel` y `sublimation_output_excel`.
 
 ```http
 PUT /api/sync/sources/:id

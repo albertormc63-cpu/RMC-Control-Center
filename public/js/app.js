@@ -3,7 +3,9 @@ const numberFormatter = new Intl.NumberFormat("es-MX");
 
 const themeStorageKey = "rmc-control-center-theme";
 const opNikePinStorageKey = "rmc-opnike-admin-pin";
+const dailyProductionLineGroupsStorageKey = "rmc-daily-production-line-groups";
 const defaultTheme = "dark";
+const defaultDailyProductionLineGroups = ["27sports", "rapid"];
 
 // Tablas que tienen filtros de texto/columna en pantalla.
 const filterTargets = [
@@ -70,7 +72,10 @@ const lazyViewLoads = {
 
 let pollingSourcesCache = [];
 let pollingSelectedSourceId = null;
+let pollingIsCreatingSource = false;
 let operatorDatabasesCache = [];
+let dailyProductionData = null;
+let dailyProductionTimer = null;
 
 let opNikeCatalogData = {
   templateRoot: "",
@@ -92,19 +97,20 @@ const opNikeVariantPresets = {
       opnike_rule_status: "draft",
       is_official_team: 1,
       requires_design_code: 0,
+      opnike_style_scope: "A1000,Y1000,A1500,Y1500",
       opnike_variant_root_folder: "STANDARD",
       opnike_group_folder_pattern: "NIKE Mens and Youth",
       opnike_product_folder_pattern: "{style.product_folder}",
       opnike_version_folder_pattern: "HOME",
-      opnike_team_folder_pattern: "",
+      opnike_team_folder_pattern: "{team_market} {variant_name}|{team_market_upper} {variant_code_name}",
       opnike_design_folder: "",
-      opnike_style_subfolder_rule: "",
+      opnike_style_subfolder_rule: "{base_1500_style_family}",
       opnike_template_name_pattern: "{liga} {file_team_name} {style} {size}.pdf",
       opnike_output_name_pattern: "{orderId} {liga}-{team_market}{nickname} {style} {size} {identifier}.pdf",
       opnike_fallback_search_mode: "style_and_size",
       opnike_resolution_strategy: "standard_team_version_folder",
       opnike_requires_version_folder: 1,
-      opnike_requires_team_folder: 0,
+      opnike_requires_team_folder: 1,
       opnike_requires_design_folder: 0,
       opnike_requires_style_subfolder: 0
     }
@@ -119,19 +125,20 @@ const opNikeVariantPresets = {
       opnike_rule_status: "draft",
       is_official_team: 1,
       requires_design_code: 0,
+      opnike_style_scope: "A1000,Y1000,A1500,Y1500",
       opnike_variant_root_folder: "STANDARD",
       opnike_group_folder_pattern: "NIKE Mens and Youth",
       opnike_product_folder_pattern: "{style.product_folder}",
       opnike_version_folder_pattern: "AWAY",
-      opnike_team_folder_pattern: "",
+      opnike_team_folder_pattern: "{team_market} {variant_name}|{team_market_upper} {variant_code_name}",
       opnike_design_folder: "",
-      opnike_style_subfolder_rule: "",
+      opnike_style_subfolder_rule: "{base_1500_style_family}",
       opnike_template_name_pattern: "{liga} {file_team_name} {style} {size}.pdf",
       opnike_output_name_pattern: "{orderId} {liga}-{team_market}{nickname} {style} {size} {identifier}.pdf",
       opnike_fallback_search_mode: "style_and_size",
       opnike_resolution_strategy: "standard_team_version_folder",
       opnike_requires_version_folder: 1,
-      opnike_requires_team_folder: 0,
+      opnike_requires_team_folder: 1,
       opnike_requires_design_folder: 0,
       opnike_requires_style_subfolder: 0
     }
@@ -161,7 +168,7 @@ const opNikeVariantPresets = {
     }
   },
   jr_1500: {
-    label: "JR 1500 con subcarpeta A/Y",
+    label: "JR Championship",
     values: {
       opnike_enabled: 1,
       opnike_rule_status: "draft",
@@ -962,6 +969,10 @@ function switchView(viewId) {
     return;
   }
 
+  if (viewId !== "polling-routes-view") {
+    pollingIsCreatingSource = false;
+  }
+
   const systemViewIds = new Set([
     "system-settings-view",
     "opnike-catalog-view",
@@ -983,6 +994,12 @@ function switchView(viewId) {
   closeSidebar();
   window.scrollTo({ top: 0, behavior: "smooth" });
   loadViewData(viewId);
+
+  if (viewId === "daily-production-view") {
+    startDailyProductionAutoRefresh();
+  } else {
+    stopDailyProductionAutoRefresh();
+  }
 }
 
 function findRunByShipment(tool, fechaEmbarque, shipmentKey) {
@@ -2923,6 +2940,348 @@ async function loadGitCommits() {
   appendLog(`Historial de desarrollo: ${formatNumber(data.commits?.length || 0)} commits cargados`, "success");
 }
 
+function getStoredDailyProductionLineGroups() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(dailyProductionLineGroupsStorageKey) || "[]");
+    return Array.isArray(stored) && stored.length ? stored : defaultDailyProductionLineGroups;
+  } catch (error) {
+    return defaultDailyProductionLineGroups;
+  }
+}
+
+function setStoredDailyProductionLineGroups(groups) {
+  try {
+    localStorage.setItem(dailyProductionLineGroupsStorageKey, JSON.stringify(groups));
+  } catch (error) {
+    appendLog("No se pudo guardar la seleccion de lineas", "warning");
+  }
+}
+
+function calculateProductionPercent(value, denominator) {
+  const pieces = Number(value || 0);
+  const total = Number(denominator || 0);
+
+  if (!Number.isFinite(total) || total <= 0) {
+    return null;
+  }
+
+  return Math.round((pieces / total) * 100);
+}
+
+function getProductionStatus(percent, available = true) {
+  if (!available || percent === null || percent === undefined) {
+    return "pending";
+  }
+
+  if (percent < 50) {
+    return "danger";
+  }
+
+  if (percent >= 75) {
+    return "success";
+  }
+
+  return "warning";
+}
+
+function setProductionStage(stageKey, pieces, percent, status) {
+  const stage = document.querySelector(`.production-stage[data-stage="${stageKey}"]`);
+  const piecesId = {
+    printed: "productionPrintedPieces",
+    sublimated: "productionSublimatedPieces",
+    finished: "productionFinishedPieces"
+  }[stageKey];
+  const percentId = {
+    printed: "productionPrintedPercent",
+    sublimated: "productionSublimatedPercent",
+    finished: "productionFinishedPercent"
+  }[stageKey];
+  const barId = {
+    printed: "productionPrintedBar",
+    sublimated: "productionSublimatedBar",
+    finished: "productionFinishedBar"
+  }[stageKey];
+
+  if (stage) {
+    stage.dataset.status = status;
+  }
+
+  setText(piecesId, pieces === null || pieces === undefined ? "PEND." : formatNumber(pieces));
+  setText(percentId, percent === null || percent === undefined ? "--%" : `${formatNumber(percent)}%`);
+  renderProductionBar(barId, percent, status);
+}
+
+function renderProductionBar(barId, percent, status) {
+  const container = getElement(barId);
+
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+  container.dataset.status = status || "pending";
+
+  const filled = percent === null || percent === undefined
+    ? 0
+    : Math.max(0, Math.min(20, Math.round(Number(percent || 0) / 5)));
+
+  for (let index = 0; index < 20; index++) {
+    const segment = document.createElement("span");
+    segment.className = "production-segment";
+    segment.dataset.filled = String(index < filled);
+    container.appendChild(segment);
+  }
+}
+
+function getProductionSourceText(label, source) {
+  if (!source) {
+    return `${label}: sin fuente`;
+  }
+
+  const status = source.last_status || "sin sync";
+  const active = Number(source.active) === 1 ? "activa" : "inactiva";
+  const lastSync = source.last_sync_at ? ` | ${source.last_sync_at}` : "";
+
+  return `${label}: ${source.name || "Fuente"} | ${active} | ${status}${lastSync}`;
+}
+
+function getProductionScheduleText(schedule) {
+  if (!schedule?.available) {
+    return "Lista diaria: archivo no disponible";
+  }
+
+  const fileName = schedule.file?.original_name || "Production Schedule Book";
+  const fileSize = schedule.file_size_bytes ? ` | ${formatBytes(schedule.file_size_bytes)}` : "";
+
+  return `Lista diaria: ${fileName} | ${schedule.sheet_name || "Hoja"} | ${formatNumber(schedule.total_rows)} WOs${fileSize}`;
+}
+
+function updateDailyProductionLinesButton() {
+  const button = getElement("btnDailyProductionLines");
+
+  if (!button) {
+    return;
+  }
+
+  const groups = dailyProductionData?.schedule?.line_groups || [];
+  const selected = getStoredDailyProductionLineGroups();
+  const labels = groups
+    .filter(group => selected.includes(group.key))
+    .map(group => group.label);
+
+  button.textContent = labels.length ? `Lineas: ${labels.join(" + ")}` : "Lineas";
+}
+
+function renderDailyProductionLineOptions() {
+  const container = getElement("dailyProductionLineOptions");
+
+  if (!container) {
+    return;
+  }
+
+  const groups = dailyProductionData?.schedule?.line_groups || [
+    { key: "27sports", label: "27 Sports", units: ["27SPTS"] },
+    { key: "rapid", label: "Rapid", units: ["RAPIDA", "RAPIDT"] },
+    { key: "lat", label: "LAT", units: ["LAT"] },
+    { key: "nike", label: "Nike", units: ["PLL", "WLL"] }
+  ];
+  const selected = new Set(getStoredDailyProductionLineGroups());
+
+  container.innerHTML = "";
+
+  groups.forEach(group => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    const text = document.createElement("span");
+    const units = document.createElement("small");
+
+    label.className = "production-line-option";
+    input.type = "checkbox";
+    input.name = "dailyProductionLineGroup";
+    input.value = group.key;
+    input.checked = selected.has(group.key);
+    text.textContent = group.label;
+    units.textContent = Array.isArray(group.units) ? group.units.join(", ") : "";
+
+    label.append(input, text, units);
+    container.appendChild(label);
+  });
+}
+
+function renderDailyProduction() {
+  const data = dailyProductionData || {};
+  const target = Number(data.schedule?.total_pieces || 0);
+  const printedPieces = Number(data.stages?.printed?.pieces || 0);
+  const sublimatedPieces = Number(data.stages?.sublimated?.pieces || 0);
+  const finishedAvailable = Boolean(data.stages?.finished?.available);
+  const finishedPieces = finishedAvailable ? Number(data.stages?.finished?.pieces || 0) : null;
+  const printedPercent = calculateProductionPercent(printedPieces, target);
+  const sublimatedPercent = calculateProductionPercent(sublimatedPieces, printedPieces);
+  const finishedPercent = finishedAvailable
+    ? calculateProductionPercent(finishedPieces, sublimatedPieces)
+    : null;
+
+  setText("productionTotalPieces", formatNumber(target));
+  setText("productionBoardDate", data.date?.display || "--/--/--");
+  setText("dailyProductionUpdatedAt", data.generated_at_display ? `Actualizado ${data.generated_at_display}` : "Sin lectura reciente");
+
+  setProductionStage(
+    "printed",
+    printedPieces,
+    printedPercent,
+    getProductionStatus(printedPercent, data.stages?.printed?.available !== false)
+  );
+  setProductionStage(
+    "sublimated",
+    sublimatedPieces,
+    sublimatedPercent,
+    getProductionStatus(sublimatedPercent, data.stages?.sublimated?.available !== false)
+  );
+  setProductionStage(
+    "finished",
+    finishedPieces,
+    finishedPercent,
+    getProductionStatus(finishedPercent, finishedAvailable)
+  );
+
+  setText("productionScheduleSource", getProductionScheduleText(data.schedule));
+  setText("productionPrintSource", getProductionSourceText("Impresion", data.stages?.printed?.source));
+  setText("productionSublimationSource", getProductionSourceText("Sublimado", data.stages?.sublimated?.source));
+  setText("productionFinishedSource", data.stages?.finished?.pending_reason || "Costura/Final: pendiente");
+  renderDailyProductionLineOptions();
+  updateDailyProductionLinesButton();
+}
+
+async function loadDailyProduction(options = {}) {
+  const lineGroups = getStoredDailyProductionLineGroups();
+  const params = new URLSearchParams();
+  params.set("line_groups", lineGroups.join(","));
+
+  const data = await getJSON(`/api/production/daily?${params.toString()}`);
+  dailyProductionData = data;
+  renderDailyProduction();
+
+  if (!options.silent) {
+    appendLog(
+      `Produccion diaria: ${formatNumber(data.schedule?.total_pieces)} totales, ${formatNumber(data.stages?.printed?.pieces)} impresas, ${formatNumber(data.stages?.sublimated?.pieces)} sublimadas`,
+      "success"
+    );
+  }
+}
+
+function startDailyProductionAutoRefresh() {
+  loadDailyProduction({ silent: Boolean(dailyProductionData) }).catch(error => {
+    console.error(error);
+    appendLog(error.message || "No se pudo cargar Produccion diaria", "error");
+  });
+
+  if (dailyProductionTimer) {
+    return;
+  }
+
+  dailyProductionTimer = window.setInterval(() => {
+    loadDailyProduction({ silent: true }).catch(error => {
+      console.error(error);
+      appendLog(error.message || "No se pudo actualizar Produccion diaria", "error");
+    });
+  }, 30000);
+}
+
+function stopDailyProductionAutoRefresh() {
+  if (!dailyProductionTimer) {
+    return;
+  }
+
+  window.clearInterval(dailyProductionTimer);
+  dailyProductionTimer = null;
+}
+
+function applyDailyProductionLines(event) {
+  event.preventDefault();
+  const selected = Array.from(document.querySelectorAll("input[name='dailyProductionLineGroup']:checked"))
+    .map(input => input.value);
+
+  setStoredDailyProductionLineGroups(selected.length ? selected : defaultDailyProductionLineGroups);
+  getElement("dailyProductionLinesModal")?.close();
+  loadDailyProduction().catch(error => {
+    console.error(error);
+    appendLog(error.message || "No se pudo cargar Produccion diaria", "error");
+  });
+}
+
+function showDailyProductionLinesModal() {
+  renderDailyProductionLineOptions();
+  getElement("dailyProductionLinesModal")?.showModal();
+}
+
+async function uploadDailyProductionSchedule(file) {
+  if (!file) {
+    return;
+  }
+
+  const button = getElement("btnUploadDailyProductionSchedule");
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Cargando...";
+  }
+
+  try {
+    const lineGroups = getStoredDailyProductionLineGroups();
+    const params = new URLSearchParams();
+    params.set("line_groups", lineGroups.join(","));
+
+    const response = await fetch(`/api/production/schedule/upload?${params.toString()}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-RMC-FILE-NAME": encodeURIComponent(file.name)
+      },
+      body: file
+    });
+
+    if (!response.ok) {
+      let message = "No se pudo cargar la lista diaria.";
+
+      try {
+        const body = await response.json();
+        message = body.message || body.error || message;
+      } catch (error) {
+        message = response.statusText || message;
+      }
+
+      throw new Error(message);
+    }
+
+    await loadDailyProduction();
+    appendLog(`Lista diaria cargada: ${file.name}`, "success");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Examinar Excel";
+    }
+
+    const input = getElement("dailyProductionScheduleFile");
+
+    if (input) {
+      input.value = "";
+    }
+  }
+}
+
+function openDailyProductionFullscreen() {
+  const target = getElement("daily-production-view");
+
+  if (!target || !target.requestFullscreen) {
+    return;
+  }
+
+  target.requestFullscreen().catch(error => {
+    console.error(error);
+    appendLog("No se pudo abrir Produccion diaria en pantalla completa", "warning");
+  });
+}
+
 function getPollingSourceTypeLabel(sourceType) {
   if (sourceType === "print_sublimation_excel") {
     return "Impresion / Reposiciones";
@@ -2955,6 +3314,18 @@ function formatBytes(value) {
 
 function getPollingSelectedSource() {
   return pollingSourcesCache.find(source => Number(source.id) === Number(pollingSelectedSourceId)) || null;
+}
+
+function getNewPollingSourceDraft() {
+  return {
+    id: "",
+    name: "",
+    area: "",
+    source_type: "print_sublimation_excel",
+    file_path: "",
+    sheet_name: "",
+    active: 1
+  };
 }
 
 function setOperatorDbSyncMessage(message, type = "") {
@@ -3159,7 +3530,9 @@ function fillPollingSourceForm(source) {
   }
 
   const hasSource = Boolean(source);
-  form.querySelectorAll("input, button").forEach(control => {
+  const canSync = hasSource && !pollingIsCreatingSource;
+
+  form.querySelectorAll("input, select, button").forEach(control => {
     if (control.dataset.view) {
       return;
     }
@@ -3170,12 +3543,25 @@ function fillPollingSourceForm(source) {
   getElement("pollingSourceId").value = source?.id || "";
   getElement("pollingSourceName").value = source?.name || "";
   getElement("pollingSourceArea").value = source?.area || "";
-  getElement("pollingSourceType").value = getPollingSourceTypeLabel(source?.source_type);
+  getElement("pollingSourceType").value = source?.source_type || "print_sublimation_excel";
   getElement("pollingSourcePath").value = source?.file_path || "";
   getElement("pollingSourceSheet").value = source?.sheet_name || "";
   getElement("pollingSourceActive").checked = Number(source?.active || 0) === 1;
 
-  if (hasSource) {
+  const typeControl = getElement("pollingSourceType");
+  const runButton = getElement("btnRunPollingSource");
+
+  if (typeControl) {
+    typeControl.disabled = !hasSource || !pollingIsCreatingSource;
+  }
+
+  if (runButton) {
+    runButton.disabled = !canSync;
+  }
+
+  if (pollingIsCreatingSource) {
+    setPollingMessage("Captura una ruta nueva de un tipo soportado por el worker.");
+  } else if (hasSource) {
     const fileStatus = source.file_exists
       ? `Archivo disponible: ${formatBytes(source.file_size_bytes)}`
       : "Archivo no disponible o volumen no montado.";
@@ -3223,6 +3609,7 @@ async function loadPollingRuns(sourceId) {
 }
 
 function selectPollingSource(sourceId) {
+  pollingIsCreatingSource = false;
   pollingSelectedSourceId = Number(sourceId);
   const source = getPollingSelectedSource();
 
@@ -3235,17 +3622,28 @@ function selectPollingSource(sourceId) {
   });
 }
 
+function startNewPollingSource() {
+  pollingIsCreatingSource = true;
+  pollingSelectedSourceId = null;
+  renderPollingSourceCards();
+  fillPollingSourceForm(getNewPollingSourceDraft());
+  renderPollingRuns([]);
+}
+
 async function loadPollingSources(options = {}) {
   const data = await getJSON("/api/sync/sources");
   pollingSourcesCache = data.sources || [];
 
-  if (!pollingSourcesCache.some(source => Number(source.id) === Number(pollingSelectedSourceId))) {
+  if (
+    !pollingIsCreatingSource &&
+    !pollingSourcesCache.some(source => Number(source.id) === Number(pollingSelectedSourceId))
+  ) {
     pollingSelectedSourceId = pollingSourcesCache[0]?.id || null;
   }
 
   renderPollingSourceCards();
-  fillPollingSourceForm(getPollingSelectedSource());
-  await loadPollingRuns(pollingSelectedSourceId);
+  fillPollingSourceForm(pollingIsCreatingSource ? getNewPollingSourceDraft() : getPollingSelectedSource());
+  await loadPollingRuns(pollingIsCreatingSource ? null : pollingSelectedSourceId);
 
   if (!options.silent) {
     appendLog(`Fuentes de polling cargadas: ${formatNumber(pollingSourcesCache.length)}`, "success");
@@ -3257,35 +3655,36 @@ async function savePollingSource(event) {
 
   const sourceId = Number(getElement("pollingSourceId")?.value || 0);
 
-  if (!sourceId) {
-    setPollingMessage("Selecciona una fuente antes de guardar.", "warning");
-    return;
-  }
-
   const payload = {
     name: getElement("pollingSourceName").value,
     area: getElement("pollingSourceArea").value,
+    source_type: getElement("pollingSourceType").value,
     file_path: getElement("pollingSourcePath").value,
     sheet_name: getElement("pollingSourceSheet").value,
     active: getElement("pollingSourceActive").checked ? 1 : 0
   };
 
-  setPollingMessage("Guardando ruta...");
+  setPollingMessage(sourceId ? "Guardando ruta..." : "Registrando fuente...");
 
-  const result = await sendJSON(`/api/sync/sources/${encodeURIComponent(sourceId)}`, {
-    method: "PUT",
+  const result = await sendJSON(sourceId ? `/api/sync/sources/${encodeURIComponent(sourceId)}` : "/api/sync/sources", {
+    method: sourceId ? "PUT" : "POST",
     body: payload
   });
 
-  const index = pollingSourcesCache.findIndex(source => Number(source.id) === sourceId);
+  pollingIsCreatingSource = false;
+  pollingSelectedSourceId = result.source?.id || sourceId;
+  const index = pollingSourcesCache.findIndex(source => Number(source.id) === Number(pollingSelectedSourceId));
 
   if (index >= 0) {
     pollingSourcesCache[index] = result.source;
+  } else if (result.source) {
+    pollingSourcesCache.unshift(result.source);
   }
 
   renderPollingSourceCards();
   fillPollingSourceForm(result.source);
-  appendLog(`Ruta de polling guardada: ${result.source.name}`, "success");
+  await loadPollingRuns(result.source?.id);
+  appendLog(`Fuente de polling guardada: ${result.source.name}`, "success");
 }
 
 async function runSelectedPollingSource() {
@@ -3974,10 +4373,11 @@ function loadViewData(viewId) {
     });
   }
 
-  if (viewId === "polling-routes-view" && !lazyViewLoads.pollingRoutes) {
+  if (viewId === "polling-routes-view") {
+    const wasLoaded = lazyViewLoads.pollingRoutes;
     lazyViewLoads.pollingRoutes = true;
-    loadPollingSources().catch(error => {
-      lazyViewLoads.pollingRoutes = false;
+    loadPollingSources({ silent: wasLoaded }).catch(error => {
+      lazyViewLoads.pollingRoutes = wasLoaded;
       console.error(error);
       setPollingMessage(error.message || "No se pudieron cargar fuentes de polling", "warning");
       appendLog(error.message || "No se pudieron cargar fuentes de polling", "error");
@@ -4040,6 +4440,8 @@ function bindSettingsControls() {
     });
   });
 
+  getElement("btnNewPollingSource")?.addEventListener("click", startNewPollingSource);
+
   getElement("btnRunPollingSource")?.addEventListener("click", () => {
     runSelectedPollingSource().catch(error => {
       console.error(error);
@@ -4047,6 +4449,43 @@ function bindSettingsControls() {
       appendLog(error.message || "No se pudo ejecutar polling manual", "error");
     });
   });
+}
+
+function bindDailyProductionControls() {
+  getElement("dailyProductionTargetForm")?.addEventListener("submit", event => {
+    event.preventDefault();
+    showDailyProductionLinesModal();
+  });
+
+  getElement("btnRefreshDailyProduction")?.addEventListener("click", () => {
+    loadDailyProduction().catch(error => {
+      console.error(error);
+      appendLog(error.message || "No se pudo cargar Produccion diaria", "error");
+    });
+  });
+
+  getElement("btnDailyProductionLines")?.addEventListener("click", showDailyProductionLinesModal);
+  getElement("btnUploadDailyProductionSchedule")?.addEventListener("click", () => {
+    getElement("dailyProductionScheduleFile")?.click();
+  });
+  getElement("dailyProductionScheduleFile")?.addEventListener("change", event => {
+    uploadDailyProductionSchedule(event.target.files?.[0]).catch(error => {
+      console.error(error);
+      appendLog(error.message || "No se pudo cargar la lista diaria", "error");
+    });
+  });
+  getElement("btnDailyProductionFullscreen")?.addEventListener("click", openDailyProductionFullscreen);
+  getElement("dailyProductionLinesForm")?.addEventListener("submit", applyDailyProductionLines);
+  getElement("btnCloseDailyProductionLines")?.addEventListener("click", () => {
+    getElement("dailyProductionLinesModal")?.close();
+  });
+  document.querySelectorAll("[data-close-daily-production-lines]").forEach(button => {
+    button.addEventListener("click", () => {
+      getElement("dailyProductionLinesModal")?.close();
+    });
+  });
+
+  renderDailyProduction();
 }
 
 // Conecta el drawer movil: boton hamburguesa, overlay y tecla Escape.
@@ -5225,6 +5664,7 @@ async function init() {
 
   bindNavigation();
   bindSettingsControls();
+  bindDailyProductionControls();
   bindSidebarControls();
   bindThemeControls();
   bindAccessControls();

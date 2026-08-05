@@ -145,6 +145,80 @@ router.get("/sources", (req, res, next) => {
   }
 });
 
+router.post("/sources", (req, res, next) => {
+  try {
+    const payload = req.body || {};
+    const name = cleanText(payload.name);
+    const area = cleanText(payload.area);
+    const sourceType = cleanText(payload.source_type);
+    const filePath = cleanText(payload.file_path);
+    const sheetName = cleanText(payload.sheet_name);
+    const active = payload.active === true || payload.active === 1 || payload.active === "1" ? 1 : 0;
+
+    if (!name) {
+      return res.status(400).json({
+        ok: false,
+        error: "El nombre de la fuente es obligatorio"
+      });
+    }
+
+    if (!SUPPORTED_SOURCE_TYPES.has(sourceType)) {
+      return res.status(400).json({
+        ok: false,
+        error: `Tipo de fuente no soportado todavía: ${sourceType || "sin tipo"}`
+      });
+    }
+
+    if (!filePath) {
+      return res.status(400).json({
+        ok: false,
+        error: "La ruta del archivo es obligatoria"
+      });
+    }
+
+    if (!sheetName) {
+      return res.status(400).json({
+        ok: false,
+        error: "El nombre de la hoja es obligatorio"
+      });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO rmc_external_sources (
+        name,
+        area,
+        source_type,
+        file_path,
+        sheet_name,
+        active,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `).run(
+      name,
+      area,
+      sourceType,
+      filePath,
+      sheetName,
+      active
+    );
+
+    const created = db.prepare(`
+      SELECT *
+      FROM rmc_external_sources
+      WHERE id = ?
+    `).get(result.lastInsertRowid);
+
+    res.status(201).json({
+      ok: true,
+      source: serializeSource(created)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.put("/sources/:id", (req, res, next) => {
   try {
     const sourceId = Number(req.params.id);

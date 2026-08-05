@@ -20,6 +20,11 @@ window.RMCComponents.sidebar = function sidebar() {
           <span>Dashboard</span>
           <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
         </button>
+
+        <button class="menu-item" type="button" data-view="daily-production-view">
+          <span>Produccion diaria</span>
+          <span class="menu-icon menu-icon-dot" aria-hidden="true"></span>
+        </button>
       </section>
 
       <section class="menu-group">
@@ -224,6 +229,7 @@ window.RMCComponents.renderApp = function renderApp(root) {
 
       <main class="content">
         ${window.RMCComponents.dashboardView()}
+        ${window.RMCComponents.dailyProductionView()}
         ${window.RMCComponents.nikeView()}
         ${window.RMCComponents.opNikeCatalogView()}
         ${window.RMCComponents.systemSettingsView()}

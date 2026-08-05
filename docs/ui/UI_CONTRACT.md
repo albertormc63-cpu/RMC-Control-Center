@@ -80,7 +80,8 @@ Desktop:
 
 - Sidebar fijo en layout grid.
 - Logo centrado arriba.
-- Botones por grupos: Dashboard, Herramientas Nike, Herramienta 27 Sports / Rapid y Sistema.
+- Botones por grupos: Dashboard, Produccion diaria, Herramientas Nike, Herramienta 27 Sports / Rapid y Sistema.
+- `Produccion diaria` es entrada directa del sidebar porque se proyecta en pantallas de planta.
 - `Herramientas Nike` contiene `Pedidos RMC Nike` y `Maquetas RMC Nike`.
 - `Herramienta 27 Sports / Rapid` muestra el resumen y detalle de las tablas de tracking producidas por RMC Optimizador.
 - `Sistema` contiene `Ajustes` como hub tipo dashboard. Las opciones secundarias de sistema no se agregan directamente al sidebar.
@@ -137,6 +138,17 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Contenedores de graficas.
 - Tablas mensuales.
 
+`dailyProductionView.js`:
+
+- Pantalla `Produccion diaria` para proyeccion en areas de planta.
+- Tablero alto contraste con `Piezas totales`, fecha del dia, `Impresas`, `Sublimadas` y `Terminadas`.
+- Las barras usan estados: rojo menor a 50%, amarillo de 50% a 77%, verde desde 78%.
+- Refresca datos reales cada 30 segundos desde `GET /api/production/daily`.
+- Boton `Examinar Excel` permite cargar el `Production Schedule Book` del dia; la copia activa queda en el servidor.
+- El total diario viene del Excel cargado, filtrando la lista diaria por lineas seleccionadas y `To DC` vacio.
+- Incluye modal `Lineas` con checkboxes: `27 Sports`, `Rapid`, `LAT` y `Nike`; default `27 Sports + Rapid`.
+- `Terminadas` se muestra pendiente mientras no exista fuente Costura/Final.
+
 `nikeView.js`:
 
 - Tabla de ejecuciones Nike.
@@ -176,6 +188,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - La accion de `BD` pide el mismo PIN temporal del Catalogo Op-Nike y llama `POST /api/sync/operator-databases/optimizador/run`.
 - Cada vista abierta desde una card de Ajustes muestra boton `Volver a Ajustes` en el encabezado.
 - Pantalla `Ajuste de Rutas Polling` para editar fuentes existentes de `rmc_external_sources`.
+- Incluye boton `Nueva fuente` para registrar rutas nuevas de tipos ya soportados por el worker.
 - El formulario permite cambiar nombre, area, ruta de archivo, hoja y activo/inactivo.
 - Muestra estado de archivo disponible/no disponible y ultimas corridas de sync.
 - Incluye accion `Sincronizar ahora` usando `POST /api/sync/sources/:id/run`.

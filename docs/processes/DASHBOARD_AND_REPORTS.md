@@ -4,6 +4,34 @@
 
 El Dashboard muestra primero `RMCOp-Nike`, despues el resumen `General` y despues `Seguimiento operativo 27 / Rapid`.
 
+## Produccion diaria
+
+`Produccion diaria` es una pantalla separada del Dashboard y vive como boton directo del sidebar para proyeccion en planta.
+
+Datos:
+
+- Piezas totales: lee el Excel diario cargado desde `Examinar Excel`; el servidor guarda una copia activa en `data/daily-production/current-schedule.xlsm`.
+- Formato esperado: `Production Schedule Book`, hoja `ProdSched`, encabezados en fila 2.
+- Filtro base: `Sew Unit` por lineas seleccionadas y `To DC` vacio.
+- Default de lineas: `27SPTS`, `RAPIDA` y `RAPIDT`, agrupadas como `27 Sports` y `Rapid`.
+- Grupos opcionales: `LAT` y `Nike` (`PLL`, `WLL`).
+- Total: suma `WO Eaches` de las filas filtradas.
+- Impresas: cruza `Work Order` de la lista diaria contra `rmc_print_sublimation_log` y suma las piezas de la lista diaria que ya tienen match.
+- Sublimadas: cruza `Work Order` de la lista diaria contra `rmc_sublimation_output_log` y suma las piezas de la lista diaria que ya tienen match.
+- Terminadas: pendiente hasta registrar fuente Costura/Final.
+
+Porcentajes:
+
+- Impresas / Piezas totales.
+- Sublimadas / Impresas.
+- Terminadas / Sublimadas.
+
+Estados de barras:
+
+- Menor a 50%: rojo.
+- De 50% a 77%: amarillo.
+- Desde 78%: verde.
+
 ## Dashboard general
 
 `GET /api/dashboard` mezcla metricas de Registry, Nike, MockupTool y commits Nike.

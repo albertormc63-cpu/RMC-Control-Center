@@ -37,6 +37,8 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 
 - `GET /health`
 - `GET /api/dashboard`
+- `POST /api/production/schedule/upload`
+- `GET /api/production/daily`
 - `GET /api/dashboard/registry`
 - `GET /api/dashboard/tables`
 - `GET /api/nike/runs`
@@ -64,6 +66,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `GET /api/git-commits/:tool_key`
 - `GET /api/git-commits/summary`
 - `GET /api/sync/sources`
+- `POST /api/sync/sources`
 - `PUT /api/sync/sources/:id`
 - `POST /api/sync/sources/:id/run`
 - `GET /api/sync/sources/:id/runs`
@@ -87,6 +90,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/syncWorker.js`: proceso hijo de polling/sync externo iniciado automaticamente por el server.
 - `src/db.js`: conexion SQLite por `RMC_DB_PATH`.
 - `src/routes/dashboard.routes.js`: metricas generales, Registry y conteo de tablas.
+- `src/routes/production.routes.js`: resumen operativo de Produccion diaria para pantallas de planta, usando fuentes espejo de Impresion y Sublimado.
 - `src/routes/nike.routes.js`: listado, detalle agrupado, baja auxiliar de Nike y endpoint item -> impresion/sublimado.
 - `src/routes/nikeCatalog.routes.js`: administracion acotada del catalogo Op-Nike.
 - `src/routes/mockup.routes.js`: listado y detalle agrupado de MockupTool.
@@ -108,6 +112,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/services/syncPoller.js`: polling automatico de fuentes externas activas, con timers apagables para correr en worker.
 - `src/services/chatMessages.js`: esquema auxiliar, validacion, persistencia e IP del chat.
 - `src/services/rapid27Tracking.js`: normalizacion de embarques, agregados, cruces operativos de las tablas `rmc_opt_*` y filtro por bajas auxiliares.
+- `src/services/dailyProductionSchedule.js`: carga/lectura del Excel diario `Production Schedule Book`, filtros de lineas y `To DC`, suma de `WO Eaches` y WOs base para `Produccion diaria`.
 - `public/js/app.js`: carga de APIs, render, filtros, sort y graficas SVG.
 - `public/js/components/`: componentes HTML sin imports ni bundler.
 
@@ -166,11 +171,13 @@ No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop
 
 Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/configuracion Op-Nike. Antes de permitir `opnike_rule_status = active`, RMCCC valida campos obligatorios y mantiene `draft`, `shadow`, `active` e `inactive`.
 
+`Produccion diaria` vive como entrada directa del sidebar para proyectarse en pantallas de planta. Permite cargar el Excel diario desde `Examinar Excel`; el servidor guarda la copia activa en `data/daily-production/current-schedule.xlsm` (ignorada por Git). Toma `Piezas totales` del `Production Schedule Book`, hoja `ProdSched`, filtrando `Sew Unit` por lineas seleccionadas y `To DC` vacio, y sumando `WO Eaches`. El default visual es `27 Sports + Rapid` (`27SPTS`, `RAPIDA`, `RAPIDT`). Impresion y Sublimado cruzan los `Work Order` de esa lista contra `rmc_print_sublimation_log` y `rmc_sublimation_output_log`; Costura/Final queda pendiente hasta definir su Excel/fuente.
+
 `Sistema` muestra `Ajustes` como hub tipo dashboard para no extender el sidebar. Desde ahi se abre `Catalogo Op-Nike`, `Ajuste de Rutas Polling`, Exportaciones, CEP Registry e Historial de desarrollo.
 
 `Catalogo Op-Nike` vive bajo `Sistema / Ajustes` y usa PIN temporal para administracion en LAN. Default actual: `290497`, configurable por `RMC_OPNIKE_ADMIN_PIN`.
 
-`Ajuste de Rutas Polling` edita `rmc_external_sources` para cambiar nombre, area, ruta de archivo, hoja y estado activo de fuentes externas soportadas. Si cambia ruta u hoja, limpia `last_mtime_ms` y `last_size_bytes` para que el worker detecte la siguiente lectura.
+`Ajuste de Rutas Polling` edita `rmc_external_sources` para cambiar nombre, area, ruta de archivo, hoja y estado activo de fuentes externas soportadas. Tambien permite dar de alta fuentes nuevas de tipos soportados por el worker (`print_sublimation_excel` y `sublimation_output_excel`). Si cambia ruta u hoja, limpia `last_mtime_ms` y `last_size_bytes` para que el worker detecte la siguiente lectura.
 
 ## Reglas operativas vigentes
 

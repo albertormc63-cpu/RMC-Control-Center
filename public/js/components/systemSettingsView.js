@@ -95,7 +95,10 @@ window.RMCComponents.pollingRoutesView = function pollingRoutesView() {
         <section class="detail-panel polling-editor-panel">
           <div class="detail-header">
             <h3>Fuente seleccionada</h3>
-            <button id="btnRefreshPollingSources" class="secondary-button" type="button">Actualizar</button>
+            <div class="polling-editor-actions">
+              <button id="btnNewPollingSource" class="secondary-button" type="button">Nueva fuente</button>
+              <button id="btnRefreshPollingSources" class="secondary-button" type="button">Actualizar</button>
+            </div>
           </div>
 
           <form id="pollingSourceForm" class="polling-form">
@@ -113,7 +116,10 @@ window.RMCComponents.pollingRoutesView = function pollingRoutesView() {
 
             <label>
               Tipo de fuente
-              <input id="pollingSourceType" type="text" readonly>
+              <select id="pollingSourceType">
+                <option value="print_sublimation_excel">Impresion / Reposiciones</option>
+                <option value="sublimation_output_excel">Sublimado / Liberado a linea</option>
+              </select>
             </label>
 
             <label class="span-2">

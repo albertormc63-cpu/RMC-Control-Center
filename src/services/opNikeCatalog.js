@@ -371,6 +371,25 @@ function patternUses(row, token) {
   ].some(value => text(value).includes(needle));
 }
 
+function patternUsesAny(row, tokens) {
+  return tokens.some(token => patternUses(row, token));
+}
+
+function isGlobalOfficialTeamRule(row) {
+  return Number(row.is_official_team) === 1
+    && !hasValue(row.team_market)
+    && !hasValue(row.team_mascot)
+    && patternUsesAny(row, [
+      "team_market",
+      "teamMarket",
+      "team_market_upper",
+      "teamMarketUpper",
+      "file_team_name",
+      "fileTeamName",
+      "nickname"
+    ]);
+}
+
 function validateFamily(row, options = {}) {
   const missingFields = [];
 
@@ -448,12 +467,13 @@ function validateVariant(row, families, options = {}) {
   }
 
   const needsTeam = Number(row.is_official_team) === 1 || TEAM_STRATEGY_RE.test(text(row.opnike_resolution_strategy));
+  const usesRuntimeTeam = isGlobalOfficialTeamRule(row);
 
-  if (needsTeam && !hasValue(row.team_market) && !hasValue(row.aliases)) {
+  if (needsTeam && !usesRuntimeTeam && !hasValue(row.team_market) && !hasValue(row.aliases)) {
     missingFields.push("team_market/aliases");
   }
 
-  if (needsTeam && patternUses(row, "nickname")) {
+  if (needsTeam && !usesRuntimeTeam && patternUses(row, "nickname")) {
     requireFields(row, ["team_mascot"], missingFields);
   }
 
@@ -514,12 +534,40 @@ function getPreviewFamily(row, families, requestedFamily) {
     || {};
 }
 
+function getGenderGroup(row, family) {
+  const explicitGroup = text(row.team_gender);
+  const productFolder = text(family.product_folder).toUpperCase();
+  const liga = text(row.opnike_liga_scope) || text(row.liga) || text(family.liga);
+
+  if (/MENS\s+AND\s+YOUTH|GIRLS\s+AND\s+LADIES/i.test(explicitGroup)) {
+    return explicitGroup;
+  }
+
+  if (liga === "WLL" || productFolder === "LADIES" || productFolder === "GIRLS") {
+    return "Girls and Ladies";
+  }
+
+  if (liga === "PLL" || productFolder === "MENS" || productFolder === "YOUTH") {
+    return "Mens and Youth";
+  }
+
+  return explicitGroup || text(family.audience);
+}
+
 function buildPreviewTokens(row, family, options = {}) {
   const styleFamily = family.style_family || getStyleScopeFamilies(row)[0] || "A1000";
   const variantCode = text(row.variant_code) || "H";
   const style = `${styleFamily}${variantCode}`;
-  const teamMarket = text(row.team_market) || "TEAM";
-  const teamMascot = text(row.team_mascot) || "";
+  const base1500StyleFamily = /1500$/i.test(styleFamily) ? styleFamily : "";
+  const sampleOfficialTeam = isGlobalOfficialTeamRule(row);
+  const teamMarket = text(options.teamMarket)
+    || text(options.team_market)
+    || text(row.team_market)
+    || (sampleOfficialTeam ? "Boston" : "TEAM");
+  const teamMascot = text(options.teamMascot)
+    || text(options.team_mascot)
+    || text(row.team_mascot)
+    || (sampleOfficialTeam ? "Cannons" : "");
   const fileTeamName = text(row.file_team_name) || [teamMarket, teamMascot].filter(Boolean).join(" ");
   const variantCodeName = [variantCode, row.variant_name].map(text).filter(Boolean).join(" ");
 
@@ -535,7 +583,7 @@ function buildPreviewTokens(row, family, options = {}) {
     styleFamily,
     style,
     family: styleFamily,
-    size: text(options.size) || "L",
+    size: text(options.size) || "LG",
     orderId: text(options.orderId) || "WO-PREVIEW",
     identifier: text(options.identifier) || "00",
     team_market: teamMarket,
@@ -553,7 +601,9 @@ function buildPreviewTokens(row, family, options = {}) {
     designName: text(row.design_name),
     template_code: text(row.opnike_template_code),
     templateCode: text(row.opnike_template_code),
-    gender_group: text(row.team_gender) || text(family.audience),
+    base_1500_style_family: base1500StyleFamily,
+    base1500StyleFamily,
+    gender_group: getGenderGroup(row, family),
     product_folder: text(family.product_folder),
     garment_type: text(family.garment_type),
     "style.product_folder": text(family.product_folder),
@@ -571,6 +621,33 @@ function renderPattern(pattern, tokens) {
   });
 }
 
+function splitAlternatives(value) {
+  const rendered = text(value);
+
+  if (!rendered) {
+    return [];
+  }
+
+  return rendered
+    .split("|")
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function expandPathCandidates(folderPatterns, templatePattern, tokens) {
+  const folderAlternatives = folderPatterns
+    .map(pattern => splitAlternatives(renderPattern(pattern, tokens)))
+    .filter(alternatives => alternatives.length);
+  const templateNames = splitAlternatives(renderPattern(templatePattern, tokens));
+  let basePaths = [TEMPLATE_ROOT];
+
+  folderAlternatives.forEach(alternatives => {
+    basePaths = basePaths.flatMap(basePath => alternatives.map(folder => path.join(basePath, folder)));
+  });
+
+  return basePaths.flatMap(basePath => templateNames.map(templateName => path.join(basePath, templateName)));
+}
+
 function isFinalTemplateCandidate(fileName) {
   const baseName = path.basename(fileName);
 
@@ -579,8 +656,26 @@ function isFinalTemplateCandidate(fileName) {
     && STYLE_TOKEN_RE.test(baseName);
 }
 
-function findTemplateCandidate(expectedPath, styleFamily) {
+function escapeRegExp(value) {
+  return text(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function fileNameIncludesToken(fileName, token) {
+  const normalizedName = text(fileName).toUpperCase();
+  const normalizedToken = text(token).toUpperCase();
+
+  if (!normalizedToken) {
+    return true;
+  }
+
+  return new RegExp(`(?:^|[\\s_.-])${escapeRegExp(normalizedToken)}(?:[\\s_.-]|$)`).test(normalizedName);
+}
+
+function findTemplateCandidate(expectedPath, search = {}) {
   const expectedBase = path.basename(expectedPath);
+  const style = text(search.style);
+  const styleFamily = text(search.style_family || search.styleFamily || search);
+  const size = text(search.size);
 
   if (fs.existsSync(expectedPath)) {
     return {
@@ -597,7 +692,8 @@ function findTemplateCandidate(expectedPath, styleFamily) {
       .filter(entry => entry.isFile())
       .map(entry => entry.name)
       .filter(fileName => isFinalTemplateCandidate(fileName))
-      .filter(fileName => fileName.toUpperCase().includes(text(styleFamily).toUpperCase()))
+      .filter(fileName => fileNameIncludesToken(fileName, style || styleFamily))
+      .filter(fileName => fileNameIncludesToken(fileName, size))
       .sort((a, b) => a.localeCompare(b, "es", { numeric: true, sensitivity: "base" }));
 
     if (files.length) {
@@ -622,41 +718,65 @@ function findTemplateCandidate(expectedPath, styleFamily) {
   };
 }
 
+function findTemplateCandidateFromAlternatives(expectedPaths, search = {}) {
+  const candidates = expectedPaths.filter(hasValue);
+  let firstResult = null;
+
+  for (const candidatePath of candidates) {
+    const result = findTemplateCandidate(candidatePath, search);
+
+    if (result.exists) {
+      return result;
+    }
+
+    if (!firstResult) {
+      firstResult = result;
+    }
+  }
+
+  return firstResult || {
+    exists: false,
+    path: "",
+    status: "missing"
+  };
+}
+
 function buildPreview(row, families, options = {}) {
   const family = getPreviewFamily(row, families, options.styleFamily);
   const tokens = buildPreviewTokens(row, family, options);
-  const folders = [
-    TEMPLATE_ROOT,
+  const folderPatterns = [
     renderPattern(row.opnike_variant_root_folder, tokens),
     renderPattern(row.opnike_group_folder_pattern, tokens),
     renderPattern(row.opnike_product_folder_pattern, tokens)
   ];
 
   if (Number(row.opnike_requires_version_folder) === 1 || hasValue(row.opnike_version_folder_pattern)) {
-    folders.push(renderPattern(row.opnike_version_folder_pattern, tokens));
+    folderPatterns.push(renderPattern(row.opnike_version_folder_pattern, tokens));
   }
 
   if (Number(row.opnike_requires_team_folder) === 1 || hasValue(row.opnike_team_folder_pattern)) {
-    folders.push(renderPattern(row.opnike_team_folder_pattern, tokens));
+    folderPatterns.push(renderPattern(row.opnike_team_folder_pattern, tokens));
   }
 
   if (Number(row.opnike_requires_design_folder) === 1 || hasValue(row.opnike_design_folder)) {
-    folders.push(renderPattern(row.opnike_design_folder, tokens));
+    folderPatterns.push(renderPattern(row.opnike_design_folder, tokens));
   }
 
   if (Number(row.opnike_requires_style_subfolder) === 1 || hasValue(row.opnike_style_subfolder_rule)) {
-    folders.push(renderPattern(row.opnike_style_subfolder_rule, tokens));
+    folderPatterns.push(renderPattern(row.opnike_style_subfolder_rule, tokens));
   }
 
   const templateName = renderPattern(row.opnike_template_name_pattern, tokens);
   const outputName = renderPattern(row.opnike_output_name_pattern, tokens);
-  const expectedTemplatePath = path.join(...folders.filter(hasValue), templateName);
-  const file = findTemplateCandidate(expectedTemplatePath, family.style_family || tokens.style_family);
+  const pathCandidates = expandPathCandidates(folderPatterns, templateName, tokens);
+  const file = findTemplateCandidateFromAlternatives(pathCandidates, tokens);
+  const expectedTemplatePath = file.exists ? file.path : pathCandidates[0];
 
   return {
     templateRoot: TEMPLATE_ROOT,
     styleFamily: family.style_family || tokens.style_family,
     expectedTemplatePath,
+    pathCandidates,
     outputName,
     tokens,
     file

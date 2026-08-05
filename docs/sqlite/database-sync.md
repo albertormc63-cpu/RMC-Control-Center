@@ -131,6 +131,8 @@ source_type = print_sublimation_excel
 source_type = sublimation_output_excel
 ```
 
+La UI de `Ajuste de Rutas Polling` puede crear fuentes nuevas, pero solamente de tipos que el worker ya sincroniza: `print_sublimation_excel` y `sublimation_output_excel`. Registrar Costura/Final requiere definir antes su lector y tabla espejo.
+
 ### `rmc_sync_runs`
 
 Guarda cada corrida de sincronizacion.
