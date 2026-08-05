@@ -79,6 +79,29 @@
   font-weight: 700;
 }
 
+.table-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.table-pagination label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.table-pagination select {
+  min-height: 30px;
+  padding: 5px 8px;
+}
+
 table {
   width: 100%;
   min-width: 760px;

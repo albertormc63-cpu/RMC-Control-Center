@@ -158,6 +158,8 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Indicador `Cargando detalle Nike...` dentro de la tabla mientras se consulta el detalle desde boton o doble click.
 - Resumen compacto de circulacion activa por etapa dentro del detalle Nike.
 - Tabla de items Nike.
+- La tabla de detalle Nike usa paginacion server-side; muestra una pagina de items y pide mas con controles Anterior/Siguiente.
+- La busqueda del detalle Nike consulta el backend sobre todo el embarque agrupado, no solo sobre las filas visibles.
 - Columna `Equipo` con fallback al primer alias del catalogo cuando el item no trae equipo y la variante tampoco tiene datos de equipo, como `SS`.
 - Columna `Tipo` entre `Variante` y `Talla` para filtrar `Generica`, `Personalizada` o `Manual`.
 - Filtros por columna tipo Excel en la tabla de detalle.
@@ -168,12 +170,12 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 `opNikeCatalogView.js`:
 
 - Pantalla `Catalogo Op-Nike` bajo `Sistema / Ajustes`.
-- Acceso protegido por PIN temporal `290497` mientras no exista autenticacion formal.
+- Acceso protegido por PIN temporal `290497` mientras no exista autenticacion formal; el PIN no queda persistido al salir de la vista y existe accion `Bloquear`.
 - Tabla de variantes/diseños desde `rmc_nike_style_variants`.
 - Formulario de alta/edicion de variantes, aliases y reglas de ruta/nombre.
-- Captura guiada con plantillas controladas de regla, duplicado seguro de variantes, sugerencia/normalizacion de aliases y datalists de ligas/familias.
+- Captura guiada con plantillas controladas de regla, resumen compacto del preset, duplicado seguro de variantes, sugerencia/normalizacion de aliases y datalists de ligas/familias.
 - Formulario de alta/edicion de familias desde `rmc_nike_style_families`.
-- Boton `Validar regla` con campos faltantes visibles.
+- Boton `Validar regla` con campos faltantes visibles en nombres de formulario, no solo nombres tecnicos de SQLite.
 - Los campos faltantes tambien se resaltan directamente en el formulario para acelerar captura.
 - Boton `Activar` deshabilitado hasta que la validacion permita `active`.
 - Preview de ruta esperada, nombre final, tokens usados y estado de archivo.

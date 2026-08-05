@@ -247,7 +247,7 @@ window.RMCComponents.renderApp = function renderApp(root) {
     ${window.RMCComponents.opNikePinModal()}
 
     <footer class="footer-credits">
-      Creado por Jose Alberto Villarreal Garcia
+      Desarrollado por Ing. Jose Alberto Villarreal Garcia
     </footer>
 
   `;

@@ -87,6 +87,20 @@ window.RMCComponents.nikeView = function nikeView() {
             <tbody id="itemsTable"></tbody>
           </table>
         </div>
+
+        <div class="table-pagination" id="nikeItemsPagination">
+          <button id="nikeItemsPrevPage" class="secondary-button" type="button">Anterior</button>
+          <span id="nikeItemsPageInfo">0 de 0</span>
+          <button id="nikeItemsNextPage" class="secondary-button" type="button">Siguiente</button>
+          <label>
+            <span>Filas</span>
+            <select id="nikeItemsPageLimit">
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="150">150</option>
+            </select>
+          </label>
+        </div>
       </section>
 
       <dialog id="nikeItemModal" class="modal nike-item-modal">

@@ -417,7 +417,49 @@ Devuelve el embarque Nike al que pertenece `:id`, consolidando todos los runs de
 - `runIds`
 - `items`
 
+Query params:
+
+- `include_items`: opcional. Con `0` devuelve solo encabezado, totales y `flowSummary`; evita cargar todos los items en la UI.
+
 Si no existe responde `404`.
+
+```http
+GET /api/nike/runs/:id/items
+```
+
+Devuelve items Nike paginados para el embarque agrupado. La busqueda se aplica en SQLite sobre todos los items del embarque, no solo sobre la pagina visible.
+
+Query params:
+
+- `page`: pagina, default `1`.
+- `limit`: limite entre `1` y `200`, default `50`.
+- `q`: texto de busqueda opcional.
+- `column`: opcional, indice de columna de la tabla de detalle (`all`, `0` WO, `1` Style, `2` Equipo, etc.).
+- `sort`: opcional. Valores soportados: `wo`, `style`, `equipo`, `variante`, `tipo`, `talla`, `piezas`, `nombre`, `numero`, `estado`.
+- `direction`: `asc` o `desc`.
+
+Respuesta conceptual:
+
+```json
+{
+  "run": {},
+  "groupDate": "31/07",
+  "runCount": 1,
+  "totalPedidos": 0,
+  "totalPieces": 0,
+  "totalItems": 0,
+  "flowSummary": [],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 0,
+    "totalPages": 1,
+    "hasPrev": false,
+    "hasNext": false
+  },
+  "items": []
+}
+```
 
 ```http
 POST /api/nike/items/:id/cancel

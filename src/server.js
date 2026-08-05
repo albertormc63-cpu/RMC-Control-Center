@@ -32,6 +32,46 @@ function isEnabled(value, fallback = true) {
   return !["0", "false", "no", "off"].includes(String(value).trim().toLowerCase());
 }
 
+function createApiTimingLogger() {
+  const enabled = isEnabled(process.env.RMC_API_TIMING_ENABLED, true);
+  const slowMs = Math.max(0, Number(process.env.RMC_API_SLOW_MS) || 500);
+
+  return (req, res, next) => {
+    if (!enabled || !String(req.path || "").startsWith("/api/")) {
+      next();
+      return;
+    }
+
+    const startedAt = process.hrtime.bigint();
+
+    const setDurationHeader = () => {
+      const durationMs = Number(process.hrtime.bigint() - startedAt) / 1000000;
+      const roundedMs = Math.round(durationMs);
+
+      if (!res.headersSent) {
+        res.setHeader("X-RMC-Duration-Ms", String(roundedMs));
+      }
+
+      return roundedMs;
+    };
+    const originalWriteHead = res.writeHead;
+
+    res.writeHead = function writeHeadWithApiTiming(...args) {
+      setDurationHeader();
+      return originalWriteHead.apply(this, args);
+    };
+
+    res.on("finish", () => {
+      const roundedMs = Math.round(Number(process.hrtime.bigint() - startedAt) / 1000000);
+      if (roundedMs >= slowMs) {
+        console.log(`[api-timing] ${req.method} ${req.originalUrl || req.url} ${res.statusCode} ${roundedMs}ms`);
+      }
+    });
+
+    next();
+  };
+}
+
 function startSyncWorker() {
   if (!isEnabled(process.env.RMC_SYNC_WORKER_ENABLED, true)) {
     console.log("[sync-worker] Worker automatico desactivado.");
@@ -87,6 +127,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.use("/assets", express.static(path.join(__dirname, "..", "assets")));
+app.use(createApiTimingLogger());
 
 // Healthcheck rapido para saber si el server esta vivo sin tocar la BD.
 app.get("/health", (req, res) => {

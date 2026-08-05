@@ -13,6 +13,7 @@ window.RMCComponents.opNikeCatalogView = function opNikeCatalogView() {
           <button class="secondary-button settings-back-button" type="button" data-view="system-settings-view">
             Volver a Ajustes
           </button>
+          <button id="opNikeLockCatalog" class="secondary-button" type="button">Bloquear</button>
           <button id="opNikeRefreshCatalog" class="secondary-button" type="button">Actualizar</button>
         </div>
       </div>
@@ -69,10 +70,9 @@ window.RMCComponents.opNikeCatalogView = function opNikeCatalogView() {
               <label>Plantilla de regla
                 <select id="opNikeVariantPreset">
                   <option value="">Seleccionar plantilla</option>
-                  <option value="official_home">Equipo oficial HOME</option>
-                  <option value="official_away">Equipo oficial AWAY</option>
-                  <option value="special_team">Especial por carpeta de equipo</option>
-                  <option value="jr_1500">JR 1500 con subcarpeta A/Y</option>
+                  <option value="official_home">Equipo standard HOME</option>
+                  <option value="official_away">Equipo standard AWAY</option>
+                  <option value="special_team">Equipo por carpeta de variante</option>
                   <option value="design_folder">Diseño/causa especial</option>
                   <option value="design_version">Diseño con version Home/Away</option>
                 </select>
@@ -82,6 +82,7 @@ window.RMCComponents.opNikeCatalogView = function opNikeCatalogView() {
               <button id="opNikeBuildAliases" class="secondary-button" type="button">Sugerir aliases</button>
               <button id="opNikeNormalizeAliases" class="secondary-button" type="button">Ordenar aliases</button>
             </div>
+            <div id="opNikePresetSummary" class="catalog-preset-summary"></div>
             <div class="catalog-token-help">
               <span>Tokens comunes</span>
               <code>{liga}</code>
@@ -130,7 +131,7 @@ window.RMCComponents.opNikeCatalogView = function opNikeCatalogView() {
 
             <fieldset>
               <legend>Reglas de ruta y nombre</legend>
-              <label>Style scope<input name="opnike_style_scope" type="text" list="opNikeStyleFamiliesDatalist" required placeholder="A1000,Y1000"></label>
+              <label>Style scope<input name="opnike_style_scope" type="text" list="opNikeStyleFamiliesDatalist" required placeholder="A1000,Y1000,A1500,Y1500"></label>
               <label>Variant root<input name="opnike_variant_root_folder" type="text" required placeholder="STANDARD"></label>
               <label>Group folder<input name="opnike_group_folder_pattern" type="text" required placeholder="NIKE Mens and Youth"></label>
               <label>Product folder<input name="opnike_product_folder_pattern" type="text" required placeholder="{style.product_folder}"></label>

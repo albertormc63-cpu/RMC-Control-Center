@@ -43,6 +43,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `GET /api/dashboard/tables`
 - `GET /api/nike/runs`
 - `GET /api/nike/runs/:id`
+- `GET /api/nike/runs/:id/items`
 - `GET /api/nike/items/:id/print-sublimation`
 - `POST /api/nike/items/:id/cancel`
 - `GET /api/nike/catalog`
@@ -175,7 +176,7 @@ Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/co
 
 `Sistema` muestra `Ajustes` como hub tipo dashboard para no extender el sidebar. Desde ahi se abre `Catalogo Op-Nike`, `Ajuste de Rutas Polling`, Exportaciones, CEP Registry e Historial de desarrollo.
 
-`Catalogo Op-Nike` vive bajo `Sistema / Ajustes` y usa PIN temporal para administracion en LAN. Default actual: `290497`, configurable por `RMC_OPNIKE_ADMIN_PIN`.
+`Catalogo Op-Nike` vive bajo `Sistema / Ajustes` y usa PIN temporal para administracion en LAN. Default actual: `290497`, configurable por `RMC_OPNIKE_ADMIN_PIN`. El desbloqueo es efimero por vista: al salir del catalogo o presionar `Bloquear`, vuelve a pedir PIN al entrar.
 
 `Ajuste de Rutas Polling` edita `rmc_external_sources` para cambiar nombre, area, ruta de archivo, hoja y estado activo de fuentes externas soportadas. Tambien permite dar de alta fuentes nuevas de tipos soportados por el worker (`print_sublimation_excel` y `sublimation_output_excel`). Si cambia ruta u hoja, limpia `last_mtime_ms` y `last_size_bytes` para que el worker detecte la siguiente lectura.
 
@@ -184,10 +185,12 @@ Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/co
 - Registry es de consulta desde la UI; no hay alta manual activa desde Control Center.
 - Las ejecuciones de Nike y MockupTool se agrupan por `fecha_embarque` y ano.
 - El detalle de un embarque consolida todos los runs del grupo.
+- El detalle Nike carga encabezado/resumen primero y pagina items desde `GET /api/nike/runs/:id/items`; la busqueda se aplica en SQL sobre todo el embarque, no solo sobre la pagina visible.
 - Los reportes Excel exportan todos los items del grupo, no solo un run aislado.
 - Los archivos se sirven por endpoint, no por rutas directas del navegador.
 - Los paths historicos de SQLite no se reescriben cuando el volumen archiva carpetas; `rmcFileResolver` busca candidatos seguros bajo `TO PRINT/NIKE ORDERS`, carpetas mensuales/anuales y listas Nike/On Demand.
 - El servidor escucha en `0.0.0.0` para acceso LAN.
+- El servidor agrega `X-RMC-Duration-Ms` a respuestas `/api/*` y registra en consola endpoints lentos desde `RMC_API_SLOW_MS` (default `500` ms); `RMC_API_TIMING_ENABLED=false` lo desactiva.
 - El access log omite por default los `GET` periodicos del chat; `RMC_ACCESS_LOG_POLLING_ENABLED=true` permite registrarlos para diagnostico.
 - RMCCC no reemplaza Exceles operativos de cada area; los puede leer como fuentes externas y espejear en tablas auxiliares.
 - El reporte de impresores se cruza inicialmente con Nike por `work_order = wo`.

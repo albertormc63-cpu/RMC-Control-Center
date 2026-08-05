@@ -70,6 +70,41 @@
   white-space: nowrap;
 }
 
+.catalog-preset-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  min-height: 26px;
+  color: var(--rmc-muted);
+  font-size: 10px;
+}
+
+.catalog-preset-summary p {
+  width: 100%;
+  margin: 0;
+  color: var(--rmc-text-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.catalog-preset-summary span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-field);
+  color: var(--rmc-muted);
+  font-weight: 800;
+}
+
+.catalog-preset-summary.is-empty {
+  color: var(--rmc-muted-low);
+  font-weight: 700;
+}
+
 .catalog-token-help {
   display: flex;
   flex-wrap: wrap;

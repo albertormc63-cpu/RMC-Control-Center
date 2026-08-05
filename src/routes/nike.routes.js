@@ -213,6 +213,271 @@ function getCatalogVariantsById(items) {
   }
 }
 
+const NIKE_ITEM_SORTS = {
+  wo: { sql: "i.wo", collate: true },
+  style: { sql: "i.style", collate: true },
+  equipo: {
+    sql: "COALESCE(NULLIF(TRIM(i.equipo), ''), NULLIF(TRIM(v.team_market), ''), NULLIF(TRIM(v.team_name), ''), NULLIF(TRIM(v.aliases), ''), '')",
+    collate: true
+  },
+  variante: { sql: "i.variante", collate: true },
+  tipo: { sql: "i.herramienta", collate: true },
+  talla: { sql: "i.talla", collate: true },
+  piezas: { sql: "COALESCE(i.piezas, 0)", collate: false },
+  nombre: { sql: "i.nombre", collate: true },
+  numero: { sql: "i.numero", collate: true },
+  estado: { sql: "i.estado", collate: true }
+};
+const NIKE_ITEM_SEARCH_COLUMNS = {
+  0: ["i.wo"],
+  1: ["i.style", "i.style_family"],
+  2: ["i.equipo", "v.team_market", "v.team_mascot", "v.team_name", "v.aliases"],
+  3: ["i.variante", "v.variant_code", "v.variant_name"],
+  4: ["i.herramienta"],
+  5: ["i.talla"],
+  6: ["i.piezas"],
+  7: ["i.nombre"],
+  8: ["i.numero"],
+  9: ["i.estado"]
+};
+
+function parsePositiveInteger(value, fallback, options = {}) {
+  const min = options.min || 1;
+  const max = options.max || Number.MAX_SAFE_INTEGER;
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, Math.floor(parsed)));
+}
+
+function getNikeItemSearchSql(search, params, column) {
+  const q = String(search || "").trim();
+
+  if (!q) {
+    return "";
+  }
+
+  const fields = NIKE_ITEM_SEARCH_COLUMNS[String(column || "")] || [
+    "i.wo",
+    "i.ship_order",
+    "i.style",
+    "i.style_family",
+    "i.equipo",
+    "i.variante",
+    "i.version",
+    "i.talla",
+    "i.nombre",
+    "i.numero",
+    "i.archivo",
+    "i.estado",
+    "i.roster",
+    "v.variant_code",
+    "v.variant_name",
+    "v.team_market",
+    "v.team_mascot",
+    "v.aliases"
+  ];
+  const like = `%${q}%`;
+
+  fields.forEach(() => params.push(like));
+  return `AND (${fields.map(field => `COALESCE(${field}, '') LIKE ?`).join(" OR ")})`;
+}
+
+function getNikeItemSortSql(sortKey, directionValue) {
+  const sort = NIKE_ITEM_SORTS[String(sortKey || "").trim()] || null;
+  const direction = String(directionValue || "").toLowerCase() === "desc" ? "DESC" : "ASC";
+
+  if (!sort) {
+    return "i.run_id ASC, COALESCE(i.equipo, '') COLLATE NOCASE ASC, COALESCE(i.style, '') COLLATE NOCASE ASC, COALESCE(i.talla, '') COLLATE NOCASE ASC, i.id ASC";
+  }
+
+  const collate = sort.collate ? " COLLATE NOCASE" : "";
+  return `${sort.sql}${collate} ${direction}, i.id ASC`;
+}
+
+function getNikeItemsBaseQuery(runIds, search, extraParams = [], searchColumn = "all") {
+  const params = [...runIds];
+  const searchSql = getNikeItemSearchSql(search, params, searchColumn);
+
+  extraParams.push(...params);
+
+  return `
+    FROM rmcop_nike_items i
+    LEFT JOIN rmc_nike_style_variants v
+      ON v.id = CAST(i.catalog_variant_id AS INTEGER)
+    WHERE i.run_id IN (${runIds.map(() => "?").join(",")})
+      AND ${activeNikeItemWhere("i")}
+      ${searchSql}
+  `;
+}
+
+function hydrateNikeItems(rawItems) {
+  const printSummaryByWorkOrder = getPrintSublimationSummariesByWorkOrder(
+    rawItems.map(item => item.wo)
+  );
+  const sublimationOutputByWorkOrder = getSublimationOutputSummariesByWorkOrder(
+    rawItems.map(item => item.wo)
+  );
+
+  return rawItems.map(item => {
+    const printSublimationSummary = printSummaryByWorkOrder.get(String(item.wo || "")) || {
+      matches: 0,
+      activeCount: 0,
+      totalReportedQuantity: 0,
+      partialCount: 0
+    };
+    const sublimationOutputSummary = sublimationOutputByWorkOrder.get(String(item.wo || "")) || {
+      matches: 0,
+      activeCount: 0,
+      totalPieces: 0
+    };
+    const operationalSummary = {
+      ...printSublimationSummary,
+      sublimationOutputCount: sublimationOutputSummary.activeCount,
+      sublimationOutputPieces: sublimationOutputSummary.totalPieces
+    };
+
+    return {
+      ...attachNikeFilePaths(db, item),
+      equipo_display: buildTeamDisplay(item),
+      print_sublimation: {
+        summary: operationalSummary,
+        state: buildPrintSublimationState(operationalSummary)
+      }
+    };
+  });
+}
+
+function buildNikeFlowSummary(rawItems) {
+  const printSummaryByWorkOrder = getPrintSublimationSummariesByWorkOrder(
+    rawItems.map(item => item.wo)
+  );
+  const sublimationOutputByWorkOrder = getSublimationOutputSummariesByWorkOrder(
+    rawItems.map(item => item.wo)
+  );
+  const stages = {
+    diseno: {
+      department: "diseno",
+      label: "Impresion",
+      detail: "En proceso",
+      count: 0,
+      pieces: 0
+    },
+    sublimado: {
+      department: "sublimado",
+      label: "Sublimado",
+      detail: "Bajado / parcial",
+      count: 0,
+      pieces: 0
+    },
+    almacen: {
+      department: "almacen",
+      label: "Almacen",
+      detail: "Liberado a linea",
+      count: 0,
+      pieces: 0
+    }
+  };
+
+  rawItems.forEach(item => {
+    const printSummary = printSummaryByWorkOrder.get(String(item.wo || "")) || {
+      matches: 0,
+      activeCount: 0,
+      totalReportedQuantity: 0,
+      partialCount: 0
+    };
+    const sublimationSummary = sublimationOutputByWorkOrder.get(String(item.wo || "")) || {
+      activeCount: 0,
+      totalPieces: 0
+    };
+    const state = buildPrintSublimationState({
+      ...printSummary,
+      sublimationOutputCount: sublimationSummary.activeCount,
+      sublimationOutputPieces: sublimationSummary.totalPieces
+    });
+    const key = state.stage === "almacen"
+      ? "almacen"
+      : state.stage === "sublimado"
+        ? "sublimado"
+        : "diseno";
+
+    stages[key].count += 1;
+    stages[key].pieces += Number(item.piezas || 0);
+  });
+
+  return Object.values(stages).filter(stage => stage.count > 0);
+}
+
+function getNikeGroupItemData(group, options = {}) {
+  const params = [];
+  const baseQuery = getNikeItemsBaseQuery(group.runIds, options.search, params, options.searchColumn);
+  const summary = db.prepare(`
+    SELECT
+      COUNT(*) AS itemCount,
+      COUNT(DISTINCT COALESCE(NULLIF(TRIM(i.ship_order), ''), NULLIF(TRIM(i.wo), ''), CAST(i.id AS TEXT))) AS totalPedidos,
+      COALESCE(SUM(i.piezas), 0) AS totalPieces
+    ${baseQuery}
+  `).get(...params);
+  const flowRows = db.prepare(`
+    SELECT
+      i.id,
+      i.wo,
+      i.piezas
+    ${baseQuery}
+  `).all(...params);
+  const limit = options.limit ? parsePositiveInteger(options.limit, 50, { min: 1, max: 200 }) : null;
+  const totalItems = Number(summary.itemCount || 0);
+  const totalPages = limit ? Math.max(1, Math.ceil(totalItems / limit)) : 1;
+  const requestedPage = parsePositiveInteger(options.page, 1, { min: 1 });
+  const page = Math.min(requestedPage, totalPages);
+  const offset = limit ? (page - 1) * limit : 0;
+  const orderSql = getNikeItemSortSql(options.sort, options.direction);
+  const pageParams = [...params];
+  const limitSql = limit ? "LIMIT ? OFFSET ?" : "";
+  const includeItems = options.includeItems !== false;
+
+  if (limit) {
+    pageParams.push(limit, offset);
+  }
+
+  const rawItems = includeItems
+    ? db.prepare(`
+      SELECT
+        i.*,
+        v.variant_code AS catalog_variant_code,
+        v.variant_name AS catalog_variant_name,
+        v.team_code,
+        v.team_name,
+        v.team_market,
+        v.team_mascot,
+        v.aliases
+      ${baseQuery}
+      ORDER BY ${orderSql}
+      ${limitSql}
+    `).all(...pageParams)
+    : [];
+  return {
+    summary: {
+      totalItems,
+      totalPedidos: Number(summary.totalPedidos || 0),
+      totalPieces: Number(summary.totalPieces || 0)
+    },
+    flowSummary: buildNikeFlowSummary(flowRows),
+    items: includeItems ? hydrateNikeItems(rawItems) : [],
+    pagination: {
+      page,
+      limit: limit || totalItems,
+      total: totalItems,
+      totalPages,
+      hasPrev: page > 1,
+      hasNext: page < totalPages
+    }
+  };
+}
+
 // Lista las ejecuciones Nike agrupadas por fecha de embarque.
 router.get("/runs", (req, res) => {
   try {
@@ -270,6 +535,7 @@ router.get("/runs", (req, res) => {
 router.get("/runs/:id", (req, res) => {
   try {
     const { id } = req.params;
+    const includeItems = String(req.query.include_items ?? "1") !== "0";
 
     const group = getNikeRunGroup(db, id);
 
@@ -278,57 +544,52 @@ router.get("/runs/:id", (req, res) => {
       return;
     }
 
-    const rawItems = db.prepare(`
-      SELECT *
-      FROM rmcop_nike_items i
-      WHERE i.run_id IN (${group.runIds.map(() => "?").join(",")})
-        AND ${activeNikeItemWhere("i")}
-      ORDER BY run_id, equipo, style, talla
-    `).all(...group.runIds);
-    const printSummaryByWorkOrder = getPrintSublimationSummariesByWorkOrder(
-      rawItems.map(item => item.wo)
-    );
-    const sublimationOutputByWorkOrder = getSublimationOutputSummariesByWorkOrder(
-      rawItems.map(item => item.wo)
-    );
-    const catalogVariantsById = getCatalogVariantsById(rawItems);
-    const items = rawItems.map(item => {
-      const catalogVariant = catalogVariantsById.get(Number(item.catalog_variant_id)) || {};
-      const enrichedItem = {
-        ...item,
-        catalog_variant_code: catalogVariant.variant_code || "",
-        catalog_variant_name: catalogVariant.variant_name || "",
-        team_code: catalogVariant.team_code || "",
-        team_name: catalogVariant.team_name || "",
-        team_market: catalogVariant.team_market || "",
-        team_mascot: catalogVariant.team_mascot || "",
-        aliases: catalogVariant.aliases || ""
-      };
-      const printSublimationSummary = printSummaryByWorkOrder.get(String(item.wo || "")) || {
-        matches: 0,
-        activeCount: 0,
-        totalReportedQuantity: 0,
-        partialCount: 0
-      };
-      const sublimationOutputSummary = sublimationOutputByWorkOrder.get(String(item.wo || "")) || {
-        matches: 0,
-        activeCount: 0,
-        totalPieces: 0
-      };
-      const operationalSummary = {
-        ...printSublimationSummary,
-        sublimationOutputCount: sublimationOutputSummary.activeCount,
-        sublimationOutputPieces: sublimationOutputSummary.totalPieces
-      };
+    const detail = getNikeGroupItemData(group, {
+      limit: includeItems ? null : 1,
+      includeItems
+    });
+    const items = includeItems ? detail.items : [];
 
-      return {
-        ...attachNikeFilePaths(db, enrichedItem),
-        equipo_display: buildTeamDisplay(enrichedItem),
-        print_sublimation: {
-          summary: operationalSummary,
-          state: buildPrintSublimationState(operationalSummary)
-        }
-      };
+    res.json({
+      run: group.run,
+      groupDate: group.embarkDate,
+      runCount: group.groupRuns.length,
+      herramienta: group.herramienta,
+      totalPedidos: detail.summary.totalPedidos,
+      totalPieces: detail.summary.totalPieces,
+      totalItems: detail.summary.totalItems,
+      year: group.year,
+      runIds: group.runIds,
+      flowSummary: detail.flowSummary,
+      items
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "No se pudo leer el detalle Nike",
+      message: error.message
+    });
+  }
+});
+
+// Regresa items Nike paginados para un embarque agrupado. La busqueda se aplica
+// en SQLite sobre todo el grupo, no solo sobre la pagina visible.
+router.get("/runs/:id/items", (req, res) => {
+  try {
+    const { id } = req.params;
+    const group = getNikeRunGroup(db, id);
+
+    if (!group) {
+      res.status(404).json({ error: "Ejecucion Nike no encontrada" });
+      return;
+    }
+
+    const detail = getNikeGroupItemData(group, {
+      page: req.query.page,
+      limit: req.query.limit || 50,
+      search: req.query.q,
+      searchColumn: req.query.column,
+      sort: req.query.sort,
+      direction: req.query.direction
     });
 
     res.json({
@@ -336,17 +597,21 @@ router.get("/runs/:id", (req, res) => {
       groupDate: group.embarkDate,
       runCount: group.groupRuns.length,
       herramienta: group.herramienta,
-      totalPedidos: new Set(items
-        .map(item => String(item.ship_order || item.wo || item.id || "").trim())
-        .filter(Boolean)).size,
-      totalPieces: items.reduce((total, item) => total + Number(item.piezas || 0), 0),
+      totalPedidos: detail.summary.totalPedidos,
+      totalPieces: detail.summary.totalPieces,
+      totalItems: detail.summary.totalItems,
       year: group.year,
       runIds: group.runIds,
-      items
+      search: String(req.query.q || "").trim(),
+      sort: String(req.query.sort || ""),
+      direction: String(req.query.direction || "asc").toLowerCase() === "desc" ? "desc" : "asc",
+      flowSummary: detail.flowSummary,
+      pagination: detail.pagination,
+      items: detail.items
     });
   } catch (error) {
     res.status(500).json({
-      error: "No se pudo leer el detalle Nike",
+      error: "No se pudieron leer los items Nike",
       message: error.message
     });
   }

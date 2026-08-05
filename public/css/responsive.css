@@ -173,13 +173,16 @@
   .table-month-filter,
   .run-month-all,
   .table-clear,
-  .table-count {
+  .table-count,
+  .table-pagination,
+  .table-pagination label {
     flex: 1 1 100%;
     width: 100%;
     margin-left: 0;
   }
 
-  .table-month-filter {
+  .table-month-filter,
+  .table-pagination {
     justify-content: space-between;
   }
 
