@@ -22,9 +22,10 @@ Excepcion chat LAN: el chat grupal escribe solamente las tablas auxiliares `rmc_
 - `RMC MockupTool`: maquetas/mockups generados, faltantes, items y reportes Excel.
 - Sincronizacion externa inicial: reporte de impresores `Reporte de Impresion y Reposiciones.xlsx` hacia `rmc_print_sublimation_log`.
 - Sincronizacion externa de Sublimado: `PRODUCCION SUBLIMADO  2026.xlsb` hacia `rmc_sublimation_output_log`, leyendo `A1:M20000`.
+- Sincronizacion externa de Etiquetas/Almacen: `Registro de impresion de etiquetas.xlsx` hacia `rmc_label_delivery_log`, leyendo `A1:E20000` con encabezados en fila 5.
 - Sincronizacion Nike por operador: BDs `RMC_CEP.sqlite` por operador bajo `RMCOp-NIKE/ASSETS/BD`, registradas como `operator_sqlite_rmcop_nike`, consolidadas con prefijo de operador en `run_id` y auditadas en `rmc_sync_record_map`.
 - Sincronizacion Optimizador por operador: BDs `RMC_CEP.sqlite` por operador bajo `RMCOp-NIKE/ASSETS/BD`, registradas como `operator_sqlite_rmc_optimizador`, consolidadas hacia `rmc_opt_*` con IDs centrales nuevos y auditoria en `rmc_sync_record_map`.
-- Polling automatico de fuentes externas activas por `mtime`/`size`, ejecutado en worker hijo levantado por el server, con mensajes separados para `Impresores Excel` y `Sublimado Excel`, incluso cuando no hay cambios de archivo.
+- Polling automatico de fuentes externas activas por `mtime`/`size`, ejecutado en worker hijo levantado por el server, con mensajes separados para `Impresores Excel`, `Sublimado Excel` y `Etiquetas a Costura Excel`, incluso cuando no hay cambios de archivo.
 - Bajas auxiliares de items Nike cancelados por cliente en `rmc_nike_item_cancellations`; no borran ni modifican `rmcop_nike_items`.
 - Panel 27 / Rapid en modo lectura sobre `rmc_opt_orders`, `rmc_opt_order_lines`, `rmc_opt_roster_outputs` y `rmc_opt_assets`, con cruce operativo contra Impresion y Sublimado.
 - Bajas auxiliares de pedidos 27 / Rapid cancelados por cliente en `rmc_rapid27_order_cancellations`; no borran ni modifican `rmc_opt_*`.
@@ -91,7 +92,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `src/syncWorker.js`: proceso hijo de polling/sync externo iniciado automaticamente por el server.
 - `src/db.js`: conexion SQLite por `RMC_DB_PATH`.
 - `src/routes/dashboard.routes.js`: metricas generales, Registry y conteo de tablas.
-- `src/routes/production.routes.js`: resumen operativo de Produccion diaria para pantallas de planta, usando fuentes espejo de Impresion y Sublimado.
+- `src/routes/production.routes.js`: resumen operativo de Produccion diaria para pantallas de planta, usando fuentes espejo de Impresion, Sublimado y Terminadas.
 - `src/routes/nike.routes.js`: listado, detalle agrupado, baja auxiliar de Nike y endpoint item -> impresion/sublimado.
 - `src/routes/nikeCatalog.routes.js`: administracion acotada del catalogo Op-Nike.
 - `src/routes/mockup.routes.js`: listado y detalle agrupado de MockupTool.
@@ -145,6 +146,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_sync_runs`
 - `rmc_print_sublimation_log`
 - `rmc_sublimation_output_log`
+- `rmc_label_delivery_log`
 - `rmc_chat_messages`
 - `rmc_chat_reactions`
 - `rmc_nike_item_cancellations`
@@ -160,6 +162,7 @@ En la UI, `pdfs_generados` se presenta como `Plantillas` o `Maquetas`, no como P
 - `rmc_sync_runs`
 - `rmc_print_sublimation_log`
 - `rmc_sublimation_output_log`
+- `rmc_label_delivery_log`
 - `rmc_sync_record_map`
 - `rmc_nike_style_families`
 - `rmc_nike_style_variants`
@@ -172,13 +175,13 @@ No escribir desde RMCCC en tablas operativas CEP como `rmcop_nike_items`, `rmcop
 
 Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/configuracion Op-Nike. Antes de permitir `opnike_rule_status = active`, RMCCC valida campos obligatorios y mantiene `draft`, `shadow`, `active` e `inactive`.
 
-`Produccion diaria` vive como entrada directa del sidebar para proyectarse en pantallas de planta. Permite cargar el Excel diario desde `Examinar Excel`; el servidor guarda la copia activa en `data/daily-production/current-schedule.xlsm` (ignorada por Git). Toma `Piezas totales` del `Production Schedule Book`, hoja `ProdSched`, filtrando `Sew Unit` por lineas seleccionadas y `To DC` vacio, y sumando `WO Eaches`. El default visual es `27 Sports + Rapid` (`27SPTS`, `RAPIDA`, `RAPIDT`). Impresion y Sublimado cruzan los `Work Order` de esa lista contra `rmc_print_sublimation_log` y `rmc_sublimation_output_log`; Costura/Final queda pendiente hasta definir su Excel/fuente.
+`Produccion diaria` vive como entrada directa del sidebar para proyectarse en pantallas de planta. Permite cargar el Excel diario desde `Examinar Excel`; el servidor guarda la copia activa en `data/daily-production/current-schedule.xlsm` (ignorada por Git). Toma `Piezas totales` del `Production Schedule Book`, hoja `ProdSched`, filtrando `Sew Unit` por lineas seleccionadas y `To DC` vacio, y sumando `WO Eaches`. El default visual es `27 Sports + Rapid` (`27SPTS`, `RAPIDA`, `RAPIDT`). Impresion, Sublimado y Terminadas cruzan los `Work Order` de esa lista contra `rmc_print_sublimation_log`, `rmc_sublimation_output_log` y `rmc_label_delivery_log`.
 
 `Sistema` muestra `Ajustes` como hub tipo dashboard para no extender el sidebar. Desde ahi se abre `Catalogo Op-Nike`, `Ajuste de Rutas Polling`, Exportaciones, CEP Registry e Historial de desarrollo.
 
 `Catalogo Op-Nike` vive bajo `Sistema / Ajustes` y usa PIN temporal para administracion en LAN. Default actual: `290497`, configurable por `RMC_OPNIKE_ADMIN_PIN`. El desbloqueo es efimero por vista: al salir del catalogo o presionar `Bloquear`, vuelve a pedir PIN al entrar.
 
-`Ajuste de Rutas Polling` edita `rmc_external_sources` para cambiar nombre, area, ruta de archivo, hoja y estado activo de fuentes externas soportadas. Tambien permite dar de alta fuentes nuevas de tipos soportados por el worker (`print_sublimation_excel` y `sublimation_output_excel`). Si cambia ruta u hoja, limpia `last_mtime_ms` y `last_size_bytes` para que el worker detecte la siguiente lectura.
+`Ajuste de Rutas Polling` edita `rmc_external_sources` para cambiar nombre, area, ruta de archivo, hoja y estado activo de fuentes externas soportadas. Tambien permite dar de alta fuentes nuevas de tipos soportados por el worker (`print_sublimation_excel`, `sublimation_output_excel` y `label_delivery_excel`). Si cambia ruta u hoja, limpia `last_mtime_ms` y `last_size_bytes` para que el worker detecte la siguiente lectura.
 
 ## Reglas operativas vigentes
 
@@ -199,6 +202,7 @@ Las tablas `rmc_nike_style_families` y `rmc_nike_style_variants` son catalogo/co
 - Fechas internas de sync pueden venir en UTC; UI debe usar campos `*_display` cuando existan.
 - La tabla `Detalle Nike` muestra estado operativo por area: `En proceso de impresion`, `Bajado a Sublimado` o `Parcial en Sublimado`.
 - Si una pieza aparece activa en `rmc_sublimation_output_log`, el estado operativo se presenta como `En almacen`.
+- Si una pieza aparece activa en `rmc_label_delivery_log`, el estado operativo se presenta como `Mandado a Costura`.
 - El modal de item Nike muestra tracking tipo historial por area consumiendo `GET /api/nike/items/:id/print-sublimation`.
 - El modal de item Nike permite `Dar de baja` un registro cancelado; la baja se guarda en tabla auxiliar y se descuenta de dashboard, embarques, detalles y Excel.
 - El Dashboard principal muestra `Seguimiento operativo 27 / Rapid` con cards, flujo y grafica por embarque; el bloque Dashboard de MockupTool queda oculto temporalmente porque no es esencial para seguimiento operativo.

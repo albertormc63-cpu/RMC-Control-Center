@@ -73,7 +73,8 @@ function getAvailability(db) {
     available: missingTables.length === 0,
     missing_tables: missingTables,
     print_source_available: tableExists(db, "rmc_print_sublimation_log"),
-    sublimation_source_available: tableExists(db, "rmc_sublimation_output_log")
+    sublimation_source_available: tableExists(db, "rmc_sublimation_output_log"),
+    label_delivery_source_available: tableExists(db, "rmc_label_delivery_log")
   };
 }
 
@@ -125,8 +126,16 @@ function operationalSelects(availability, outputAlias = "ro") {
           AND ${outputStyleMatchSql("so", outputAlias)}
       )`
     : "0";
+  const labelDeliveryMatch = availability.label_delivery_source_available
+    ? `EXISTS (
+        SELECT 1
+        FROM rmc_label_delivery_log ld
+        WHERE COALESCE(ld.is_active, 1) = 1
+          AND TRIM(CAST(ld.work_order AS TEXT)) = TRIM(CAST(${outputAlias}.wo AS TEXT))
+      )`
+    : "0";
 
-  return { printMatch, sublimationMatch };
+  return { printMatch, sublimationMatch, labelDeliveryMatch };
 }
 
 function normalizeText(value) {
@@ -281,7 +290,8 @@ function createAggregate() {
     styles: new Set(),
     files_ready: 0,
     print_matched_outputs: 0,
-    sublimation_matched_outputs: 0
+    sublimation_matched_outputs: 0,
+    label_delivery_matched_outputs: 0
   };
 }
 
@@ -301,6 +311,7 @@ function addOutputToAggregate(aggregate, output) {
 
   aggregate.print_matched_outputs += Number(output.print_match || 0);
   aggregate.sublimation_matched_outputs += Number(output.sublimation_match || 0);
+  aggregate.label_delivery_matched_outputs += Number(output.label_delivery_match || 0);
 }
 
 function finalizeAggregate(aggregate) {
@@ -315,8 +326,11 @@ function deriveAggregateStatus(row) {
   const outputs = Number(row.outputs || 0);
   const printMatched = Number(row.print_matched_outputs || 0);
   const sublimationMatched = Number(row.sublimation_matched_outputs || 0);
+  const labelDeliveryMatched = Number(row.label_delivery_matched_outputs || 0);
 
   if (!outputs) return "SIN_OUTPUTS";
+  if (labelDeliveryMatched >= outputs) return "MANDADO_A_COSTURA";
+  if (labelDeliveryMatched > 0) return "PARCIAL_EN_COSTURA";
   if (sublimationMatched >= outputs) return "EN_ALMACEN";
   if (sublimationMatched > 0) return "PARCIAL_EN_ALMACEN";
   if (printMatched >= outputs) return "BAJADO_A_SUBLIMADO";
@@ -325,6 +339,7 @@ function deriveAggregateStatus(row) {
 }
 
 function deriveOutputStatus(output) {
+  if (Number(output.label_delivery_match || 0) > 0) return "MANDADO_A_COSTURA";
   if (Number(output.sublimation_match || 0) > 0) return "EN_ALMACEN";
   if (Number(output.print_match || 0) > 0) return "BAJADO_A_SUBLIMADO";
   return "EN_PROCESO_DE_IMPRESION";
@@ -332,7 +347,7 @@ function deriveOutputStatus(output) {
 
 function getContext(db, options = {}) {
   const availability = assertAvailable(db);
-  const { printMatch, sublimationMatch } = operationalSelects(availability, "ro");
+  const { printMatch, sublimationMatch, labelDeliveryMatch } = operationalSelects(availability, "ro");
   const cancellationMap = getActiveCancellationMap(db);
 
   const orders = db.prepare(`
@@ -397,7 +412,8 @@ function getContext(db, options = {}) {
       ro.created_at,
       ro.updated_at,
       CASE WHEN ${printMatch} THEN 1 ELSE 0 END AS print_match,
-      CASE WHEN ${sublimationMatch} THEN 1 ELSE 0 END AS sublimation_match
+      CASE WHEN ${sublimationMatch} THEN 1 ELSE 0 END AS sublimation_match,
+      CASE WHEN ${labelDeliveryMatch} THEN 1 ELSE 0 END AS label_delivery_match
     FROM rmc_opt_roster_outputs ro
     ORDER BY ro.line_id, ro.fila_roster, ro.id
   `).all().map(output => {
@@ -412,7 +428,8 @@ function getContext(db, options = {}) {
       shipment: line.shipment || null,
       computed_tracking_status: computed,
       print_match: Number(output.print_match || 0),
-      sublimation_match: Number(output.sublimation_match || 0)
+      sublimation_match: Number(output.sublimation_match || 0),
+      label_delivery_match: Number(output.label_delivery_match || 0)
     };
   }).filter(output => options.includeCancelled || lineById.has(Number(output.line_id)));
 
@@ -485,6 +502,7 @@ function getSummary(db) {
     files_ready: context.outputs.filter(output => isFileReady(output.file_status)).length,
     print_matched_outputs: context.outputs.reduce((total, output) => total + Number(output.print_match || 0), 0),
     sublimation_matched_outputs: context.outputs.reduce((total, output) => total + Number(output.sublimation_match || 0), 0),
+    label_delivery_matched_outputs: context.outputs.reduce((total, output) => total + Number(output.label_delivery_match || 0), 0),
     updated_at: updatedAt
   };
 }

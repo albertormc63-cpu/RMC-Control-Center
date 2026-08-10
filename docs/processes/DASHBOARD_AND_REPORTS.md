@@ -18,7 +18,7 @@ Datos:
 - Total: suma `WO Eaches` de las filas filtradas.
 - Impresas: cruza `Work Order` de la lista diaria contra `rmc_print_sublimation_log` y suma las piezas de la lista diaria que ya tienen match.
 - Sublimadas: cruza `Work Order` de la lista diaria contra `rmc_sublimation_output_log` y suma las piezas de la lista diaria que ya tienen match.
-- Terminadas: pendiente hasta registrar fuente Costura/Final.
+- Terminadas: cruza `Work Order` de la lista diaria contra `rmc_label_delivery_log` y suma las piezas de la lista diaria que ya tienen match.
 
 Porcentajes:
 
@@ -54,6 +54,8 @@ Cards:
 - Piezas
 - Estilos
 - Tiempo Promedio
+
+El selector `Mes de embarque` filtra estas cards, la grafica y la tabla mensual al mismo periodo. El boton `Todos` limpia el mes y muestra los totales completos de Nike.
 
 Visualizaciones:
 
@@ -100,7 +102,7 @@ La UI incluye una vista `Panel 27 / Rapid` separada de Nike y en modo lectura so
 
 Estado actual:
 
-- Cards de embarques, pedidos, piezas, estilos, archivos listos y outputs detectados en Almacen.
+- Cards de embarques, pedidos, piezas, estilos, archivos listos, outputs detectados en Almacen y outputs mandados a Costura.
 - Tabla principal agrupada por embarque y cliente, con filtro por mes y por cliente `27 Sports` / `Rapid`.
 - `Ver` abre el detalle del embarque con la tabla `Pedidos 27 Sports / Rapid`.
 - La tabla del detalle usa columnas `Roster`, `Nombre Pedido`, `Piezas`, `Estilos`, `Archivos`, `Estado` y `Detalle`.

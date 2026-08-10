@@ -198,16 +198,26 @@ function buildNikeMonthly(rows) {
       label: month.label,
       runs: 0,
       pedidos: 0,
+      registros: 0,
       piezas: 0,
+      estilos: 0,
       errores: 0,
       totalSeconds: 0,
-      timedRuns: 0
+      timedRuns: 0,
+      styleKeys: new Set()
     };
 
     current.runs += 1;
     current.pedidos += Number(row.pedidos || 0);
+    current.registros += Number(row.registros || 0);
     current.piezas += Number(row.piezas || 0);
+    current.estilos += Number(row.estilos || 0);
     current.errores += Number(row.errores || 0);
+    String(row.style_keys || "")
+      .split(",")
+      .map(style => style.trim())
+      .filter(Boolean)
+      .forEach(style => current.styleKeys.add(style));
 
     if (seconds > 0) {
       current.totalSeconds += seconds;
@@ -219,11 +229,16 @@ function buildNikeMonthly(rows) {
 
   return Array.from(months.values())
     .sort((a, b) => a.key.localeCompare(b.key))
-    .map(month => ({
-      ...month,
-      avgSeconds: month.timedRuns ? Math.round(month.totalSeconds / month.timedRuns) : 0,
-      avgTiempo: secondsToDuration(month.timedRuns ? month.totalSeconds / month.timedRuns : 0)
-    }));
+    .map(month => {
+      const { styleKeys, ...summary } = month;
+
+      return {
+        ...summary,
+        estilos: styleKeys.size || summary.estilos,
+        avgSeconds: summary.timedRuns ? Math.round(summary.totalSeconds / summary.timedRuns) : 0,
+        avgTiempo: secondsToDuration(summary.timedRuns ? summary.totalSeconds / summary.timedRuns : 0)
+      };
+    });
 }
 
 // Agrupa ejecuciones MockupTool por fecha de embarque.
@@ -336,6 +351,14 @@ router.get("/", (req, res) => {
           COUNT(*) AS registros,
           COUNT(DISTINCT COALESCE(NULLIF(TRIM(i.ship_order), ''), NULLIF(TRIM(i.wo), ''), CAST(i.id AS TEXT))) AS pedidos,
           COALESCE(SUM(i.piezas), 0) AS piezas,
+          COUNT(DISTINCT CASE
+            WHEN TRIM(COALESCE(i.style, '')) <> ''
+            THEN UPPER(TRIM(i.style))
+          END) AS estilos,
+          GROUP_CONCAT(DISTINCT CASE
+            WHEN TRIM(COALESCE(i.style, '')) <> ''
+            THEN UPPER(TRIM(i.style))
+          END) AS style_keys,
           SUM(CASE WHEN i.error IS NOT NULL AND TRIM(i.error) != '' THEN 1 ELSE 0 END) AS errores
         FROM rmcop_nike_items i
         WHERE ${activeNikeItemWhere("i")}
@@ -346,8 +369,11 @@ router.get("/", (req, res) => {
         r.created_at,
         r.fecha_embarque,
         r.tiempo,
+        COALESCE(ai.registros, 0) AS registros,
         COALESCE(ai.piezas, 0) AS piezas,
         COALESCE(ai.pedidos, 0) AS pedidos,
+        COALESCE(ai.estilos, 0) AS estilos,
+        COALESCE(ai.style_keys, '') AS style_keys,
         COALESCE(ai.errores, 0) AS errores
       FROM rmcop_nike_runs r
       LEFT JOIN active_items ai ON ai.run_id = r.id
@@ -355,7 +381,7 @@ router.get("/", (req, res) => {
       ORDER BY r.id ASC
     `).all(), []);
 
-    const nikeDurationSeconds = nikeRecentRuns
+    const nikeDurationSeconds = nikeDailyRuns
       .map(run => durationToSeconds(run.tiempo))
       .filter(seconds => seconds > 0);
 

@@ -28,6 +28,17 @@ function getClientIp(req) {
 }
 
 function buildPrintSublimationState(summary) {
+  if (Number(summary?.labelDeliveryCount || 0) > 0) {
+    const pieces = Number(summary.labelDeliveryPieces || 0);
+
+    return {
+      status: "Mandado a Costura",
+      detail: `${summary.labelDeliveryCount} registros a costura | ${pieces} piezas`,
+      stage: "costura",
+      hasPrintSublimationLog: true
+    };
+  }
+
   if (Number(summary?.sublimationOutputCount || 0) > 0) {
     const pieces = Number(summary.sublimationOutputPieces || 0);
 
@@ -121,6 +132,39 @@ function getSublimationOutputSummariesByWorkOrder(workOrders) {
         SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS activeCount,
         SUM(CASE WHEN is_active = 1 THEN COALESCE(pcs, 0) ELSE 0 END) AS totalPieces
       FROM rmc_sublimation_output_log
+      WHERE work_order IN (${uniqueWorkOrders.map(() => "?").join(",")})
+      GROUP BY work_order
+    `).all(...uniqueWorkOrders);
+
+    return new Map(rows.map(row => [String(row.work_order), {
+      matches: Number(row.matches || 0),
+      activeCount: Number(row.activeCount || 0),
+      totalPieces: Number(row.totalPieces || 0)
+    }]));
+  } catch (error) {
+    if (error && (error.code === "SQLITE_ERROR" || error.code === "SQLITE_SCHEMA")) {
+      return new Map();
+    }
+
+    throw error;
+  }
+}
+
+function getLabelDeliverySummariesByWorkOrder(workOrders) {
+  const uniqueWorkOrders = [...new Set(workOrders.filter(Boolean).map(String))];
+
+  if (!uniqueWorkOrders.length) {
+    return new Map();
+  }
+
+  try {
+    const rows = db.prepare(`
+      SELECT
+        work_order,
+        COUNT(*) AS matches,
+        SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS activeCount,
+        SUM(CASE WHEN is_active = 1 THEN COALESCE(delivered_quantity, 0) ELSE 0 END) AS totalPieces
+      FROM rmc_label_delivery_log
       WHERE work_order IN (${uniqueWorkOrders.map(() => "?").join(",")})
       GROUP BY work_order
     `).all(...uniqueWorkOrders);
@@ -321,6 +365,9 @@ function hydrateNikeItems(rawItems) {
   const sublimationOutputByWorkOrder = getSublimationOutputSummariesByWorkOrder(
     rawItems.map(item => item.wo)
   );
+  const labelDeliveryByWorkOrder = getLabelDeliverySummariesByWorkOrder(
+    rawItems.map(item => item.wo)
+  );
 
   return rawItems.map(item => {
     const printSublimationSummary = printSummaryByWorkOrder.get(String(item.wo || "")) || {
@@ -334,10 +381,17 @@ function hydrateNikeItems(rawItems) {
       activeCount: 0,
       totalPieces: 0
     };
+    const labelDeliverySummary = labelDeliveryByWorkOrder.get(String(item.wo || "")) || {
+      matches: 0,
+      activeCount: 0,
+      totalPieces: 0
+    };
     const operationalSummary = {
       ...printSublimationSummary,
       sublimationOutputCount: sublimationOutputSummary.activeCount,
-      sublimationOutputPieces: sublimationOutputSummary.totalPieces
+      sublimationOutputPieces: sublimationOutputSummary.totalPieces,
+      labelDeliveryCount: labelDeliverySummary.activeCount,
+      labelDeliveryPieces: labelDeliverySummary.totalPieces
     };
 
     return {
@@ -356,6 +410,9 @@ function buildNikeFlowSummary(rawItems) {
     rawItems.map(item => item.wo)
   );
   const sublimationOutputByWorkOrder = getSublimationOutputSummariesByWorkOrder(
+    rawItems.map(item => item.wo)
+  );
+  const labelDeliveryByWorkOrder = getLabelDeliverySummariesByWorkOrder(
     rawItems.map(item => item.wo)
   );
   const stages = {
@@ -379,6 +436,13 @@ function buildNikeFlowSummary(rawItems) {
       detail: "Liberado a linea",
       count: 0,
       pieces: 0
+    },
+    costura: {
+      department: "costura",
+      label: "Costura",
+      detail: "Recibido en linea",
+      count: 0,
+      pieces: 0
     }
   };
 
@@ -393,12 +457,20 @@ function buildNikeFlowSummary(rawItems) {
       activeCount: 0,
       totalPieces: 0
     };
+    const labelDeliverySummary = labelDeliveryByWorkOrder.get(String(item.wo || "")) || {
+      activeCount: 0,
+      totalPieces: 0
+    };
     const state = buildPrintSublimationState({
       ...printSummary,
       sublimationOutputCount: sublimationSummary.activeCount,
-      sublimationOutputPieces: sublimationSummary.totalPieces
+      sublimationOutputPieces: sublimationSummary.totalPieces,
+      labelDeliveryCount: labelDeliverySummary.activeCount,
+      labelDeliveryPieces: labelDeliverySummary.totalPieces
     });
-    const key = state.stage === "almacen"
+    const key = state.stage === "costura"
+      ? "costura"
+      : state.stage === "almacen"
       ? "almacen"
       : state.stage === "sublimado"
         ? "sublimado"
@@ -693,10 +765,13 @@ router.get("/items/:id/print-sublimation", (req, res) => {
           styleMatches: 0,
           rosterMatches: 0,
           sublimationOutputCount: 0,
-          sublimationOutputPieces: 0
+          sublimationOutputPieces: 0,
+          labelDeliveryCount: 0,
+          labelDeliveryPieces: 0
         },
         state: buildPrintSublimationState(null),
         sublimation_outputs: [],
+        label_deliveries: [],
         matches: []
       });
       return;
@@ -756,6 +831,7 @@ router.get("/items/:id/print-sublimation", (req, res) => {
     `).all(item.style || "", item.roster || "", item.wo);
 
     let sublimationOutputs = [];
+    let labelDeliveries = [];
 
     try {
       sublimationOutputs = db.prepare(`
@@ -801,9 +877,45 @@ router.get("/items/:id/print-sublimation", (req, res) => {
       }
     }
 
+    try {
+      labelDeliveries = db.prepare(`
+        SELECT
+          id,
+          source_id,
+          work_order,
+          delivered_quantity,
+          delivered_date,
+          delivered_time,
+          observations,
+          source_file,
+          source_sheet,
+          source_row,
+          source_year,
+          natural_key,
+          row_hash,
+          first_seen_at,
+          last_seen_at,
+          is_active,
+          missing_since
+
+        FROM rmc_label_delivery_log
+        WHERE work_order = ?
+        ORDER BY
+          is_active DESC,
+          delivered_date DESC,
+          delivered_time DESC,
+          source_row DESC
+      `).all(item.wo);
+    } catch (error) {
+      if (!error || (error.code !== "SQLITE_ERROR" && error.code !== "SQLITE_SCHEMA")) {
+        throw error;
+      }
+    }
+
     
     const activeMatches = matches.filter(match => match.is_active === 1);
     const activeSublimationOutputs = sublimationOutputs.filter(output => output.is_active === 1);
+    const activeLabelDeliveries = labelDeliveries.filter(delivery => delivery.is_active === 1);
 
     const summary = {
       matches: matches.length,
@@ -818,6 +930,10 @@ router.get("/items/:id/print-sublimation", (req, res) => {
       sublimationOutputCount: activeSublimationOutputs.length,
       sublimationOutputPieces: activeSublimationOutputs.reduce((total, output) => {
         return total + (Number(output.pcs) || 0);
+      }, 0),
+      labelDeliveryCount: activeLabelDeliveries.length,
+      labelDeliveryPieces: activeLabelDeliveries.reduce((total, delivery) => {
+        return total + (Number(delivery.delivered_quantity) || 0);
       }, 0)
     };
     
@@ -868,13 +984,30 @@ router.get("/items/:id/print-sublimation", (req, res) => {
       missing_since_display: formatLocalDateTime(output.missing_since)
     }));
 
+    const formattedLabelDeliveries = labelDeliveries.map(delivery => ({
+      ...delivery,
+
+      first_seen_at_raw: delivery.first_seen_at,
+      last_seen_at_raw: delivery.last_seen_at,
+      missing_since_raw: delivery.missing_since,
+
+      first_seen_at_display: formatLocalDateTime(delivery.first_seen_at),
+      last_seen_at_display: formatLocalDateTime(delivery.last_seen_at),
+      missing_since_display: formatLocalDateTime(delivery.missing_since)
+    }));
+
     res.json({
       item,
       hasWorkOrder: true,
-      hasPrintSublimationLog: activeMatches.length > 0 || activeSublimationOutputs.length > 0,
+      hasPrintSublimationLog: (
+        activeMatches.length > 0 ||
+        activeSublimationOutputs.length > 0 ||
+        activeLabelDeliveries.length > 0
+      ),
       summary,
       state: buildPrintSublimationState(summary),
       sublimation_outputs: formattedSublimationOutputs,
+      label_deliveries: formattedLabelDeliveries,
       matches: formattedMatches
     });
 

@@ -60,7 +60,7 @@ window.RMCComponents.dailyProductionView = function dailyProductionView() {
         <span id="productionScheduleSource">Lista diaria: sin archivo</span>
         <span id="productionPrintSource">Impresion: sin fuente</span>
         <span id="productionSublimationSource">Sublimado: sin fuente</span>
-        <span id="productionFinishedSource">Costura/Final: pendiente</span>
+        <span id="productionFinishedSource">Terminadas: pendiente</span>
       </div>
 
       <dialog id="dailyProductionLinesModal" class="modal production-lines-modal">

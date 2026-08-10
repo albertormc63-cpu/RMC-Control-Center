@@ -119,6 +119,7 @@ window.RMCComponents.pollingRoutesView = function pollingRoutesView() {
               <select id="pollingSourceType">
                 <option value="print_sublimation_excel">Impresion / Reposiciones</option>
                 <option value="sublimation_output_excel">Sublimado / Liberado a linea</option>
+                <option value="label_delivery_excel">Almacen / Etiquetas a Costura</option>
               </select>
             </label>
 

@@ -8,9 +8,11 @@ const db = require("../db");
 
 const PRINT_SOURCE_TYPE = "print_sublimation_excel";
 const SUBLIMATION_OUTPUT_SOURCE_TYPE = "sublimation_output_excel";
+const LABEL_DELIVERY_SOURCE_TYPE = "label_delivery_excel";
 const SUPPORTED_SOURCE_TYPES = new Set([
   PRINT_SOURCE_TYPE,
-  SUBLIMATION_OUTPUT_SOURCE_TYPE
+  SUBLIMATION_OUTPUT_SOURCE_TYPE,
+  LABEL_DELIVERY_SOURCE_TYPE
 ]);
 
 function cleanValue(value) {
@@ -279,6 +281,17 @@ function buildSublimationOutputNaturalKey(row, sourceYear) {
   ].map(normalizeKeyPart).join("|");
 }
 
+function buildLabelDeliveryNaturalKey(row, sourceYear) {
+  return [
+    sourceYear,
+    row.work_order,
+    row.delivered_date,
+    row.delivered_time,
+    row.delivered_quantity,
+    `ROW:${row.source_row}`
+  ].map(normalizeKeyPart).join("|");
+}
+
 function readSublimationOutputExcel(source) {
   const excel = openWorkbookFromSource(source);
 
@@ -404,6 +417,125 @@ function readSublimationOutputExcel(source) {
   }
 }
 
+function readLabelDeliveryExcel(source) {
+  const excel = openWorkbookFromSource(source);
+
+  try {
+    const { workbook, stat } = excel;
+    const sheetName = resolveWorkbookSheetName(
+      workbook,
+      source.sheet_name || "Registro"
+    );
+
+    const sheet = workbook.Sheets[sheetName];
+    const MAX_ROWS_TO_SCAN = 20000;
+
+    const matrix = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      defval: "",
+      raw: false,
+      range: `A1:E${MAX_ROWS_TO_SCAN}`
+    });
+
+    const headerRowIndex = 4;
+    const dataStartIndex = 5;
+    const headers = (matrix[headerRowIndex] || [])
+      .slice(0, 5)
+      .map(cleanValue);
+
+    const indexByField = {
+      workOrder: findHeaderIndex(headers, [
+        "NUMERO DE CORTE",
+        "NÚMERO DE CORTE",
+        "WO#",
+        "WORK ORDER"
+      ], 0),
+      deliveredQuantity: findHeaderIndex(headers, [
+        "CANTIDAD ENTREGADA",
+        "PIEZAS",
+        "PCS"
+      ], 1),
+      deliveredDate: findHeaderIndex(headers, [
+        "FECHA",
+        "FECHA MANDADO COSTURA",
+        "FECHA MANDADO A COSTURA"
+      ], 2),
+      deliveredTime: findHeaderIndex(headers, [
+        "HORA"
+      ], 3),
+      observations: findHeaderIndex(headers, [
+        "OBSERVACIONES",
+        "NOTAS"
+      ], 4)
+    };
+
+    const expectedHeaders = [
+      "Número de corte",
+      "Cantidad entregada",
+      "Fecha",
+      "Hora",
+      "Observaciones"
+    ];
+
+    const rows = [];
+
+    for (let index = dataStartIndex; index < matrix.length; index++) {
+      const excelRowNumber = index + 1;
+      const cells = matrix[index] || [];
+      const workOrder = cleanValue(cells[indexByField.workOrder]);
+      const deliveredQuantity = Number(cleanValue(cells[indexByField.deliveredQuantity])) || 0;
+      const deliveredDate = cleanValue(cells[indexByField.deliveredDate]);
+      const deliveredTime = cleanValue(cells[indexByField.deliveredTime]);
+      const observations = cleanValue(cells[indexByField.observations]);
+
+      const row = {
+        work_order: workOrder,
+        delivered_quantity: deliveredQuantity,
+        delivered_date: deliveredDate,
+        delivered_time: deliveredTime,
+        observations,
+        source_file: source.file_path,
+        source_sheet: sheetName,
+        source_row: excelRowNumber
+      };
+
+      if (!row.work_order) {
+        continue;
+      }
+
+      const sourceYear = extractSourceYear(sheetName, row.delivered_date);
+      row.source_year = sourceYear;
+      row.natural_key = buildLabelDeliveryNaturalKey(row, sourceYear);
+      row.row_hash = makeHash({
+        work_order: row.work_order,
+        delivered_quantity: row.delivered_quantity,
+        delivered_date: row.delivered_date,
+        delivered_time: row.delivered_time,
+        observations: row.observations
+      });
+
+      rows.push(row);
+    }
+
+    return {
+      source,
+      file: {
+        path: source.file_path,
+        size_bytes: stat.size,
+        mtime_ms: Math.round(stat.mtimeMs)
+      },
+      headers,
+      expectedHeaders,
+      rows_read: Math.max(matrix.length - dataStartIndex, 0),
+      rows_valid: rows.length,
+      sample_rows: rows.slice(0, 5),
+      rows
+    };
+  } finally {
+    excel.dispose();
+  }
+}
+
 function getSourceById(sourceId) {
   const source = db.prepare(`
     SELECT *
@@ -427,6 +559,10 @@ function previewPrintSublimationSource(sourceId) {
 
   if (source.source_type === SUBLIMATION_OUTPUT_SOURCE_TYPE) {
     return readSublimationOutputExcel(source);
+  }
+
+  if (source.source_type === LABEL_DELIVERY_SOURCE_TYPE) {
+    return readLabelDeliveryExcel(source);
   }
 
   return readPrintSublimationExcel(source);
@@ -882,6 +1018,184 @@ function upsertSublimationOutputRows(sourceId, syncRunId, rows) {
   return transaction();
 }
 
+function upsertLabelDeliveryRows(sourceId, syncRunId, rows) {
+  const now = new Date().toISOString();
+
+  const existingStmt = db.prepare(`
+    SELECT id, row_hash, is_active
+    FROM rmc_label_delivery_log
+    WHERE source_id = ?
+    AND natural_key = ?
+  `);
+
+  const insertStmt = db.prepare(`
+    INSERT INTO rmc_label_delivery_log (
+      source_id,
+
+      work_order,
+      delivered_quantity,
+      delivered_date,
+      delivered_time,
+      observations,
+
+      source_file,
+      source_sheet,
+      source_row,
+      source_year,
+
+      natural_key,
+      row_hash,
+
+      first_seen_at,
+      last_seen_at,
+      last_seen_sync_id,
+
+      is_active,
+      missing_since,
+
+      created_at,
+      updated_at
+    )
+    VALUES (
+      @source_id,
+
+      @work_order,
+      @delivered_quantity,
+      @delivered_date,
+      @delivered_time,
+      @observations,
+
+      @source_file,
+      @source_sheet,
+      @source_row,
+      @source_year,
+
+      @natural_key,
+      @row_hash,
+
+      @now,
+      @now,
+      @sync_run_id,
+
+      1,
+      NULL,
+
+      @now,
+      @now
+    )
+  `);
+
+  const updateStmt = db.prepare(`
+    UPDATE rmc_label_delivery_log
+    SET
+      work_order = @work_order,
+      delivered_quantity = @delivered_quantity,
+      delivered_date = @delivered_date,
+      delivered_time = @delivered_time,
+      observations = @observations,
+
+      source_file = @source_file,
+      source_sheet = @source_sheet,
+      source_row = @source_row,
+      source_year = @source_year,
+
+      row_hash = @row_hash,
+      last_seen_at = @now,
+      last_seen_sync_id = @sync_run_id,
+
+      is_active = 1,
+      missing_since = NULL,
+
+      updated_at = @now
+    WHERE source_id = @source_id
+    AND natural_key = @natural_key
+  `);
+
+  const touchStmt = db.prepare(`
+    UPDATE rmc_label_delivery_log
+    SET
+      last_seen_at = @now,
+      last_seen_sync_id = @sync_run_id,
+      is_active = 1,
+      missing_since = NULL
+    WHERE source_id = @source_id
+    AND natural_key = @natural_key
+  `);
+
+  const markMissingStmt = db.prepare(`
+    UPDATE rmc_label_delivery_log
+    SET
+      is_active = 0,
+      missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
+      updated_at = CURRENT_TIMESTAMP
+    WHERE source_id = ?
+    AND is_active = 1
+    AND (
+      last_seen_sync_id IS NULL
+      OR last_seen_sync_id != ?
+    )
+  `);
+
+  let rows_inserted = 0;
+  let rows_updated = 0;
+  let rows_unchanged = 0;
+  let rows_skipped = 0;
+
+  const seenKeys = new Set();
+
+  const transaction = db.transaction(() => {
+    for (const row of rows) {
+      if (!row.work_order || !row.natural_key) {
+        rows_skipped++;
+        continue;
+      }
+
+      if (seenKeys.has(row.natural_key)) {
+        rows_skipped++;
+        continue;
+      }
+
+      seenKeys.add(row.natural_key);
+
+      const payload = {
+        ...row,
+        source_id: sourceId,
+        sync_run_id: syncRunId,
+        now
+      };
+
+      const existing = existingStmt.get(sourceId, row.natural_key);
+
+      if (!existing) {
+        insertStmt.run(payload);
+        rows_inserted++;
+        continue;
+      }
+
+      if (existing.row_hash !== row.row_hash || existing.is_active === 0) {
+        updateStmt.run(payload);
+        rows_updated++;
+        continue;
+      }
+
+      touchStmt.run(payload);
+      rows_unchanged++;
+    }
+
+    const missingResult = markMissingStmt.run(sourceId, syncRunId);
+
+    return {
+      rows_inserted,
+      rows_updated,
+      rows_unchanged,
+      rows_missing: missingResult.changes,
+      rows_skipped
+    };
+  });
+
+  return transaction();
+}
+
 function syncPrintSublimationSource(sourceId) {
   const syncRunId = createSyncRun(sourceId);
 
@@ -890,9 +1204,15 @@ function syncPrintSublimationSource(sourceId) {
   try {
     result = previewPrintSublimationSource(sourceId);
 
-    const upsertSummary = result.source.source_type === SUBLIMATION_OUTPUT_SOURCE_TYPE
-      ? upsertSublimationOutputRows(sourceId, syncRunId, result.rows)
-      : upsertPrintSublimationRows(sourceId, syncRunId, result.rows);
+    let upsertSummary = null;
+
+    if (result.source.source_type === SUBLIMATION_OUTPUT_SOURCE_TYPE) {
+      upsertSummary = upsertSublimationOutputRows(sourceId, syncRunId, result.rows);
+    } else if (result.source.source_type === LABEL_DELIVERY_SOURCE_TYPE) {
+      upsertSummary = upsertLabelDeliveryRows(sourceId, syncRunId, result.rows);
+    } else {
+      upsertSummary = upsertPrintSublimationRows(sourceId, syncRunId, result.rows);
+    }
 
     const summary = {
       status: "success",
@@ -938,9 +1258,11 @@ function syncPrintSublimationSource(sourceId) {
 module.exports = {
   PRINT_SOURCE_TYPE,
   SUBLIMATION_OUTPUT_SOURCE_TYPE,
+  LABEL_DELIVERY_SOURCE_TYPE,
   SUPPORTED_SOURCE_TYPES,
   previewPrintSublimationSource,
   readPrintSublimationExcel,
   readSublimationOutputExcel,
+  readLabelDeliveryExcel,
   syncPrintSublimationSource
 };

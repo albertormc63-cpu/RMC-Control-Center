@@ -22,12 +22,14 @@ Implementado para el reporte de impresores y la salida de Sublimado:
 - Lectura manual del Excel funcionando.
 - Tabla espejo `rmc_print_sublimation_log` recibiendo registros completos.
 - Tabla espejo separada `rmc_sublimation_output_log` recibiendo registros de salida de Sublimado.
+- Tabla espejo separada `rmc_label_delivery_log` recibiendo entregas de Etiquetas/Almacen hacia linea/Costura.
 - Regla especial para registros `*PARCIAL` implementada.
 - Endpoint manual de sincronizacion funcionando.
 - Endpoint de cruce Nike item -> impresion/sublimado funcionando.
 - Bloque visual `Impresion / Sublimado` en detalle de item Nike implementado.
 - Tabla detalle de items Nike muestra estado operativo por area usando resumen de sync.
 - Si el Work Order aparece activo en `rmc_sublimation_output_log`, el estado se interpreta como `En almacen`.
+- Si el Work Order aparece activo en `rmc_label_delivery_log`, el estado se interpreta como `Mandado a Costura`.
 - Polling automatico funcionando en un worker hijo que levanta el servidor para evitar bloquear la UI/API durante lectura de Exceles grandes.
 
 Validacion observada:
@@ -79,6 +81,25 @@ El archivo es un reporte anual. Actualmente contiene todos los registros del ano
 
 Regla operativa: cuando una pieza aparece en este Excel, significa que ya salio del departamento de Sublimado. Este archivo no debe mezclarse en `rmc_print_sublimation_log`; usa tabla propia.
 
+### Registro de impresion de etiquetas
+
+- Area: Almacen / Costura
+- Tipo: `label_delivery_excel`
+- Archivo real:
+  `/Volumes/Carpeta de sublimado/Etiquetas/Registro de impresion de etiquetas.xlsx`
+- Hoja:
+  `Registro`
+- Encabezados reales:
+  fila 5, columnas A:E
+- Datos reales:
+  desde fila 6
+- Limite de lectura:
+  `A1:E20000`
+- Tabla espejo:
+  `rmc_label_delivery_log`
+
+Regla operativa: cuando un `Número de corte` aparece activo en este Excel, significa que Almacen/Etiquetas ya lo mando a linea/Costura. No significa terminado en Costura. `Número de corte` se normaliza como `work_order` para cruzarlo con `WO#`.
+
 ## Interpretacion operativa del Excel de impresores
 
 El Excel de impresores no representa necesariamente una pieza individual. Una fila puede representar un registro/lote/bajada de impresion.
@@ -129,9 +150,10 @@ Uso actual:
 ```text
 source_type = print_sublimation_excel
 source_type = sublimation_output_excel
+source_type = label_delivery_excel
 ```
 
-La UI de `Ajuste de Rutas Polling` puede crear fuentes nuevas, pero solamente de tipos que el worker ya sincroniza: `print_sublimation_excel` y `sublimation_output_excel`. Registrar Costura/Final requiere definir antes su lector y tabla espejo.
+La UI de `Ajuste de Rutas Polling` puede crear fuentes nuevas, pero solamente de tipos que el worker ya sincroniza: `print_sublimation_excel`, `sublimation_output_excel` y `label_delivery_excel`.
 
 ### `rmc_sync_runs`
 
@@ -251,6 +273,42 @@ Indices importantes:
 - indice por `fecha`
 - indice por `is_active`
 
+### `rmc_label_delivery_log`
+
+Tabla espejo del Excel de Registro de impresion de etiquetas. Se mantiene separada porque representa la entrega desde Almacen/Etiquetas hacia linea/Costura, posterior al estado `En almacen`, pero anterior al terminado real de Costura.
+
+Columnas importadas desde Excel:
+
+- `work_order`
+- `delivered_quantity`
+- `delivered_date`
+- `delivered_time`
+- `observations`
+
+Columnas internas de control:
+
+- `source_id`
+- `source_file`
+- `source_sheet`
+- `source_row`
+- `source_year`
+- `natural_key`
+- `row_hash`
+- `first_seen_at`
+- `last_seen_at`
+- `last_seen_sync_id`
+- `is_active`
+- `missing_since`
+- `created_at`
+- `updated_at`
+
+Indices importantes:
+
+- `UNIQUE(source_id, natural_key)`
+- indice por `work_order`
+- indice por `delivered_date`
+- indice por `is_active`
+
 ## Regla de `natural_key`
 
 Para registros normales, la llave natural se genera con:
@@ -355,6 +413,7 @@ Relacion inicial:
 ```text
 rmc_print_sublimation_log.work_order = rmcop_nike_items.wo
 rmc_sublimation_output_log.work_order = rmcop_nike_items.wo
+rmc_label_delivery_log.work_order = rmcop_nike_items.wo
 ```
 
 Una fila del reporte de impresores puede representar varias piezas de `rmcop_nike_items`, porque el reporte agrupa piezas por Work Order / Style / Roster / Process y cantidad total.
@@ -381,7 +440,7 @@ Nota: si `roster` del item Nike viene `null` y el registro de impresion trae `''
 Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagnosticar.
 
 - `scripts/create-sync-tables.js`
-  - Crea/verifica `rmc_external_sources`, `rmc_sync_runs`, `rmc_print_sublimation_log`, `rmc_sublimation_output_log` e indices.
+  - Crea/verifica `rmc_external_sources`, `rmc_sync_runs`, `rmc_print_sublimation_log`, `rmc_sublimation_output_log`, `rmc_label_delivery_log` e indices.
 
 - `scripts/register-print-source.js`
   - Registra la fuente externa del Excel real de impresores.
@@ -403,6 +462,15 @@ Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagn
 - `scripts/sync-sublimation-source.js`
   - Ejecuta una sincronizacion real de Sublimado hacia `rmc_sublimation_output_log`.
 
+- `scripts/register-label-delivery-source.js`
+  - Registra la fuente externa del Excel real de Registro de impresion de etiquetas.
+
+- `scripts/preview-label-delivery-source.js`
+  - Lee el rango operativo `A1:E20000` sin guardar en BD.
+
+- `scripts/sync-label-delivery-source.js`
+  - Ejecuta una sincronizacion real hacia `rmc_label_delivery_log`.
+
 - `scripts/check-print-duplicates.js`
   - Diagnostico de llaves duplicadas, `row_hash`, duplicados exactos y grupos repetidos.
   - Util para depuracion; no es parte obligatoria del flujo UI.
@@ -423,6 +491,7 @@ Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagn
   - Calcula `source_year`, `natural_key` y `row_hash`.
   - Ejecuta upsert a `rmc_print_sublimation_log`.
   - Ejecuta upsert de Sublimado a `rmc_sublimation_output_log`.
+  - Ejecuta upsert de Etiquetas/Almacen a `rmc_label_delivery_log`.
   - Marca registros desaparecidos como `is_active = 0`.
   - Registra resumen en `rmc_sync_runs`.
   - Actualiza metadata de fuente en `rmc_external_sources`.
@@ -596,12 +665,14 @@ La tabla `Detalle Nike` muestra en la columna `Estado` un estado operativo calcu
 - `Bajado a Sublimado`: hay coincidencia activa por `work_order = wo`.
 - `Parcial en Sublimado`: hay coincidencia activa y alguna fila contiene `PARCIAL` en `fecha_embarque`.
 - `En almacen`: hay coincidencia activa en `rmc_sublimation_output_log`.
+- `Mandado a Costura`: hay coincidencia activa en `rmc_label_delivery_log`.
 
 El modal `Ver mas` del item Nike muestra un bloque de tracking tipo historial por area:
 
 - `Impresion`: datos del reporte de impresores cuando existan.
 - `Sublimado`: bajada o parcial hacia Sublimado desde el reporte de impresores.
 - `Almacen`: salida registrada desde `rmc_sublimation_output_log`.
+- `Costura`: entrega registrada desde `rmc_label_delivery_log`.
 
 Despues del historial, muestra coincidencias compactas del reporte de impresores como detalle secundario.
 
@@ -865,6 +936,7 @@ Implementado para fuentes activas con:
 
 - `source_type = print_sublimation_excel`
 - `source_type = sublimation_output_excel`
+- `source_type = label_delivery_excel`
 - `active = 1`
 
 Usa polling controlado por `mtime`/`size`, no `fs.watch` como mecanismo principal.

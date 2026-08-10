@@ -20,6 +20,7 @@ const filterTargets = [
 ];
 
 const excelFilterTargets = [
+  "itemsTable",
   "mockupItemsTable"
 ];
 
@@ -316,6 +317,8 @@ const opNikeDuplicateClearFields = [
 
 const rapid27StatusLabels = {
   SIN_OUTPUTS: "Sin outputs",
+  MANDADO_A_COSTURA: "Mandado a Costura",
+  PARCIAL_EN_COSTURA: "Parcial en Costura",
   EN_ALMACEN: "En almacén",
   PARCIAL_EN_ALMACEN: "Parcial en almacén",
   BAJADO_A_SUBLIMADO: "Bajado a Sublimado",
@@ -859,12 +862,21 @@ function getNikeActiveFlowStages(items) {
       detail: "Liberado a linea",
       count: 0,
       pieces: 0
+    },
+    costura: {
+      department: "costura",
+      label: "Costura",
+      detail: "Recibido en linea",
+      count: 0,
+      pieces: 0
     }
   };
 
   (items || []).forEach(item => {
     const state = getNikeOperationalState(item);
-    const key = state.stage === "almacen"
+    const key = state.stage === "costura"
+      ? "costura"
+      : state.stage === "almacen"
       ? "almacen"
       : state.stage === "sublimado"
         ? "sublimado"
@@ -1226,6 +1238,10 @@ function getExcelColumnValues(tableId, columnIndex) {
 
 function getActiveExcelFilters(tableId) {
   return excelFilterState[tableId] || {};
+}
+
+function hasActiveExcelFilters(tableId) {
+  return Object.keys(getActiveExcelFilters(tableId)).length > 0;
 }
 
 function passesExcelFilters(tableId, row) {
@@ -1895,11 +1911,75 @@ function filterDashboardPeriod(rows, monthKey) {
   return rows.filter(row => String(row.key || "").startsWith(monthKey));
 }
 
+function secondsToDuration(totalSeconds) {
+  const seconds = Math.round(Number(totalSeconds || 0));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const rest = seconds % 60;
+
+  return [hours, minutes, rest]
+    .map(part => String(part).padStart(2, "0"))
+    .join(":");
+}
+
 function getDashboardMonthKeys(monthlyRows) {
   return [...new Set((monthlyRows || [])
     .map(row => row.key)
     .filter(Boolean))]
     .sort();
+}
+
+function getNikeDashboardSummary(monthKey) {
+  const nike = dashboardData?.nike || {};
+
+  if (!monthKey) {
+    return {
+      runs: nike.runs,
+      pedidos: nike.pedidos,
+      registros: nike.registros,
+      piezas: nike.piezas,
+      estilos: nike.estilos,
+      promedioTiempo: nike.promedioTiempo || "00:00:00"
+    };
+  }
+
+  const rows = filterDashboardPeriod(nike.monthly || [], monthKey);
+  const totals = rows.reduce((summary, row) => {
+    summary.runs += Number(row.runs || 0);
+    summary.pedidos += Number(row.pedidos || 0);
+    summary.registros += Number(row.registros || 0);
+    summary.piezas += Number(row.piezas || 0);
+    summary.estilos += Number(row.estilos || 0);
+    summary.totalSeconds += Number(row.totalSeconds || 0);
+    summary.timedRuns += Number(row.timedRuns || 0);
+    return summary;
+  }, {
+    runs: 0,
+    pedidos: 0,
+    registros: 0,
+    piezas: 0,
+    estilos: 0,
+    totalSeconds: 0,
+    timedRuns: 0
+  });
+
+  return {
+    ...totals,
+    promedioTiempo: totals.timedRuns
+      ? secondsToDuration(totals.totalSeconds / totals.timedRuns)
+      : "00:00:00"
+  };
+}
+
+function renderNikeSummaryCards(monthKey) {
+  const summary = getNikeDashboardSummary(monthKey);
+
+  setText("nikeRuns", formatNumber(summary.runs));
+  setText("nikePedidos", formatNumber(summary.pedidos));
+  setText("nikeRegistros", formatNumber(summary.registros));
+  setText("nikePiezas", formatNumber(summary.piezas));
+  setText("nikeEstilos", formatNumber(summary.estilos));
+  setText("nikeAvgTime", summary.promedioTiempo || "00:00:00");
 }
 
 function setDashboardMonth(tool, monthKey) {
@@ -1962,6 +2042,8 @@ function moveDashboardMonth(tool, direction) {
 
 function renderNikeDashboardPeriod(monthKey) {
   if (!dashboardData) return;
+
+  renderNikeSummaryCards(monthKey);
 
   renderExecutionBarChart(
     "nikeTimeChart",
@@ -2086,13 +2168,6 @@ async function loadDashboard() {
   setText("toolsCount", formatNumber(data.toolsCount));
   setText("gitCommits", formatNumber(data.gitCommits));
   setText("totalErrors", formatNumber(data.errores));
-
-  setText("nikeRuns", formatNumber(data.nike.runs));
-  setText("nikePedidos", formatNumber(data.nike.pedidos));
-  setText("nikeRegistros", formatNumber(data.nike.registros));
-  setText("nikePiezas", formatNumber(data.nike.piezas));
-  setText("nikeEstilos", formatNumber(data.nike.estilos));
-  setText("nikeAvgTime", data.nike.promedioTiempo || "00:00:00");
 
   setText("mockupRuns", formatNumber(data.mockup.runs));
   setText("mockupRegistros", formatNumber(data.mockup.registros));
@@ -2361,7 +2436,13 @@ async function loadNikeItemsPage(options = {}) {
     renderNikeActiveFlowSummary(data.flowSummary || []);
     updateNikeRunInfo(data);
     renderNikeItemsRows(data.items || [], data);
+    setupFilterOptions("itemsTable");
+    setupExcelColumnFilters("itemsTable");
+    updateExcelFilterButtons("itemsTable");
     renderNikeItemsPagination();
+    if (hasActiveExcelFilters("itemsTable")) {
+      applyTableFilter("itemsTable");
+    }
     updateSortIndicators("itemsTable");
     appendLog(`Detalle Nike ${nikeDetailState.runId}: ${formatNumber(data.items?.length || 0)} de ${formatNumber(data.pagination?.total || 0)} items`, "success");
     return data;
@@ -2584,6 +2665,7 @@ function formatRapid27Status(value) {
 function getRapid27Department(value) {
   const status = String(value || "");
 
+  if (/costura/i.test(status)) return "costura";
   if (/almacen/i.test(status)) return "almacen";
   if (/sublimado/i.test(status)) return "sublimado";
   if (/impresion|archivo/i.test(status)) return "diseno";
@@ -2708,7 +2790,8 @@ function setRapid27Flow(summary) {
   const flows = [
     ["rapid27FilesFlow", "Archivos", summary.files_ready, "diseno"],
     ["rapid27PrintFlow", "Sublimado", summary.print_matched_outputs, "sublimado"],
-    ["rapid27WarehouseFlow", "Almacén", summary.sublimation_matched_outputs, "almacen"]
+    ["rapid27WarehouseFlow", "Almacén", summary.sublimation_matched_outputs, "almacen"],
+    ["rapid27SewingFlow", "Costura", summary.label_delivery_matched_outputs, "costura"]
   ];
 
   flows.forEach(([id, label, count]) => {
@@ -2727,6 +2810,7 @@ function renderRapid27Summary(summary) {
   setText("rapid27Estilos", formatNumber(summary.styles));
   setText("rapid27Impresion", formatNumber(summary.files_ready));
   setText("rapid27Sublimado", formatNumber(summary.sublimation_matched_outputs));
+  setText("rapid27Costura", formatNumber(summary.label_delivery_matched_outputs));
   setText("rapid27UpdatedAt", summary.updated_at ? `Actualizado: ${summary.updated_at}` : "");
   setRapid27Flow(summary);
 
@@ -2788,9 +2872,14 @@ function renderRapid27ShipmentFlow(shipment) {
   }
 
   const stages = [
-    ["diseno", "Impresion", Math.max(0, shipment.outputs - shipment.print_matched_outputs - shipment.sublimation_matched_outputs), "En proceso"],
+    ["diseno", "Impresion", Math.max(0, Number(shipment.outputs || 0) - Math.max(
+      Number(shipment.print_matched_outputs || 0),
+      Number(shipment.sublimation_matched_outputs || 0),
+      Number(shipment.label_delivery_matched_outputs || 0)
+    )), "En proceso"],
     ["sublimado", "Sublimado", shipment.print_matched_outputs, "Bajado / parcial"],
-    ["almacen", "Almacen", shipment.sublimation_matched_outputs, "Liberado a linea"]
+    ["almacen", "Almacen", shipment.sublimation_matched_outputs, "Liberado a linea"],
+    ["costura", "Costura", shipment.label_delivery_matched_outputs, "Recibido en linea"]
   ].filter(([, , count]) => Number(count || 0) > 0);
 
   container.textContent = "";
@@ -2899,7 +2988,14 @@ function renderRapid27ModalTracking(order) {
   const status = getElement("rapid27ModalTrackingStatus");
   const summary = getElement("rapid27ModalTrackingSummary");
   const matches = getElement("rapid27ModalTrackingMatches");
-  const pending = Math.max(0, Number(order.outputs || 0) - Number(order.print_matched_outputs || 0) - Number(order.sublimation_matched_outputs || 0));
+  const pending = Math.max(
+    0,
+    Number(order.outputs || 0) - Math.max(
+      Number(order.print_matched_outputs || 0),
+      Number(order.sublimation_matched_outputs || 0),
+      Number(order.label_delivery_matched_outputs || 0)
+    )
+  );
 
   if (status) {
     const label = formatRapid27Status(order.operational_status);
@@ -2913,7 +3009,8 @@ function renderRapid27ModalTracking(order) {
       `${formatNumber(order.outputs)} outputs`,
       `${formatNumber(order.files_ready)} archivos listos`,
       `${formatNumber(order.print_matched_outputs)} bajados a Sublimado`,
-      `${formatNumber(order.sublimation_matched_outputs)} en Almacen`
+      `${formatNumber(order.sublimation_matched_outputs)} en Almacen`,
+      `${formatNumber(order.label_delivery_matched_outputs || 0)} a Costura`
     ].join(" | ");
   }
 
@@ -2925,7 +3022,8 @@ function renderRapid27ModalTracking(order) {
   [
     ["diseno", "Impresion", pending, "Sin coincidencia activa en Sublimado"],
     ["sublimado", "Sublimado", order.print_matched_outputs, "Coincidencia en reporte de impresion"],
-    ["almacen", "Almacen", order.sublimation_matched_outputs, "Liberado a linea"]
+    ["almacen", "Almacen", order.sublimation_matched_outputs, "Liberado a linea"],
+    ["costura", "Costura", order.label_delivery_matched_outputs, "Recibido en linea"]
   ].filter(([, , count]) => Number(count || 0) > 0)
     .forEach(([department, titleText, count, detailText]) => {
       const item = document.createElement("div");
@@ -3400,7 +3498,12 @@ function renderDailyProduction() {
   setText("productionScheduleSource", getProductionScheduleText(data.schedule));
   setText("productionPrintSource", getProductionSourceText("Impresion", data.stages?.printed?.source));
   setText("productionSublimationSource", getProductionSourceText("Sublimado", data.stages?.sublimated?.source));
-  setText("productionFinishedSource", data.stages?.finished?.pending_reason || "Costura/Final: pendiente");
+  setText(
+    "productionFinishedSource",
+    data.stages?.finished?.source
+      ? getProductionSourceText("Terminadas", data.stages.finished.source)
+      : data.stages?.finished?.pending_reason || "Terminadas: pendiente"
+  );
   renderDailyProductionLineOptions();
   updateDailyProductionLinesButton();
 }
@@ -3416,7 +3519,7 @@ async function loadDailyProduction(options = {}) {
 
   if (!options.silent) {
     appendLog(
-      `Produccion diaria: ${formatNumber(data.schedule?.total_pieces)} totales, ${formatNumber(data.stages?.printed?.pieces)} impresas, ${formatNumber(data.stages?.sublimated?.pieces)} sublimadas`,
+      `Produccion diaria: ${formatNumber(data.schedule?.total_pieces)} totales, ${formatNumber(data.stages?.printed?.pieces)} impresas, ${formatNumber(data.stages?.sublimated?.pieces)} sublimadas, ${formatNumber(data.stages?.finished?.pieces)} terminadas`,
       "success"
     );
   }
@@ -3542,6 +3645,10 @@ function getPollingSourceTypeLabel(sourceType) {
 
   if (sourceType === "sublimation_output_excel") {
     return "Sublimado / Liberado a linea";
+  }
+
+  if (sourceType === "label_delivery_excel") {
+    return "Almacen / Etiquetas a Costura";
   }
 
   return sourceType || "Fuente externa";
@@ -5189,13 +5296,16 @@ function renderNikePrintSublimationTracking(data, loading = false) {
     `Cantidad reportada: ${formatNumber(info.totalReportedQuantity)}`,
     `Registros activos: ${formatNumber(info.activeCount)}`,
     `Almacen: ${formatNumber(info.sublimationOutputCount || 0)}`,
+    `Costura: ${formatNumber(info.labelDeliveryCount || 0)}`,
     `Parciales: ${formatNumber(info.partialCount)}`
   ].join(" | ");
 
   const activePrintMatches = (data.matches || []).filter(match => Number(match.is_active) === 1);
   const activeSublimationOutputs = (data.sublimation_outputs || []).filter(output => Number(output.is_active) === 1);
+  const activeLabelDeliveries = (data.label_deliveries || []).filter(delivery => Number(delivery.is_active) === 1);
   const firstPrint = activePrintMatches[0] || (data.matches || [])[0];
   const firstOutput = activeSublimationOutputs[0] || (data.sublimation_outputs || [])[0];
+  const firstDelivery = activeLabelDeliveries[0] || (data.label_deliveries || [])[0];
 
   function appendTrackingStep(department, label, stateLabel, lines, active = false) {
     const item = document.createElement("div");
@@ -5254,10 +5364,32 @@ function renderNikePrintSublimationTracking(data, loading = false) {
     Boolean(firstOutput)
   );
 
+  appendTrackingStep(
+    "costura",
+    "Costura",
+    firstDelivery ? "Mandado a linea" : "Pendiente",
+    firstDelivery
+      ? [
+          `Fecha: ${firstDelivery.delivered_date || "N/D"}`,
+          `Hora: ${firstDelivery.delivered_time || "N/D"}`,
+          `Cantidad: ${formatNumber(firstDelivery.delivered_quantity)}`,
+          firstDelivery.observations ? `Obs: ${firstDelivery.observations}` : ""
+        ]
+      : ["Sin entrega registrada desde almacen"],
+    Boolean(firstDelivery)
+  );
+
   if ((data.sublimation_outputs || []).length > 1) {
     const extra = document.createElement("div");
     extra.className = "tracking-match";
     extra.textContent = `Hay ${formatNumber(data.sublimation_outputs.length - 1)} registros adicionales de almacen.`;
+    matches.appendChild(extra);
+  }
+
+  if ((data.label_deliveries || []).length > 1) {
+    const extra = document.createElement("div");
+    extra.className = "tracking-match";
+    extra.textContent = `Hay ${formatNumber(data.label_deliveries.length - 1)} registros adicionales de costura.`;
     matches.appendChild(extra);
   }
 

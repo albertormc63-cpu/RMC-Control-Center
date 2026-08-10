@@ -81,7 +81,7 @@ Devuelve el resumen del dia para la pantalla de proyeccion `Produccion diaria`.
 - Piezas totales: lee la copia activa cargada con `schedule/upload`, hoja `ProdSched`, filtra `Sew Unit` y `To DC` vacio, y suma `WO Eaches`.
 - Impresas: suma piezas de la lista diaria cuyo `Work Order` ya aparece activo en `rmc_print_sublimation_log`.
 - Sublimadas: suma piezas de la lista diaria cuyo `Work Order` ya aparece activo en `rmc_sublimation_output_log`.
-- Terminadas: queda como etapa pendiente hasta registrar una fuente Costura/Final.
+- Terminadas: suma piezas de la lista diaria cuyo `Work Order` ya aparece activo en `rmc_label_delivery_log`.
 
 Query params:
 
@@ -120,9 +120,9 @@ Respuesta conceptual:
     },
     "finished": {
       "label": "Terminadas",
-      "available": false,
-      "pieces": null,
-      "pending_reason": "Pendiente de Excel/Fuente Costura-Final"
+      "available": true,
+      "pieces": 512,
+      "source": {}
     }
   }
 }
@@ -194,7 +194,7 @@ Content-Type: application/json
 }
 ```
 
-Registra una fuente nueva en `rmc_external_sources` solamente para tipos soportados por el worker: `print_sublimation_excel` y `sublimation_output_excel`.
+Registra una fuente nueva en `rmc_external_sources` solamente para tipos soportados por el worker: `print_sublimation_excel`, `sublimation_output_excel` y `label_delivery_excel`.
 
 ```http
 PUT /api/sync/sources/:id

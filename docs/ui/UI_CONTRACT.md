@@ -147,7 +147,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Boton `Examinar Excel` permite cargar el `Production Schedule Book` del dia; la copia activa queda en el servidor.
 - El total diario viene del Excel cargado, filtrando la lista diaria por lineas seleccionadas y `To DC` vacio.
 - Incluye modal `Lineas` con checkboxes: `27 Sports`, `Rapid`, `LAT` y `Nike`; default `27 Sports + Rapid`.
-- `Terminadas` se muestra pendiente mientras no exista fuente Costura/Final.
+- `Terminadas` se alimenta de `rmc_label_delivery_log`; se muestra pendiente si no existe fuente activa.
 
 `nikeView.js`:
 

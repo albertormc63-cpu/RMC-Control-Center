@@ -149,6 +149,44 @@ CREATE TABLE IF NOT EXISTS rmc_sublimation_output_log (
         ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS rmc_label_delivery_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    source_id INTEGER NOT NULL,
+
+    work_order TEXT,
+    delivered_quantity INTEGER,
+    delivered_date TEXT,
+    delivered_time TEXT,
+    observations TEXT,
+
+    source_file TEXT,
+    source_sheet TEXT,
+    source_row INTEGER,
+    source_year TEXT,
+
+    natural_key TEXT NOT NULL,
+    row_hash TEXT NOT NULL,
+
+    first_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen_sync_id INTEGER,
+
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    missing_since TEXT,
+
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (source_id)
+        REFERENCES rmc_external_sources (id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (last_seen_sync_id)
+        REFERENCES rmc_sync_runs (id)
+        ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS rmc_sync_record_map (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
 
@@ -210,6 +248,18 @@ ON rmc_sublimation_output_log (fecha);
 CREATE INDEX IF NOT EXISTS idx_sublimation_output_active
 ON rmc_sublimation_output_log (is_active);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_label_delivery_natural_key
+ON rmc_label_delivery_log (source_id, natural_key);
+
+CREATE INDEX IF NOT EXISTS idx_label_delivery_work_order
+ON rmc_label_delivery_log (work_order);
+
+CREATE INDEX IF NOT EXISTS idx_label_delivery_date
+ON rmc_label_delivery_log (delivered_date);
+
+CREATE INDEX IF NOT EXISTS idx_label_delivery_active
+ON rmc_label_delivery_log (is_active);
+
 CREATE INDEX IF NOT EXISTS idx_sync_runs_source
 ON rmc_sync_runs (source_id);
 
@@ -251,7 +301,8 @@ const tables = db.prepare(`
     'rmc_sync_runs',
     'rmc_sync_record_map',
     'rmc_print_sublimation_log',
-    'rmc_sublimation_output_log'
+    'rmc_sublimation_output_log',
+    'rmc_label_delivery_log'
   )
   ORDER BY name
 `).all();

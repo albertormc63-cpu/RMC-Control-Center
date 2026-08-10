@@ -3,6 +3,7 @@ const fs = require("fs");
 const db = require("../db");
 const {
   PRINT_SOURCE_TYPE,
+  LABEL_DELIVERY_SOURCE_TYPE,
   SUBLIMATION_OUTPUT_SOURCE_TYPE,
   syncPrintSublimationSource
 } = require("./printSublimationSync");
@@ -54,9 +55,9 @@ function getActivePrintSources() {
     SELECT *
     FROM rmc_external_sources
     WHERE active = 1
-    AND source_type IN (?, ?)
+    AND source_type IN (?, ?, ?)
     ORDER BY id ASC
-  `).all(PRINT_SOURCE_TYPE, SUBLIMATION_OUTPUT_SOURCE_TYPE);
+  `).all(PRINT_SOURCE_TYPE, SUBLIMATION_OUTPUT_SOURCE_TYPE, LABEL_DELIVERY_SOURCE_TYPE);
 }
 
 function getSourceById(sourceId) {
@@ -74,6 +75,10 @@ function getSourceLabel(source) {
 
   if (source.source_type === SUBLIMATION_OUTPUT_SOURCE_TYPE) {
     return "Sublimado Excel";
+  }
+
+  if (source.source_type === LABEL_DELIVERY_SOURCE_TYPE) {
+    return "Etiquetas a Costura Excel";
   }
 
   return source.name || `Fuente ${source.id}`;
@@ -142,7 +147,8 @@ function runStableSync(sourceId, initialSnapshot, config) {
   if (
     !source ||
     !source.active ||
-    ![PRINT_SOURCE_TYPE, SUBLIMATION_OUTPUT_SOURCE_TYPE].includes(source.source_type)
+    ![PRINT_SOURCE_TYPE, SUBLIMATION_OUTPUT_SOURCE_TYPE, LABEL_DELIVERY_SOURCE_TYPE]
+      .includes(source.source_type)
   ) {
     return;
   }

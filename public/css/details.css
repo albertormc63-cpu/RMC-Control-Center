@@ -235,6 +235,10 @@
   --department-color: var(--dept-almacen);
 }
 
+.tracking-step[data-department="costura"] {
+  --department-color: var(--dept-costura);
+}
+
 .tracking-step strong {
   color: var(--department-color);
 }

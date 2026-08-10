@@ -143,6 +143,11 @@ window.RMCComponents.dashboardView = function dashboardView() {
             <span>En almacén</span>
             <strong id="rapid27Sublimado">0</strong>
           </div>
+
+          <div class="summary-card">
+            <span>A costura</span>
+            <strong id="rapid27Costura">0</strong>
+          </div>
         </div>
 
         <div class="tracking-panel rapid27-flow-panel" aria-live="polite">
@@ -159,6 +164,11 @@ window.RMCComponents.dashboardView = function dashboardView() {
           <div class="tracking-step" data-department="almacen" data-active="false">
             <strong id="rapid27WarehouseFlow">Almacén: 0</strong>
             <span>Cruce por WO + style</span>
+          </div>
+
+          <div class="tracking-step" data-department="costura" data-active="false">
+            <strong id="rapid27SewingFlow">Costura: 0</strong>
+            <span>Cruce por WO#</span>
           </div>
         </div>
 
