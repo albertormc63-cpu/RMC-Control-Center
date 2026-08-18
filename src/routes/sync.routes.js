@@ -7,6 +7,10 @@ const {
   syncPrintSublimationSource
 } = require("../services/printSublimationSync");
 const {
+  getSourceConfigForClient,
+  normalizeSourceConfigPayload
+} = require("../services/syncSourceConfig");
+const {
   DEFAULT_OPERATOR_DB_ROOT,
   discoverOperatorDatabases,
   syncOperatorOptimizerDatabases
@@ -36,7 +40,7 @@ function requireSyncPin(req, res, next) {
   res.status(401).json({
     ok: false,
     error: "PIN requerido",
-    message: "PIN invalido o ausente para sincronizar BDs de operador"
+    message: "PIN invalido o ausente para administrar sincronizacion"
   });
 }
 
@@ -74,6 +78,13 @@ function serializeSource(source) {
     last_error: source.last_error,
     created_at: source.created_at,
     updated_at: source.updated_at,
+    header_row_number: source.header_row_number,
+    data_start_row_number: source.data_start_row_number,
+    read_range: source.read_range,
+    field_map_json: source.field_map_json,
+    source_config: SUPPORTED_SOURCE_TYPES.has(source.source_type)
+      ? getSourceConfigForClient(source)
+      : null,
     ...getSourceFileStatus(source.file_path)
   };
 }
@@ -114,7 +125,20 @@ router.get("/operator-databases", (req, res, next) => {
   }
 });
 
-router.get("/sources", (req, res, next) => {
+router.post("/unlock", (req, res) => {
+  if (getRequestPin(req) !== OP_NIKE_ADMIN_PIN) {
+    res.status(401).json({
+      ok: false,
+      error: "PIN invalido",
+      message: "PIN invalido para Ajuste de Rutas Polling"
+    });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+router.get("/sources", requireSyncPin, (req, res, next) => {
   try {
     const sources = db.prepare(`
       SELECT
@@ -130,6 +154,10 @@ router.get("/sources", (req, res, next) => {
         last_sync_at,
         last_status,
         last_error,
+        header_row_number,
+        data_start_row_number,
+        read_range,
+        field_map_json,
         created_at,
         updated_at
       FROM rmc_external_sources
@@ -145,7 +173,7 @@ router.get("/sources", (req, res, next) => {
   }
 });
 
-router.post("/sources", (req, res, next) => {
+router.post("/sources", requireSyncPin, (req, res, next) => {
   try {
     const payload = req.body || {};
     const name = cleanText(payload.name);
@@ -183,6 +211,8 @@ router.post("/sources", (req, res, next) => {
       });
     }
 
+    const sourceConfig = normalizeSourceConfigPayload(sourceType, payload);
+
     const result = db.prepare(`
       INSERT INTO rmc_external_sources (
         name,
@@ -190,17 +220,25 @@ router.post("/sources", (req, res, next) => {
         source_type,
         file_path,
         sheet_name,
+        header_row_number,
+        data_start_row_number,
+        read_range,
+        field_map_json,
         active,
         created_at,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `).run(
       name,
       area,
       sourceType,
       filePath,
       sheetName,
+      sourceConfig.headerRowNumber,
+      sourceConfig.dataStartRowNumber,
+      sourceConfig.readRange,
+      sourceConfig.fieldMapJson,
       active
     );
 
@@ -219,7 +257,7 @@ router.post("/sources", (req, res, next) => {
   }
 });
 
-router.put("/sources/:id", (req, res, next) => {
+router.put("/sources/:id", requireSyncPin, (req, res, next) => {
   try {
     const sourceId = Number(req.params.id);
 
@@ -258,6 +296,7 @@ router.put("/sources/:id", (req, res, next) => {
     const nextActive = Object.prototype.hasOwnProperty.call(payload, "active")
       ? payload.active === true || payload.active === 1 || payload.active === "1" ? 1 : 0
       : Number(source.active || 0);
+    const sourceConfig = normalizeSourceConfigPayload(source.source_type, payload);
 
     if (!nextFilePath) {
       return res.status(400).json({
@@ -275,6 +314,12 @@ router.put("/sources/:id", (req, res, next) => {
 
     const pathChanged = nextFilePath !== source.file_path;
     const sheetChanged = nextSheetName !== source.sheet_name;
+    const configChanged = (
+      Number(source.header_row_number || 0) !== sourceConfig.headerRowNumber ||
+      Number(source.data_start_row_number || 0) !== sourceConfig.dataStartRowNumber ||
+      cleanText(source.read_range) !== sourceConfig.readRange ||
+      cleanText(source.field_map_json) !== cleanText(sourceConfig.fieldMapJson)
+    );
 
     db.prepare(`
       UPDATE rmc_external_sources
@@ -283,6 +328,10 @@ router.put("/sources/:id", (req, res, next) => {
         area = ?,
         file_path = ?,
         sheet_name = ?,
+        header_row_number = ?,
+        data_start_row_number = ?,
+        read_range = ?,
+        field_map_json = ?,
         active = ?,
         last_mtime_ms = CASE WHEN ? THEN NULL ELSE last_mtime_ms END,
         last_size_bytes = CASE WHEN ? THEN NULL ELSE last_size_bytes END,
@@ -294,10 +343,14 @@ router.put("/sources/:id", (req, res, next) => {
       nextArea,
       nextFilePath,
       nextSheetName,
+      sourceConfig.headerRowNumber,
+      sourceConfig.dataStartRowNumber,
+      sourceConfig.readRange,
+      sourceConfig.fieldMapJson,
       nextActive,
-      pathChanged || sheetChanged ? 1 : 0,
-      pathChanged || sheetChanged ? 1 : 0,
-      pathChanged || sheetChanged ? 1 : 0,
+      pathChanged || sheetChanged || configChanged ? 1 : 0,
+      pathChanged || sheetChanged || configChanged ? 1 : 0,
+      pathChanged || sheetChanged || configChanged ? 1 : 0,
       sourceId
     );
 
@@ -316,7 +369,7 @@ router.put("/sources/:id", (req, res, next) => {
   }
 });
 
-router.post("/sources/:id/run", (req, res, next) => {
+router.post("/sources/:id/run", requireSyncPin, (req, res, next) => {
   try {
     const sourceId = Number(req.params.id);
 
@@ -375,7 +428,7 @@ router.post("/sources/:id/run", (req, res, next) => {
   }
 });
 
-router.get("/sources/:id/runs", (req, res, next) => {
+router.get("/sources/:id/runs", requireSyncPin, (req, res, next) => {
   try {
     const sourceId = Number(req.params.id);
 

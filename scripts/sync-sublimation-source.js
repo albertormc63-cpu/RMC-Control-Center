@@ -10,7 +10,6 @@ function getDefaultSourceId() {
     SELECT id
     FROM rmc_external_sources
     WHERE source_type = 'sublimation_output_excel'
-    AND file_path = '/Volumes/Carpeta de sublimado/PRODUCCION SUBLIMADO  2026.xlsb'
     ORDER BY id DESC
     LIMIT 1
   `).get();

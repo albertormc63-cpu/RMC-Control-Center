@@ -90,6 +90,13 @@
   padding: 6px 10px;
 }
 
+.polling-view-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .polling-editor-actions {
   display: inline-flex;
   flex-wrap: wrap;
@@ -124,6 +131,89 @@
 
 .polling-form input[readonly] {
   color: var(--rmc-muted);
+}
+
+.polling-structure-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.6fr) minmax(120px, 0.6fr) minmax(180px, 1fr);
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+}
+
+.polling-field-map {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--rmc-border);
+  border-radius: 4px;
+  background: var(--rmc-surface-soft);
+}
+
+.polling-field-map-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.polling-field-map-header strong {
+  color: var(--rmc-text);
+  font-size: 13px;
+}
+
+.polling-field-map-header span {
+  color: var(--rmc-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.polling-field-map-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.polling-field-map-row span {
+  color: var(--rmc-muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.polling-field-map-row {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.polling-field-map-row-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.polling-add-alias-button,
+.polling-remove-alias-button {
+  width: auto;
+  min-height: 28px;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.polling-alias-list {
+  display: grid;
+  gap: 6px;
+}
+
+.polling-alias-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
 }
 
 .polling-form .span-2 {

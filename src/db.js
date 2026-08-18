@@ -19,4 +19,18 @@ const db = new Database(dbPath, {
 // brevemente en vez de fallar por un lock corto de SQLite.
 db.pragma(`busy_timeout = ${Number(process.env.RMC_DB_BUSY_TIMEOUT_MS) || 5000}`);
 
+function ensureColumn(tableName, columnName, columnDefinition) {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
+  const exists = columns.some((column) => column.name === columnName);
+
+  if (!exists) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
+  }
+}
+
+ensureColumn("rmc_external_sources", "header_row_number", "INTEGER");
+ensureColumn("rmc_external_sources", "data_start_row_number", "INTEGER");
+ensureColumn("rmc_external_sources", "read_range", "TEXT");
+ensureColumn("rmc_external_sources", "field_map_json", "TEXT");
+
 module.exports = db;

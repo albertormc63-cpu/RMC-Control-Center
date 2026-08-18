@@ -84,9 +84,12 @@ window.RMCComponents.pollingRoutesView = function pollingRoutesView() {
           <p class="settings-intro">Fuentes externas activas que el worker revisa por cambios de archivo.</p>
         </div>
 
-        <button class="secondary-button settings-back-button" type="button" data-view="system-settings-view">
-          Volver a Ajustes
-        </button>
+        <div class="polling-view-actions">
+          <button id="btnLockPollingRoutes" class="secondary-button settings-back-button" type="button">Bloquear</button>
+          <button class="secondary-button settings-back-button" type="button" data-view="system-settings-view">
+            Volver a Ajustes
+          </button>
+        </div>
       </div>
 
       <div id="pollingSourcesCards" class="polling-source-grid"></div>
@@ -132,6 +135,31 @@ window.RMCComponents.pollingRoutesView = function pollingRoutesView() {
               Hoja
               <input id="pollingSourceSheet" type="text" autocomplete="off" required>
             </label>
+
+            <div class="polling-structure-grid span-2">
+              <label>
+                Fila de encabezados
+                <input id="pollingHeaderRow" type="number" min="1" step="1" inputmode="numeric">
+              </label>
+
+              <label>
+                Primera fila de datos
+                <input id="pollingDataStartRow" type="number" min="1" step="1" inputmode="numeric">
+              </label>
+
+              <label>
+                Rango de lectura
+                <input id="pollingReadRange" type="text" autocomplete="off" placeholder="A1:M20000">
+              </label>
+            </div>
+
+            <div class="polling-field-map span-2">
+              <div class="polling-field-map-header">
+                <strong>Campos del Excel</strong>
+                <span>Columnas a buscar por cada campo</span>
+              </div>
+              <div id="pollingFieldMapRows" class="polling-field-map-rows"></div>
+            </div>
 
             <label class="checkbox-label polling-active-label">
               <input id="pollingSourceActive" type="checkbox">

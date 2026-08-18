@@ -186,13 +186,13 @@ window.RMCComponents.opNikePinModal = function opNikePinModal() {
         <div class="modal-header">
           <div>
             <span class="modal-eyebrow">Acceso protegido</span>
-            <h3>Catalogo Op-Nike</h3>
+            <h3 id="opNikePinTitle">Catalogo Op-Nike</h3>
           </div>
 
           <button id="btnCloseOpNikePinModal" class="secondary-button" type="button">Cerrar</button>
         </div>
 
-        <p class="access-note">
+        <p id="opNikePinNote" class="access-note">
           Ingresa el PIN temporal para administrar familias, variantes y reglas.
         </p>
 

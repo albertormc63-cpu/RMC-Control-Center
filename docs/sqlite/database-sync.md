@@ -50,7 +50,7 @@ rows_skipped: 0
 - Area: Diseno / Impresion
 - Tipo: `print_sublimation_excel`
 - Archivo real:
-  `/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposiciones.xlsx`
+  `/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposiciones.xlsm`
 - Hoja:
   `Impresión - Sublimado 2026`
 - Encabezados reales:
@@ -67,9 +67,9 @@ El archivo es un reporte anual. Actualmente contiene todos los registros del ano
 - Area: Sublimado
 - Tipo: `sublimation_output_excel`
 - Archivo real:
-  `/Volumes/Carpeta de sublimado/PRODUCCION SUBLIMADO  2026.xlsb`
+  `/Volumes/Carpeta de sublimado/Reporte de Sublimado.xlsm`
 - Hoja:
-  `LIBERADO A LINEA`
+  `Produccion Sublimado`
 - Encabezados reales:
   fila 1, columnas A:M
 - Datos reales:
@@ -136,6 +136,10 @@ Campos principales:
 - `source_type`
 - `file_path`
 - `sheet_name`
+- `header_row_number`
+- `data_start_row_number`
+- `read_range`
+- `field_map_json`
 - `active`
 - `last_mtime_ms`
 - `last_size_bytes`
@@ -153,7 +157,7 @@ source_type = sublimation_output_excel
 source_type = label_delivery_excel
 ```
 
-La UI de `Ajuste de Rutas Polling` puede crear fuentes nuevas, pero solamente de tipos que el worker ya sincroniza: `print_sublimation_excel`, `sublimation_output_excel` y `label_delivery_excel`.
+La UI de `Ajuste de Rutas Polling` puede crear fuentes nuevas, pero solamente de tipos que el worker ya sincroniza: `print_sublimation_excel`, `sublimation_output_excel` y `label_delivery_excel`. Tambien permite ajustar fila de encabezados, primera fila de datos, rango de lectura y aliases de encabezados por campo. Los aliases se capturan como inputs dinamicos de columnas a buscar por cada campo operativo. Esos ajustes se guardan en `rmc_external_sources` y no modifican las tablas espejo operativas.
 
 ### `rmc_sync_runs`
 
@@ -480,13 +484,11 @@ Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagn
 - `src/services/printSublimationSync.js`
   - Lee el Excel con `xlsx`.
   - Copia el archivo a temporal antes de leer.
-  - Lee solo rango `A1:L20000` para evitar recorrer hojas infladas hasta 1,048,576 filas.
-  - Para Sublimado lee solo rango `A1:M20000`.
-  - Valida hoja `Impresión - Sublimado 2026`.
-  - Valida hoja `LIBERADO A LINEA`.
+  - Lee rangos configurables por fuente, con defaults `A1:L20000` para Impresion, `A1:M20000` para Sublimado y `A1:E20000` para Etiquetas.
+  - Valida la hoja configurada en `rmc_external_sources.sheet_name`.
   - Tolera espacios al inicio o final del nombre real de la hoja en Excel.
-  - Lee encabezados desde fila 3.
-  - Lee datos desde fila 4.
+  - Lee encabezados y datos desde las filas configuradas en `header_row_number` y `data_start_row_number`.
+  - Mapea campos por aliases configurables en `field_map_json`, con defaults por tipo de fuente.
   - Ignora filas sin `Work Order`.
   - Calcula `source_year`, `natural_key` y `row_hash`.
   - Ejecuta upsert a `rmc_print_sublimation_log`.
@@ -503,7 +505,7 @@ Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagn
   - `PUT /api/sync/sources/:id`
   - `POST /api/sync/sources/:id/run`
   - `GET /api/sync/sources/:id/runs`
-  - Permite editar ruta, hoja, nombre, area y activo/inactivo de fuentes soportadas desde `Sistema / Ajustes / Ajuste de Rutas Polling`.
+  - Permite editar ruta, hoja, nombre, area, estructura de lectura, aliases de campos y activo/inactivo de fuentes soportadas desde `Sistema / Ajustes / Ajuste de Rutas Polling`.
 
 ### Archivos modificados
 
@@ -524,44 +526,56 @@ Estos scripts se usan para inicializar, registrar fuente, probar lectura y diagn
 
 ## Endpoints disponibles
 
+### Desbloquear administracion de polling
+
+```http
+POST /api/sync/unlock
+```
+
+Valida el mismo PIN temporal usado por `Catalogo Op-Nike` antes de abrir `Ajuste de Rutas Polling`.
+
 ### Listar fuentes externas
 
 ```http
 GET /api/sync/sources
+X-RMC-OPNIKE-PIN: 290497
 ```
 
 Uso:
 
 ```bash
-curl http://localhost:3000/api/sync/sources
+curl -H "X-RMC-OPNIKE-PIN: 290497" http://localhost:3000/api/sync/sources
 ```
 
 ### Editar ruta de fuente externa
 
 ```http
 PUT /api/sync/sources/:id
+X-RMC-OPNIKE-PIN: 290497
 ```
 
 Uso:
 
 ```bash
 curl -X PUT http://localhost:3000/api/sync/sources/2 \
+  -H "X-RMC-OPNIKE-PIN: 290497" \
   -H "Content-Type: application/json" \
-  -d '{"file_path":"/Volumes/Carpeta de sublimado/PRODUCCION SUBLIMADO  2026.xlsb","sheet_name":"LIBERADO A LINEA","active":1}'
+  -d '{"file_path":"/Volumes/Carpeta de sublimado/Reporte de Sublimado.xlsm","sheet_name":"Produccion Sublimado","header_row_number":1,"data_start_row_number":2,"read_range":"A1:M20000","field_map":{"workOrder":["WORK ORDER","WO"],"horaSaleAlmacen":["HORA","HORA SALE ALMACEN"]},"active":1}'
 ```
 
-La ruta escribe solamente `rmc_external_sources`. Si cambia `file_path` o `sheet_name`, limpia `last_mtime_ms`, `last_size_bytes` y `last_error` para que el polling vuelva a detectar el archivo.
+La ruta escribe solamente `rmc_external_sources`. Si cambia `file_path`, `sheet_name`, estructura de lectura o aliases de campos, limpia `last_mtime_ms`, `last_size_bytes` y `last_error` para que el polling vuelva a detectar el archivo.
 
 ### Ejecutar sync manual
 
 ```http
 POST /api/sync/sources/:id/run
+X-RMC-OPNIKE-PIN: 290497
 ```
 
 Uso:
 
 ```bash
-curl -X POST http://localhost:3000/api/sync/sources/1/run
+curl -X POST -H "X-RMC-OPNIKE-PIN: 290497" http://localhost:3000/api/sync/sources/1/run
 ```
 
 Respuesta esperada:
@@ -588,12 +602,13 @@ Respuesta esperada:
 
 ```http
 GET /api/sync/sources/:id/runs
+X-RMC-OPNIKE-PIN: 290497
 ```
 
 Uso:
 
 ```bash
-curl http://localhost:3000/api/sync/sources/1/runs
+curl -H "X-RMC-OPNIKE-PIN: 290497" http://localhost:3000/api/sync/sources/1/runs
 ```
 
 ### Consultar impresion/sublimado para item Nike
@@ -994,6 +1009,6 @@ node scripts/preview-sublimation-source.js
 node scripts/sync-sublimation-source.js
 node scripts/sync-operator-nike-databases.js --dry-run --operators=THANIA,ANTONIO
 node scripts/sync-operator-optimizer-databases.js --dry-run --operators=THANIA
-curl -X POST http://localhost:3000/api/sync/sources/1/run
+curl -X POST -H "X-RMC-OPNIKE-PIN: 290497" http://localhost:3000/api/sync/sources/1/run
 curl http://localhost:3000/api/nike/items/167/print-sublimation
 ```

@@ -10,8 +10,7 @@ const router = express.Router();
 const LOCAL_TIME_ZONE = "America/Mexico_City";
 const SOURCE_TYPES = {
   print: "print_sublimation_excel",
-  sublimation: "sublimation_output_excel",
-  labelDelivery: "label_delivery_excel"
+  sublimation: "sublimation_output_excel"
 };
 
 function getLocalDateParts(date = new Date()) {
@@ -236,10 +235,6 @@ router.get("/daily", (req, res, next) => {
       schedule.rows,
       getMirrorWorkOrderMap("rmc_sublimation_output_log", "pcs")
     );
-    const labelDelivered = getMatchedSchedulePieces(
-      schedule.rows,
-      getMirrorWorkOrderMap("rmc_label_delivery_log", "delivered_quantity")
-    );
     const now = new Date();
 
     res.json({
@@ -287,16 +282,14 @@ router.get("/daily", (req, res, next) => {
         finished: {
           key: "finished",
           label: "Terminadas",
-          available: schedule.available && labelDelivered.available,
-          pieces: labelDelivered.pieces,
-          matched_rows: labelDelivered.matched_rows,
-          matched_work_orders: labelDelivered.matched_work_orders,
-          mirror_quantity: labelDelivered.mirror_quantity,
-          source_rows: labelDelivered.source_rows,
-          source: getLatestSource(SOURCE_TYPES.labelDelivery),
-          pending_reason: labelDelivered.available
-            ? null
-            : "Pendiente de Excel/Fuente Terminadas"
+          available: false,
+          pieces: null,
+          matched_rows: 0,
+          matched_work_orders: 0,
+          mirror_quantity: 0,
+          source_rows: 0,
+          source: null,
+          pending_reason: "Terminadas: pendiente de conectar"
         }
       }
     });

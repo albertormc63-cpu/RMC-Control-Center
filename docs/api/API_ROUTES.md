@@ -81,7 +81,7 @@ Devuelve el resumen del dia para la pantalla de proyeccion `Produccion diaria`.
 - Piezas totales: lee la copia activa cargada con `schedule/upload`, hoja `ProdSched`, filtra `Sew Unit` y `To DC` vacio, y suma `WO Eaches`.
 - Impresas: suma piezas de la lista diaria cuyo `Work Order` ya aparece activo en `rmc_print_sublimation_log`.
 - Sublimadas: suma piezas de la lista diaria cuyo `Work Order` ya aparece activo en `rmc_sublimation_output_log`.
-- Terminadas: suma piezas de la lista diaria cuyo `Work Order` ya aparece activo en `rmc_label_delivery_log`.
+- Terminadas: permanece pendiente hasta conectar una fuente real de finalizacion. No usa `rmc_label_delivery_log`, porque esa tabla representa Almacen/Etiquetas mandado a Costura.
 
 Query params:
 
@@ -120,9 +120,10 @@ Respuesta conceptual:
     },
     "finished": {
       "label": "Terminadas",
-      "available": true,
-      "pieces": 512,
-      "source": {}
+      "available": false,
+      "pieces": null,
+      "source": null,
+      "pending_reason": "Terminadas: pendiente de conectar"
     }
   }
 }
@@ -175,21 +176,41 @@ Devuelve conteo y ultimo commit por herramienta.
 ## Sincronizacion externa
 
 ```http
-GET /api/sync/sources
+POST /api/sync/unlock
+Content-Type: application/json
+
+{
+  "pin": "290497"
+}
 ```
 
-Lista fuentes externas registradas en `rmc_external_sources`. Incluye ruta, hoja, estado activo, ultima sync y estado de archivo disponible/no disponible para mostrar en UI.
+Valida el PIN temporal antes de abrir `Sistema / Ajustes / Ajuste de Rutas Polling`.
+
+```http
+GET /api/sync/sources
+X-RMC-OPNIKE-PIN: 290497
+```
+
+Lista fuentes externas registradas en `rmc_external_sources`. Incluye ruta, hoja, estructura de lectura, aliases de campos, estado activo, ultima sync y estado de archivo disponible/no disponible para mostrar en UI.
 
 ```http
 POST /api/sync/sources
 Content-Type: application/json
+X-RMC-OPNIKE-PIN: 290497
 
 {
   "name": "Reporte de Impresion y Reposiciones",
   "area": "Diseno / Impresion",
   "source_type": "print_sublimation_excel",
-  "file_path": "/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposiciones.xlsx",
+  "file_path": "/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposiciones.xlsm",
   "sheet_name": "Impresión - Sublimado 2026",
+  "header_row_number": 3,
+  "data_start_row_number": 4,
+  "read_range": "A1:L20000",
+  "field_map": {
+    "workOrder": ["Work Order", "WO", "WO#"],
+    "orderQuantity": ["Order Quantity", "Cantidad"]
+  },
   "active": 1
 }
 ```
@@ -199,26 +220,36 @@ Registra una fuente nueva en `rmc_external_sources` solamente para tipos soporta
 ```http
 PUT /api/sync/sources/:id
 Content-Type: application/json
+X-RMC-OPNIKE-PIN: 290497
 
 {
   "name": "Sublimado Excel",
   "area": "Sublimado",
-  "file_path": "/Volumes/Carpeta de sublimado/PRODUCCION SUBLIMADO  2026.xlsb",
-  "sheet_name": "LIBERADO A LINEA",
+  "file_path": "/Volumes/Carpeta de sublimado/Reporte de Sublimado.xlsm",
+  "sheet_name": "Produccion Sublimado",
+  "header_row_number": 1,
+  "data_start_row_number": 2,
+  "read_range": "A1:M20000",
+  "field_map": {
+    "workOrder": ["WORK ORDER", "WO"],
+    "horaSaleAlmacen": ["HORA", "HORA SALE ALMACEN"]
+  },
   "active": 1
 }
 ```
 
-Actualiza solamente fuentes soportadas de polling externo. Si cambia `file_path` o `sheet_name`, limpia `last_mtime_ms`, `last_size_bytes` y `last_error` para que el worker vuelva a detectar el archivo.
+Actualiza solamente fuentes soportadas de polling externo. Si cambia `file_path`, `sheet_name`, estructura de lectura o aliases de campos, limpia `last_mtime_ms`, `last_size_bytes` y `last_error` para que el worker vuelva a detectar el archivo.
 
 ```http
 POST /api/sync/sources/:id/run
+X-RMC-OPNIKE-PIN: 290497
 ```
 
 Ejecuta sincronizacion manual de una fuente activa soportada.
 
 ```http
 GET /api/sync/sources/:id/runs
+X-RMC-OPNIKE-PIN: 290497
 ```
 
 Devuelve las ultimas 20 corridas de una fuente.

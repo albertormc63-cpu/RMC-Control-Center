@@ -17,7 +17,7 @@ const source = {
   name: "Reporte de Impresión y Reposiciones",
   area: "Diseño / Impresión",
   source_type: "print_sublimation_excel",
-  file_path: "/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposiciones.xlsx",
+  file_path: "/Volumes/Carpeta de sublimado/Reporte de Impresion y Reposiciones.xlsm",
   sheet_name: "Impresión - Sublimado 2026"
 };
 

@@ -18,13 +18,13 @@ Datos:
 - Total: suma `WO Eaches` de las filas filtradas.
 - Impresas: cruza `Work Order` de la lista diaria contra `rmc_print_sublimation_log` y suma las piezas de la lista diaria que ya tienen match.
 - Sublimadas: cruza `Work Order` de la lista diaria contra `rmc_sublimation_output_log` y suma las piezas de la lista diaria que ya tienen match.
-- Terminadas: cruza `Work Order` de la lista diaria contra `rmc_label_delivery_log` y suma las piezas de la lista diaria que ya tienen match.
+- Terminadas: pendiente hasta conectar una fuente real de finalizacion; no usa `rmc_label_delivery_log` porque esa tabla indica Almacen/Etiquetas mandado a Costura.
 
 Porcentajes:
 
 - Impresas / Piezas totales.
 - Sublimadas / Impresas.
-- Terminadas / Sublimadas.
+- Terminadas queda pendiente y sin porcentaje mientras no exista fuente real.
 
 Estados de barras:
 

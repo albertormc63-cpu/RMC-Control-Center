@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS rmc_external_sources (
     sheet_name TEXT,
     operator_code TEXT,
     app_name TEXT,
+    header_row_number INTEGER,
+    data_start_row_number INTEGER,
+    read_range TEXT,
+    field_map_json TEXT,
 
     active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
 
@@ -291,6 +295,10 @@ function ensureColumn(tableName, columnName, columnDefinition) {
 ensureColumn("rmc_sublimation_output_log", "hora_sale_almacen", "TEXT");
 ensureColumn("rmc_external_sources", "operator_code", "TEXT");
 ensureColumn("rmc_external_sources", "app_name", "TEXT");
+ensureColumn("rmc_external_sources", "header_row_number", "INTEGER");
+ensureColumn("rmc_external_sources", "data_start_row_number", "INTEGER");
+ensureColumn("rmc_external_sources", "read_range", "TEXT");
+ensureColumn("rmc_external_sources", "field_map_json", "TEXT");
 
 const tables = db.prepare(`
   SELECT name

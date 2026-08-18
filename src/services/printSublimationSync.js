@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const XLSX = require("xlsx");
 
 const db = require("../db");
+const { getEffectiveSourceConfig } = require("./syncSourceConfig");
 
 const PRINT_SOURCE_TYPE = "print_sublimation_excel";
 const SUBLIMATION_OUTPUT_SOURCE_TYPE = "sublimation_output_excel";
@@ -44,6 +45,17 @@ function findHeaderIndex(headers, candidates, fallbackIndex) {
   });
 
   return index >= 0 ? index : fallbackIndex;
+}
+
+function buildIndexByField(headers, fields) {
+  return fields.reduce((indexByField, field) => {
+    indexByField[field.key] = findHeaderIndex(headers, field.aliases, field.fallbackIndex);
+    return indexByField;
+  }, {});
+}
+
+function getCell(cells, index) {
+  return index === undefined || index === null ? "" : cells[index];
 }
 
 function resolveWorkbookSheetName(workbook, configuredName) {
@@ -163,28 +175,24 @@ function readPrintSublimationExcel(source) {
 
   try {
     const { workbook, stat } = excel;
+    const sourceConfig = getEffectiveSourceConfig(source);
     const sheetName = resolveWorkbookSheetName(workbook, source.sheet_name);
 
     const sheet = workbook.Sheets[sheetName];
 
-    // Lee toda la hoja como arreglo de arreglos.
-    // La fila 3 de Excel es índice 2 en JS.
-    const MAX_ROWS_TO_SCAN = 20000;
-
-    // Leemos solo columnas A:L y máximo hasta fila 20000.
-    // Esto evita que Excel nos mande hasta la fila 1,048,576 por formato vacío.
+    // Se limita el rango para evitar que Excel entregue filas vacías hasta 1,048,576.
     const matrix = XLSX.utils.sheet_to_json(sheet, {
-        header: 1,
-        defval: "",
-        raw: false,
-        range: `A1:L${MAX_ROWS_TO_SCAN}`
+      header: 1,
+      defval: "",
+      raw: false,
+      range: sourceConfig.readRange
     });
-    const headerRowIndex = 2;
-    const dataStartIndex = 3;
+    const headerRowIndex = sourceConfig.headerRowNumber - 1;
+    const dataStartIndex = sourceConfig.dataStartRowNumber - 1;
 
     const headers = (matrix[headerRowIndex] || [])
-      .slice(0, 12)
       .map(cleanValue);
+    const indexByField = buildIndexByField(headers, sourceConfig.fields);
 
     const expectedHeaders = [
       "TYPE",
@@ -208,18 +216,18 @@ function readPrintSublimationExcel(source) {
       const cells = matrix[index] || [];
 
       const row = {
-        type: cleanValue(cells[0]),
-        plotter_number: cleanValue(cells[1]),
-        work_order: cleanValue(cells[2]),
-        style: cleanValue(cells[3]),
-        roster: cleanValue(cells[4]),
-        process: cleanValue(cells[5]),
-        order_quantity: Number(cleanValue(cells[6])) || 0,
-        fecha_impresion_papel: cleanValue(cells[7]),
-        num_impresion_papel: cleanValue(cells[8]),
-        disenador: cleanValue(cells[9]),
-        impresor: cleanValue(cells[10]),
-        fecha_embarque: cleanValue(cells[11]),
+        type: cleanValue(getCell(cells, indexByField.type)),
+        plotter_number: cleanValue(getCell(cells, indexByField.plotterNumber)),
+        work_order: cleanValue(getCell(cells, indexByField.workOrder)),
+        style: cleanValue(getCell(cells, indexByField.style)),
+        roster: cleanValue(getCell(cells, indexByField.roster)),
+        process: cleanValue(getCell(cells, indexByField.process)),
+        order_quantity: Number(cleanValue(getCell(cells, indexByField.orderQuantity))) || 0,
+        fecha_impresion_papel: cleanValue(getCell(cells, indexByField.fechaImpresionPapel)),
+        num_impresion_papel: cleanValue(getCell(cells, indexByField.numImpresionPapel)),
+        disenador: cleanValue(getCell(cells, indexByField.disenador)),
+        impresor: cleanValue(getCell(cells, indexByField.impresor)),
+        fecha_embarque: cleanValue(getCell(cells, indexByField.fechaEmbarque)),
         source_file: source.file_path,
         source_sheet: sheetName,
         source_row: excelRowNumber
@@ -260,6 +268,8 @@ function readPrintSublimationExcel(source) {
       },
       headers,
       expectedHeaders,
+      source_config: sourceConfig,
+      index_by_field: indexByField,
       rows_read: Math.max(matrix.length - dataStartIndex, 0),
       rows_valid: rows.length,
       sample_rows: rows.slice(0, 5),
@@ -297,9 +307,10 @@ function readSublimationOutputExcel(source) {
 
   try {
     const { workbook, stat } = excel;
+    const sourceConfig = getEffectiveSourceConfig(source);
     const sheetName = resolveWorkbookSheetName(
       workbook,
-      source.sheet_name || "LIBERADO A LINEA"
+      source.sheet_name || "Produccion Sublimado"
     );
 
     const sheet = workbook.Sheets[sheetName];
@@ -309,31 +320,14 @@ function readSublimationOutputExcel(source) {
       header: 1,
       defval: "",
       raw: false,
-      range: `A1:M${MAX_ROWS_TO_SCAN}`
+      range: sourceConfig.readRange || `A1:M${MAX_ROWS_TO_SCAN}`
     });
 
-    const headerRowIndex = 0;
-    const dataStartIndex = 1;
+    const headerRowIndex = sourceConfig.headerRowNumber - 1;
+    const dataStartIndex = sourceConfig.dataStartRowNumber - 1;
     const headers = (matrix[headerRowIndex] || [])
-      .slice(0, 13)
       .map(cleanValue);
-
-    const indexByField = {
-      fecha: findHeaderIndex(headers, ["FECHA"], 0),
-      workOrder: findHeaderIndex(headers, ["WORK ORDER", "WO"], 1),
-      style: findHeaderIndex(headers, ["STYLE"], 2),
-      pcs: findHeaderIndex(headers, ["PCS", "PIEZAS"], 3),
-      embarque: findHeaderIndex(headers, ["EMBARQUE"], 4),
-      maquina: findHeaderIndex(headers, ["MAQUINA", "MÁQUINA"], 7),
-      totalPiezas: findHeaderIndex(headers, ["TOTAL DE PIEZAS"], 9),
-      notas: findHeaderIndex(headers, ["NOTAS"], 11),
-      horaSaleAlmacen: findHeaderIndex(headers, [
-        "HORA QUE SALE A ALMACEN",
-        "HORA QUE SALE A ALMACÉN",
-        "HORA SALE ALMACEN",
-        "HORA SALE ALMACÉN"
-      ], 12)
-    };
+    const indexByField = buildIndexByField(headers, sourceConfig.fields);
 
     const expectedHeaders = [
       "FECHA",
@@ -351,15 +345,15 @@ function readSublimationOutputExcel(source) {
     for (let index = dataStartIndex; index < matrix.length; index++) {
       const excelRowNumber = index + 1;
       const cells = matrix[index] || [];
-      const fecha = cleanValue(cells[indexByField.fecha]);
-      const workOrder = cleanValue(cells[indexByField.workOrder]);
-      const style = cleanValue(cells[indexByField.style]);
-      const pcs = Number(cleanValue(cells[indexByField.pcs])) || 0;
-      const maquina = cleanValue(cells[indexByField.maquina]);
-      const embarque = cleanValue(cells[indexByField.embarque]);
-      const totalPiezas = cleanValue(cells[indexByField.totalPiezas]);
-      const notas = cleanValue(cells[indexByField.notas]);
-      const horaSaleAlmacen = cleanValue(cells[indexByField.horaSaleAlmacen]);
+      const fecha = cleanValue(getCell(cells, indexByField.fecha));
+      const workOrder = cleanValue(getCell(cells, indexByField.workOrder));
+      const style = cleanValue(getCell(cells, indexByField.style));
+      const pcs = Number(cleanValue(getCell(cells, indexByField.pcs))) || 0;
+      const maquina = cleanValue(getCell(cells, indexByField.maquina));
+      const embarque = cleanValue(getCell(cells, indexByField.embarque));
+      const totalPiezas = cleanValue(getCell(cells, indexByField.totalPiezas));
+      const notas = cleanValue(getCell(cells, indexByField.notas));
+      const horaSaleAlmacen = cleanValue(getCell(cells, indexByField.horaSaleAlmacen));
 
       const row = {
         fecha,
@@ -407,6 +401,8 @@ function readSublimationOutputExcel(source) {
       },
       headers,
       expectedHeaders,
+      source_config: sourceConfig,
+      index_by_field: indexByField,
       rows_read: Math.max(matrix.length - dataStartIndex, 0),
       rows_valid: rows.length,
       sample_rows: rows.slice(0, 5),
@@ -422,6 +418,7 @@ function readLabelDeliveryExcel(source) {
 
   try {
     const { workbook, stat } = excel;
+    const sourceConfig = getEffectiveSourceConfig(source);
     const sheetName = resolveWorkbookSheetName(
       workbook,
       source.sheet_name || "Registro"
@@ -434,40 +431,14 @@ function readLabelDeliveryExcel(source) {
       header: 1,
       defval: "",
       raw: false,
-      range: `A1:E${MAX_ROWS_TO_SCAN}`
+      range: sourceConfig.readRange || `A1:E${MAX_ROWS_TO_SCAN}`
     });
 
-    const headerRowIndex = 4;
-    const dataStartIndex = 5;
+    const headerRowIndex = sourceConfig.headerRowNumber - 1;
+    const dataStartIndex = sourceConfig.dataStartRowNumber - 1;
     const headers = (matrix[headerRowIndex] || [])
-      .slice(0, 5)
       .map(cleanValue);
-
-    const indexByField = {
-      workOrder: findHeaderIndex(headers, [
-        "NUMERO DE CORTE",
-        "NÚMERO DE CORTE",
-        "WO#",
-        "WORK ORDER"
-      ], 0),
-      deliveredQuantity: findHeaderIndex(headers, [
-        "CANTIDAD ENTREGADA",
-        "PIEZAS",
-        "PCS"
-      ], 1),
-      deliveredDate: findHeaderIndex(headers, [
-        "FECHA",
-        "FECHA MANDADO COSTURA",
-        "FECHA MANDADO A COSTURA"
-      ], 2),
-      deliveredTime: findHeaderIndex(headers, [
-        "HORA"
-      ], 3),
-      observations: findHeaderIndex(headers, [
-        "OBSERVACIONES",
-        "NOTAS"
-      ], 4)
-    };
+    const indexByField = buildIndexByField(headers, sourceConfig.fields);
 
     const expectedHeaders = [
       "Número de corte",
@@ -482,11 +453,11 @@ function readLabelDeliveryExcel(source) {
     for (let index = dataStartIndex; index < matrix.length; index++) {
       const excelRowNumber = index + 1;
       const cells = matrix[index] || [];
-      const workOrder = cleanValue(cells[indexByField.workOrder]);
-      const deliveredQuantity = Number(cleanValue(cells[indexByField.deliveredQuantity])) || 0;
-      const deliveredDate = cleanValue(cells[indexByField.deliveredDate]);
-      const deliveredTime = cleanValue(cells[indexByField.deliveredTime]);
-      const observations = cleanValue(cells[indexByField.observations]);
+      const workOrder = cleanValue(getCell(cells, indexByField.workOrder));
+      const deliveredQuantity = Number(cleanValue(getCell(cells, indexByField.deliveredQuantity))) || 0;
+      const deliveredDate = cleanValue(getCell(cells, indexByField.deliveredDate));
+      const deliveredTime = cleanValue(getCell(cells, indexByField.deliveredTime));
+      const observations = cleanValue(getCell(cells, indexByField.observations));
 
       const row = {
         work_order: workOrder,
@@ -526,6 +497,8 @@ function readLabelDeliveryExcel(source) {
       },
       headers,
       expectedHeaders,
+      source_config: sourceConfig,
+      index_by_field: indexByField,
       rows_read: Math.max(matrix.length - dataStartIndex, 0),
       rows_valid: rows.length,
       sample_rows: rows.slice(0, 5),

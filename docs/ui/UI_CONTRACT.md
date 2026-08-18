@@ -88,6 +88,7 @@ Desktop:
 - Debajo de `SISTEMA` se muestra el selector de tema `Dark / Light`.
 - Debajo del selector se muestra `Acceder` como entrada provisional para futura autenticacion y permisos.
 - `Catalogo Op-Nike` vive en `Sistema / Ajustes` y pide PIN temporal antes de abrir la pantalla.
+- `Ajuste de Rutas Polling` vive en `Sistema / Ajustes` y pide el mismo PIN temporal antes de abrir la pantalla.
 
 Mobile:
 
@@ -147,7 +148,7 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - Boton `Examinar Excel` permite cargar el `Production Schedule Book` del dia; la copia activa queda en el servidor.
 - El total diario viene del Excel cargado, filtrando la lista diaria por lineas seleccionadas y `To DC` vacio.
 - Incluye modal `Lineas` con checkboxes: `27 Sports`, `Rapid`, `LAT` y `Nike`; default `27 Sports + Rapid`.
-- `Terminadas` se alimenta de `rmc_label_delivery_log`; se muestra pendiente si no existe fuente activa.
+- `Terminadas` se muestra pendiente hasta conectar una fuente real de finalizacion; no se alimenta de `rmc_label_delivery_log`.
 
 `nikeView.js`:
 
@@ -190,8 +191,10 @@ El CSS incluye fallback visual si la fuente externa de iconos no carga.
 - La accion de `BD` pide el mismo PIN temporal del Catalogo Op-Nike y llama `POST /api/sync/operator-databases/optimizador/run`.
 - Cada vista abierta desde una card de Ajustes muestra boton `Volver a Ajustes` en el encabezado.
 - Pantalla `Ajuste de Rutas Polling` para editar fuentes existentes de `rmc_external_sources`.
+- Acceso protegido por el mismo PIN temporal del Catalogo Op-Nike; el PIN no queda persistido al salir de la vista y existe accion `Bloquear`.
 - Incluye boton `Nueva fuente` para registrar rutas nuevas de tipos ya soportados por el worker.
-- El formulario permite cambiar nombre, area, ruta de archivo, hoja y activo/inactivo.
+- El formulario permite cambiar nombre, area, ruta de archivo, hoja, fila de encabezados, primera fila de datos, rango de lectura, aliases de campos y activo/inactivo.
+- Los aliases de campos se capturan como inputs dinamicos de columnas a buscar; cada campo puede agregar o quitar nombres de columna sin editar una cadena con separadores.
 - Muestra estado de archivo disponible/no disponible y ultimas corridas de sync.
 - Incluye accion `Sincronizar ahora` usando `POST /api/sync/sources/:id/run`.
 

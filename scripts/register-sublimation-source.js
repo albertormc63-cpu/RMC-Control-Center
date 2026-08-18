@@ -17,8 +17,8 @@ const source = {
   name: "Produccion Sublimado - Liberado a Linea",
   area: "Sublimado",
   source_type: "sublimation_output_excel",
-  file_path: "/Volumes/Carpeta de sublimado/PRODUCCION SUBLIMADO  2026.xlsb",
-  sheet_name: "LIBERADO A LINEA"
+  file_path: "/Volumes/Carpeta de sublimado/Reporte de Sublimado.xlsm",
+  sheet_name: "Produccion Sublimado"
 };
 
 console.log("Registrando fuente externa:");

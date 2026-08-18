@@ -104,6 +104,12 @@ let dailyProductionData = null;
 let dailyProductionTimer = null;
 let activeViewId = "dashboard-view";
 let opNikeRuntimePin = "";
+let protectedViewAfterPin = "opnike-catalog-view";
+
+const protectedViewIds = new Set([
+  "opnike-catalog-view",
+  "polling-routes-view"
+]);
 
 let opNikeCatalogData = {
   templateRoot: "",
@@ -903,8 +909,33 @@ function addDepartmentStatusCell(row, value, className = "") {
 }
 
 // Wrapper para fetch JSON con mensajes de error legibles desde la API.
+function getJsonRequestHeaders(url, method = "GET") {
+  const headers = {};
+
+  if (
+    url.startsWith("/api/sync/sources") ||
+    (
+      method !== "GET" &&
+      (
+        url.startsWith("/api/nike/catalog") ||
+        url.startsWith("/api/sync/operator-databases")
+      )
+    )
+  ) {
+    const pin = getStoredOpNikePin();
+
+    if (pin) {
+      headers["X-RMC-OPNIKE-PIN"] = pin;
+    }
+  }
+
+  return headers;
+}
+
 async function getJSON(url) {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: getJsonRequestHeaders(url)
+  });
 
   if (!response.ok) {
     let message = `Error consultando ${url}`;
@@ -925,22 +956,9 @@ async function getJSON(url) {
 async function sendJSON(url, options = {}) {
   const method = options.method || "POST";
   const headers = {
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
+    ...getJsonRequestHeaders(url, method)
   };
-
-  if (
-    method !== "GET" &&
-    (
-      url.startsWith("/api/nike/catalog") ||
-      url.startsWith("/api/sync/operator-databases")
-    )
-  ) {
-    const pin = getStoredOpNikePin();
-
-    if (pin) {
-      headers["X-RMC-OPNIKE-PIN"] = pin;
-    }
-  }
 
   const response = await fetch(url, {
     method,
@@ -996,6 +1014,10 @@ function isOpNikeCatalogUnlocked() {
   return Boolean(getStoredOpNikePin());
 }
 
+function isProtectedViewUnlocked() {
+  return Boolean(getStoredOpNikePin());
+}
+
 // Crea una celda de tabla y la agrega a la fila recibida.
 function addCell(row, value, className) {
   const cell = document.createElement("td");
@@ -1044,13 +1066,23 @@ function openSidebar() {
 
 // Cambia la vista activa y sincroniza el estado visual del menu lateral.
 function switchView(viewId) {
-  if (viewId === "opnike-catalog-view" && !isOpNikeCatalogUnlocked()) {
-    showOpNikePinModal();
+  const switchingBetweenProtectedViews = (
+    protectedViewIds.has(activeViewId) &&
+    protectedViewIds.has(viewId) &&
+    activeViewId !== viewId
+  );
+
+  if (protectedViewIds.has(viewId) && (!isProtectedViewUnlocked() || switchingBetweenProtectedViews)) {
+    if (switchingBetweenProtectedViews) {
+      clearStoredOpNikePin();
+    }
+
+    showOpNikePinModal(viewId);
     closeSidebar();
     return;
   }
 
-  if (activeViewId === "opnike-catalog-view" && viewId !== "opnike-catalog-view") {
+  if (protectedViewIds.has(activeViewId) && !protectedViewIds.has(viewId)) {
     clearStoredOpNikePin();
   }
 
@@ -3290,7 +3322,7 @@ async function loadGitCommits() {
   updateSortIndicators("gitCommitsTable");
   appendLog(`Historial de desarrollo: ${formatNumber(data.commits?.length || 0)} commits cargados`, "success");
 }
-
+// Almacena y recupera la seleccion de lineas de produccion diaria.
 function getStoredDailyProductionLineGroups() {
   try {
     const stored = JSON.parse(localStorage.getItem(dailyProductionLineGroupsStorageKey) || "[]");
@@ -3299,7 +3331,7 @@ function getStoredDailyProductionLineGroups() {
     return defaultDailyProductionLineGroups;
   }
 }
-
+// Almacena la seleccion de lineas de produccion diaria en localStorage.
 function setStoredDailyProductionLineGroups(groups) {
   try {
     localStorage.setItem(dailyProductionLineGroupsStorageKey, JSON.stringify(groups));
@@ -3307,7 +3339,7 @@ function setStoredDailyProductionLineGroups(groups) {
     appendLog("No se pudo guardar la seleccion de lineas", "warning");
   }
 }
-
+// Calcula el porcentaje de produccion basado en piezas y total.
 function calculateProductionPercent(value, denominator) {
   const pieces = Number(value || 0);
   const total = Number(denominator || 0);
@@ -3318,7 +3350,7 @@ function calculateProductionPercent(value, denominator) {
 
   return Math.round((pieces / total) * 100);
 }
-
+// Determina el estado de produccion basado en porcentaje y disponibilidad.
 function getProductionStatus(percent, available = true) {
   if (!available || percent === null || percent === undefined) {
     return "pending";
@@ -3334,7 +3366,7 @@ function getProductionStatus(percent, available = true) {
 
   return "warning";
 }
-
+// Actualiza la informacion de un stage de produccion en el dashboard.
 function setProductionStage(stageKey, pieces, percent, status) {
   const stage = document.querySelector(`.production-stage[data-stage="${stageKey}"]`);
   const piecesId = {
@@ -3518,8 +3550,12 @@ async function loadDailyProduction(options = {}) {
   renderDailyProduction();
 
   if (!options.silent) {
+    const finishedText = data.stages?.finished?.available
+      ? `, ${formatNumber(data.stages.finished.pieces)} terminadas`
+      : ", terminadas pendiente";
+
     appendLog(
-      `Produccion diaria: ${formatNumber(data.schedule?.total_pieces)} totales, ${formatNumber(data.stages?.printed?.pieces)} impresas, ${formatNumber(data.stages?.sublimated?.pieces)} sublimadas, ${formatNumber(data.stages?.finished?.pieces)} terminadas`,
+      `Produccion diaria: ${formatNumber(data.schedule?.total_pieces)} totales, ${formatNumber(data.stages?.printed?.pieces)} impresas, ${formatNumber(data.stages?.sublimated?.pieces)} sublimadas${finishedText}`,
       "success"
     );
   }
@@ -3654,6 +3690,81 @@ function getPollingSourceTypeLabel(sourceType) {
   return sourceType || "Fuente externa";
 }
 
+const POLLING_SOURCE_DEFAULT_CONFIGS = {
+  print_sublimation_excel: {
+    header_row_number: 3,
+    data_start_row_number: 4,
+    read_range: "A1:L20000",
+    fields: [
+      ["type", "Tipo", "TYPE"],
+      ["plotterNumber", "Plotter", "Plotter #, PLOTTER"],
+      ["workOrder", "Work Order", "Work Order, WO, WO#"],
+      ["style", "Style", "Style, Estilo"],
+      ["roster", "Roster", "Roster"],
+      ["process", "Proceso", "Process, Proceso"],
+      ["orderQuantity", "Cantidad orden", "Order Quantity, Cantidad"],
+      ["fechaImpresionPapel", "Fecha impresion papel", "Fecha impresion papel, Fecha de Impresion"],
+      ["numImpresionPapel", "# impresion papel", "# Impresion papel"],
+      ["disenador", "Disenador", "Disenador, Diseñador"],
+      ["impresor", "Impresor", "Impresor"],
+      ["fechaEmbarque", "Fecha embarque", "FECHA DE EMBARQUE, Fecha de embarque"]
+    ]
+  },
+  sublimation_output_excel: {
+    header_row_number: 1,
+    data_start_row_number: 2,
+    read_range: "A1:M20000",
+    fields: [
+      ["fecha", "Fecha", "FECHA, Fecha"],
+      ["workOrder", "Work Order", "WORK ORDER, Work Order, WO, WO#"],
+      ["style", "Style", "STYLE, Style, Estilo"],
+      ["pcs", "Piezas", "PCS, Piezas"],
+      ["embarque", "Embarque", "EMBARQUE, Embarque"],
+      ["maquina", "Maquina", "MAQUINA, MÁQUINA, Maquina"],
+      ["totalPiezas", "Total piezas", "TOTAL DE PIEZAS, Total de piezas"],
+      ["notas", "Notas", "NOTAS, Notas, Observaciones"],
+      ["horaSaleAlmacen", "Hora salida almacen", "HORA, HORA QUE SALE A ALMACEN, HORA SALE ALMACEN"]
+    ]
+  },
+  label_delivery_excel: {
+    header_row_number: 5,
+    data_start_row_number: 6,
+    read_range: "A1:E20000",
+    fields: [
+      ["workOrder", "Numero de corte", "NUMERO DE CORTE, NÚMERO DE CORTE, WO#, WORK ORDER"],
+      ["deliveredQuantity", "Cantidad entregada", "CANTIDAD ENTREGADA, PIEZAS, PCS"],
+      ["deliveredDate", "Fecha", "FECHA, FECHA MANDADO COSTURA, FECHA MANDADO A COSTURA"],
+      ["deliveredTime", "Hora", "HORA"],
+      ["observations", "Observaciones", "OBSERVACIONES, NOTAS"]
+    ]
+  }
+};
+
+function getPollingDefaultSourceConfig(sourceType) {
+  const config = POLLING_SOURCE_DEFAULT_CONFIGS[sourceType];
+
+  if (!config) {
+    return {
+      header_row_number: "",
+      data_start_row_number: "",
+      read_range: "",
+      fields: []
+    };
+  }
+
+  return {
+    header_row_number: config.header_row_number,
+    data_start_row_number: config.data_start_row_number,
+    read_range: config.read_range,
+    fields: config.fields.map(([key, label, aliases]) => ({
+      key,
+      label,
+      aliases: aliases.split(",").map(value => value.trim()).filter(Boolean),
+      default_aliases: aliases.split(",").map(value => value.trim()).filter(Boolean)
+    }))
+  };
+}
+
 function formatBytes(value) {
   const bytes = Number(value || 0);
 
@@ -3677,14 +3788,17 @@ function getPollingSelectedSource() {
 }
 
 function getNewPollingSourceDraft() {
+  const sourceType = "print_sublimation_excel";
+
   return {
     id: "",
     name: "",
     area: "",
-    source_type: "print_sublimation_excel",
+    source_type: sourceType,
     file_path: "",
     sheet_name: "",
-    active: 1
+    active: 1,
+    source_config: getPollingDefaultSourceConfig(sourceType)
   };
 }
 
@@ -3881,6 +3995,126 @@ function renderPollingSourceCards() {
   });
 }
 
+function getPollingSourceConfig(source) {
+  return source?.source_config || getPollingDefaultSourceConfig(source?.source_type);
+}
+
+function renderPollingFieldMap(source) {
+  const container = getElement("pollingFieldMapRows");
+
+  if (!container) {
+    return;
+  }
+
+  container.textContent = "";
+
+  if (!source) {
+    return;
+  }
+
+  const config = getPollingSourceConfig(source);
+  const fields = config.fields || [];
+
+  fields.forEach(field => {
+    const row = document.createElement("section");
+    const header = document.createElement("div");
+    const title = document.createElement("span");
+    const addButton = document.createElement("button");
+    const aliasList = document.createElement("div");
+    const aliases = field.aliases || field.default_aliases || [""];
+
+    row.className = "polling-field-map-row";
+    header.className = "polling-field-map-row-header";
+    title.textContent = `${field.label}${field.required ? " *" : ""}`;
+    addButton.type = "button";
+    addButton.className = "secondary-button polling-add-alias-button";
+    addButton.dataset.pollingAliasAction = "add";
+    addButton.textContent = "Agregar columna";
+    aliasList.className = "polling-alias-list";
+    aliasList.dataset.fieldKey = field.key;
+
+    aliases.forEach(alias => {
+      aliasList.appendChild(createPollingAliasInput(field.key, alias));
+    });
+
+    header.append(title, addButton);
+    row.append(header, aliasList);
+    container.appendChild(row);
+  });
+}
+
+function createPollingAliasInput(fieldKey, value = "") {
+  const wrapper = document.createElement("div");
+  const input = document.createElement("input");
+  const removeButton = document.createElement("button");
+
+  wrapper.className = "polling-alias-control";
+  input.type = "text";
+  input.dataset.fieldKey = fieldKey;
+  input.value = value || "";
+  input.autocomplete = "off";
+  input.placeholder = "Nombre de columna";
+  removeButton.type = "button";
+  removeButton.className = "secondary-button polling-remove-alias-button";
+  removeButton.dataset.pollingAliasAction = "remove";
+  removeButton.textContent = "Quitar";
+
+  wrapper.append(input, removeButton);
+  return wrapper;
+}
+
+function collectPollingFieldMap() {
+  const fieldMap = {};
+
+  document.querySelectorAll("#pollingFieldMapRows .polling-alias-list[data-field-key]").forEach(list => {
+    const aliases = Array.from(list.querySelectorAll("input[data-field-key]"))
+      .flatMap(input => String(input.value || "").split(","))
+      .map(value => value.trim())
+      .filter(Boolean);
+
+    if (aliases.length) {
+      fieldMap[list.dataset.fieldKey] = Array.from(new Set(aliases));
+    }
+  });
+
+  return fieldMap;
+}
+
+function addPollingAliasInput(button) {
+  const row = button.closest(".polling-field-map-row");
+  const aliasList = row?.querySelector(".polling-alias-list");
+
+  if (!aliasList) {
+    return;
+  }
+
+  const inputWrapper = createPollingAliasInput(aliasList.dataset.fieldKey);
+  aliasList.appendChild(inputWrapper);
+  inputWrapper.querySelector("input")?.focus();
+}
+
+function removePollingAliasInput(button) {
+  const wrapper = button.closest(".polling-alias-control");
+  const aliasList = button.closest(".polling-alias-list");
+
+  if (!wrapper || !aliasList) {
+    return;
+  }
+
+  const controls = aliasList.querySelectorAll(".polling-alias-control");
+
+  if (controls.length <= 1) {
+    const input = wrapper.querySelector("input");
+    if (input) {
+      input.value = "";
+      input.focus();
+    }
+    return;
+  }
+
+  wrapper.remove();
+}
+
 function fillPollingSourceForm(source) {
   const form = getElement("pollingSourceForm");
 
@@ -3906,6 +4140,12 @@ function fillPollingSourceForm(source) {
   getElement("pollingSourcePath").value = source?.file_path || "";
   getElement("pollingSourceSheet").value = source?.sheet_name || "";
   getElement("pollingSourceActive").checked = Number(source?.active || 0) === 1;
+
+  const sourceConfig = getPollingSourceConfig(source);
+  getElement("pollingHeaderRow").value = sourceConfig.header_row_number || "";
+  getElement("pollingDataStartRow").value = sourceConfig.data_start_row_number || "";
+  getElement("pollingReadRange").value = sourceConfig.read_range || "";
+  renderPollingFieldMap(source);
 
   const typeControl = getElement("pollingSourceType");
   const runButton = getElement("btnRunPollingSource");
@@ -4020,6 +4260,10 @@ async function savePollingSource(event) {
     source_type: getElement("pollingSourceType").value,
     file_path: getElement("pollingSourcePath").value,
     sheet_name: getElement("pollingSourceSheet").value,
+    header_row_number: getElement("pollingHeaderRow").value,
+    data_start_row_number: getElement("pollingDataStartRow").value,
+    read_range: getElement("pollingReadRange").value,
+    field_map: collectPollingFieldMap(),
     active: getElement("pollingSourceActive").checked ? 1 : 0
   };
 
@@ -4873,6 +5117,24 @@ function bindSettingsControls() {
     });
   });
 
+  getElement("pollingSourceType")?.addEventListener("change", event => {
+    if (!pollingIsCreatingSource) {
+      return;
+    }
+
+    const sourceType = event.target.value;
+    fillPollingSourceForm({
+      ...getNewPollingSourceDraft(),
+      source_type: sourceType,
+      name: getElement("pollingSourceName")?.value || "",
+      area: getElement("pollingSourceArea")?.value || "",
+      file_path: getElement("pollingSourcePath")?.value || "",
+      sheet_name: getElement("pollingSourceSheet")?.value || "",
+      active: getElement("pollingSourceActive")?.checked ? 1 : 0,
+      source_config: getPollingDefaultSourceConfig(sourceType)
+    });
+  });
+
   getElement("btnRefreshPollingSources")?.addEventListener("click", () => {
     loadPollingSources().catch(error => {
       console.error(error);
@@ -4889,6 +5151,32 @@ function bindSettingsControls() {
       setPollingMessage(error.message || "No se pudo ejecutar la sincronizacion.", "warning");
       appendLog(error.message || "No se pudo ejecutar polling manual", "error");
     });
+  });
+
+  getElement("pollingFieldMapRows")?.addEventListener("click", event => {
+    const button = event.target.closest("[data-polling-alias-action]");
+
+    if (!button) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (button.dataset.pollingAliasAction === "add") {
+      addPollingAliasInput(button);
+      return;
+    }
+
+    if (button.dataset.pollingAliasAction === "remove") {
+      removePollingAliasInput(button);
+    }
+  });
+
+  getElement("btnLockPollingRoutes")?.addEventListener("click", () => {
+    clearStoredOpNikePin();
+    pollingIsCreatingSource = false;
+    appendLog("Ajuste de Rutas Polling bloqueado", "success");
+    switchView("system-settings-view");
   });
 }
 
@@ -4991,13 +5279,46 @@ function bindAccessControls() {
   });
 }
 
-function showOpNikePinModal() {
+function getProtectedViewPinConfig(viewId) {
+  if (viewId === "polling-routes-view") {
+    return {
+      title: "Ajuste de Rutas Polling",
+      note: "Ingresa el PIN temporal para administrar fuentes externas, rutas y campos de polling.",
+      unlockUrl: "/api/sync/unlock",
+      successLog: "Ajuste de Rutas Polling desbloqueado para esta sesion",
+      invalidLog: "PIN Polling invalido"
+    };
+  }
+
+  return {
+    title: "Catalogo Op-Nike",
+    note: "Ingresa el PIN temporal para administrar familias, variantes y reglas.",
+    unlockUrl: "/api/nike/catalog/unlock",
+    successLog: "Catalogo Op-Nike desbloqueado para esta sesion",
+    invalidLog: "PIN Op-Nike invalido"
+  };
+}
+
+function showOpNikePinModal(viewId = "opnike-catalog-view") {
   const modal = getElement("opNikePinModal");
   const input = getElement("opNikePinInput");
   const message = getElement("opNikePinMessage");
+  const title = getElement("opNikePinTitle");
+  const note = getElement("opNikePinNote");
 
   if (!modal) {
     return;
+  }
+
+  protectedViewAfterPin = viewId;
+  const config = getProtectedViewPinConfig(viewId);
+
+  if (title) {
+    title.textContent = config.title;
+  }
+
+  if (note) {
+    note.textContent = config.note;
   }
 
   if (message) {
@@ -5045,20 +5366,23 @@ function bindOpNikePinControls() {
       return;
     }
 
-    sendJSON("/api/nike/catalog/unlock", {
+    const targetView = protectedViewAfterPin || "opnike-catalog-view";
+    const config = getProtectedViewPinConfig(targetView);
+
+    sendJSON(config.unlockUrl, {
       method: "POST",
       body: { pin }
     }).then(() => {
       setStoredOpNikePin(pin);
       modal.close();
-      appendLog("Catalogo Op-Nike desbloqueado para esta sesion", "success");
-      switchView("opnike-catalog-view");
+      appendLog(config.successLog, "success");
+      switchView(targetView);
     }).catch(error => {
       clearStoredOpNikePin();
       if (message) {
         message.textContent = error.message || "PIN invalido";
       }
-      appendLog("PIN Op-Nike invalido", "warning");
+      appendLog(config.invalidLog, "warning");
     });
   });
 }
